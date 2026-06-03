@@ -128,6 +128,20 @@ wrangler secret put ACCESS_AUD
 8. Set `ACCESS_ISSUER` and `ACCESS_JWKS_URL` for JWT validation.
 9. Disable `workers_dev` in production, or protect workers.dev with Access too.
 
+Current intended production hostname:
+
+```txt
+tilelog-lens.hamakyo.dev
+```
+
+The Worker route is configured for that hostname. Create a proxied DNS record
+for `tilelog-lens.hamakyo.dev` in Cloudflare DNS before expecting the hostname
+to resolve.
+
+Until Cloudflare Access is configured and `ACCESS_AUD`, `ACCESS_ISSUER`, and
+`ACCESS_JWKS_URL` are set correctly, the Worker rejects requests without a
+valid Access JWT.
+
 ## Local development
 
 Commands:

@@ -1,0 +1,6 @@
+ENVIRONMENT=development
+DEV_AUTH_BYPASS=true
+OWNER_EMAIL=owner@example.com
+ACCESS_AUD=local-development
+ACCESS_ISSUER=https://example.cloudflareaccess.com
+ACCESS_JWKS_URL=https://example.cloudflareaccess.com/cdn-cgi/access/certs

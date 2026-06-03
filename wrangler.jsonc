@@ -4,6 +4,12 @@
   "main": "src/worker/index.ts",
   "compatibility_date": "2026-06-01",
   "workers_dev": false,
+  "routes": [
+    {
+      "pattern": "tilelog-lens.hamakyo.dev/*",
+      "zone_name": "hamakyo.dev"
+    }
+  ],
   "assets": {
     "directory": "./dist",
     "binding": "ASSETS",
@@ -13,25 +19,13 @@
     {
       "binding": "DB",
       "database_name": "tilelog_lens",
-      "database_id": "00000000-0000-0000-0000-000000000000"
+      "database_id": "41150cf5-3c4b-4283-9f44-50d9ac11bade",
+      "migrations_dir": "./migrations"
     }
   ],
   "vars": {
-    "ENVIRONMENT": "development",
-    "DEV_AUTH_BYPASS": "true",
-    "OWNER_EMAIL": "owner@example.com",
-    "ACCESS_AUD": "replace-with-cloudflare-access-audience-tag",
+    "ENVIRONMENT": "production",
     "ACCESS_ISSUER": "https://replace-with-team-name.cloudflareaccess.com",
     "ACCESS_JWKS_URL": "https://replace-with-team-name.cloudflareaccess.com/cdn-cgi/access/certs"
-  },
-  "env": {
-    "production": {
-      "workers_dev": false,
-      "vars": {
-        "ENVIRONMENT": "production",
-        "ACCESS_ISSUER": "https://replace-with-team-name.cloudflareaccess.com",
-        "ACCESS_JWKS_URL": "https://replace-with-team-name.cloudflareaccess.com/cdn-cgi/access/certs"
-      }
-    }
   }
 }

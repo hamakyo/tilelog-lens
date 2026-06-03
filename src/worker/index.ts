@@ -8,7 +8,7 @@ import { snapshotRoutes } from "./routes/snapshots";
 
 const app = new Hono<AppBindings>();
 
-app.use("/api/*", accessAuth);
+app.use("*", accessAuth);
 
 app.get("/api/health", (c) =>
   c.json({
