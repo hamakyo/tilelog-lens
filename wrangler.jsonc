@@ -25,7 +25,7 @@
   ],
   "vars": {
     "ENVIRONMENT": "production",
-    "ACCESS_ISSUER": "https://replace-with-team-name.cloudflareaccess.com",
-    "ACCESS_JWKS_URL": "https://replace-with-team-name.cloudflareaccess.com/cdn-cgi/access/certs"
+    "ACCESS_ISSUER": "https://hamakyoh.cloudflareaccess.com",
+    "ACCESS_JWKS_URL": "https://hamakyoh.cloudflareaccess.com/cdn-cgi/access/certs"
   }
 }
