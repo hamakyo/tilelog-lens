@@ -50,7 +50,7 @@ export function TrendChart<T extends { label: string }>({
           </ResponsiveContainer>
         </div>
       ) : (
-        <p className="empty-state">No snapshots yet.</p>
+        <p className="empty-state">まだ記録はありません。</p>
       )}
     </section>
   );

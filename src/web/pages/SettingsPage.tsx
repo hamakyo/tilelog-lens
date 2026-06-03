@@ -5,29 +5,27 @@ export function SettingsPage() {
     <main className="page-stack">
       <div className="page-header">
         <div>
-          <p className="eyebrow">Settings</p>
-          <h1>Privacy And Deployment</h1>
+          <p className="eyebrow">設定</p>
+          <h1>プライバシーとデプロイ</h1>
         </div>
       </div>
 
       <section className="settings-panel">
-        <h2>Access</h2>
+        <h2>アクセス制御</h2>
         <p>
-          Production should be protected by Cloudflare Access email OTP with a policy
-          that includes only the owner email. The Worker also validates the Access JWT.
+          本番環境は、所有者メールのみを許可するCloudflare AccessのメールOTPで保護します。Worker側でもAccess JWTを検証します。
         </p>
       </section>
 
       <section className="settings-panel">
-        <h2>Screenshot Policy</h2>
+        <h2>スクリーンショットの扱い</h2>
         <p>
-          Local image selection is only used for browser-side preview, SHA-256, and
-          dimensions. The API rejects image, file, base64, blob, and data URL payloads.
+          ローカル画像の選択は、ブラウザ内のプレビュー、SHA-256、画像サイズ取得にだけ使います。APIは画像、ファイル、base64、blob、data URLを含むpayloadを拒否します。
         </p>
       </section>
 
       <section className="settings-panel">
-        <h2>Disclaimer</h2>
+        <h2>免責事項</h2>
         <p>{PRIVACY_DISCLAIMER}</p>
       </section>
     </main>

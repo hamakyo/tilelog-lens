@@ -22,11 +22,11 @@ type NavItem = {
 };
 
 const navItems: NavItem[] = [
-  { path: "/", label: "Dashboard", icon: LayoutDashboard },
-  { path: "/import", label: "Import", icon: FilePlus2 },
-  { path: "/snapshots", label: "Snapshots", icon: List },
-  { path: "/export", label: "Export", icon: Download },
-  { path: "/settings", label: "Settings", icon: Settings }
+  { path: "/", label: "ダッシュボード", icon: LayoutDashboard },
+  { path: "/import", label: "インポート", icon: FilePlus2 },
+  { path: "/snapshots", label: "記録一覧", icon: List },
+  { path: "/export", label: "エクスポート", icon: Download },
+  { path: "/settings", label: "設定", icon: Settings }
 ];
 
 function getPath(): string {
@@ -69,10 +69,10 @@ export function App() {
           <BarChart3 size={28} aria-hidden="true" />
           <div>
             <strong>TileLog Lens</strong>
-            <span>Owner tracker</span>
+            <span>個人成績トラッカー</span>
           </div>
         </div>
-        <nav aria-label="Primary">
+        <nav aria-label="メインナビゲーション">
           {navItems.map((item) => {
             const Icon = item.icon;
             const active =

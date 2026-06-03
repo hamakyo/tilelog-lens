@@ -230,7 +230,7 @@ export function SnapshotForm({
     setOcrProgress(null);
     if (previewUrl) URL.revokeObjectURL(previewUrl);
     setPreviewUrl(URL.createObjectURL(file));
-    setMessage("Reading local image metadata...");
+    setMessage("ローカル画像のメタデータを読み取っています...");
 
     try {
       const [hash, dimensions] = await Promise.all([
@@ -247,9 +247,9 @@ export function SnapshotForm({
         image_height: String(dimensions.height),
         parser_version: current.parser_version || "manual-v1"
       }));
-      setMessage("Local image metadata is ready. The image itself stays in the browser.");
+      setMessage("画像メタデータを取得しました。画像本体はブラウザ内に留まります。");
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Image metadata failed.");
+      setMessage(error instanceof Error ? error.message : "画像メタデータの取得に失敗しました。");
     }
   }
 
@@ -257,7 +257,7 @@ export function SnapshotForm({
     if (!selectedFile) return;
 
     setOcrBusy(true);
-    setOcrProgress("Starting OCR...");
+    setOcrProgress("OCRを開始しています...");
     setMessage(null);
 
     try {
@@ -270,11 +270,11 @@ export function SnapshotForm({
       setValues((current) => withOcrFields(current, extracted));
       setMessage(
         count === 0
-          ? "OCR finished, but no known statistics labels were found."
-          : `OCR filled ${count} field${count === 1 ? "" : "s"}. Please confirm values before saving.`
+          ? "OCRは完了しましたが、対応している成績ラベルを検出できませんでした。"
+          : `OCRで${count}項目を入力しました。保存前に値を確認してください。`
       );
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "OCR failed.");
+      setMessage(error instanceof Error ? error.message : "OCRに失敗しました。");
     } finally {
       setOcrBusy(false);
       setOcrProgress(null);
@@ -290,9 +290,9 @@ export function SnapshotForm({
     try {
       const warnings = await onSubmit(buildInput(values));
       setServerWarnings(warnings);
-      setMessage("Snapshot saved.");
+      setMessage("記録を保存しました。");
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Snapshot save failed.");
+      setMessage(error instanceof Error ? error.message : "記録の保存に失敗しました。");
     } finally {
       setBusy(false);
     }
@@ -303,10 +303,10 @@ export function SnapshotForm({
   return (
     <form className="snapshot-form" onSubmit={handleSubmit}>
       <section className="form-section">
-        <h2>Observation</h2>
+        <h2>観測情報</h2>
         <div className="form-grid">
           <label>
-            <span>Date</span>
+            <span>日付</span>
             <input
               required
               type="date"
@@ -315,7 +315,7 @@ export function SnapshotForm({
             />
           </label>
           <label>
-            <span>Time</span>
+            <span>時刻</span>
             <input
               required
               type="time"
@@ -325,11 +325,11 @@ export function SnapshotForm({
             />
           </label>
           <label>
-            <span>Timezone</span>
+            <span>タイムゾーン</span>
             <input value={DEFAULT_TIMEZONE} readOnly />
           </label>
           <label>
-            <span>Mode</span>
+            <span>モード</span>
             <select value={values.game_mode} onChange={setField("game_mode")}>
               {GAME_MODES.map((mode) => (
                 <option key={mode} value={mode}>
@@ -342,66 +342,66 @@ export function SnapshotForm({
       </section>
 
       <section className="form-section">
-        <h2>Rank</h2>
+        <h2>プレイヤー・段位</h2>
         <div className="form-grid">
           <label>
-            <span>Player name</span>
+            <span>プレイヤー名</span>
             <input value={values.player_name} maxLength={80} onChange={setField("player_name")} />
           </label>
           <label>
-            <span>Rank name</span>
+            <span>段位名</span>
             <input value={values.rank_name} maxLength={40} onChange={setField("rank_name")} />
           </label>
           <label>
-            <span>Rank level</span>
+            <span>段位レベル</span>
             <input type="number" min={0} max={20} value={values.rank_level} onChange={setField("rank_level")} />
           </label>
           <label>
-            <span>Rank points</span>
+            <span>段位ポイント</span>
             <input type="number" min={0} value={values.rank_points} onChange={setField("rank_points")} />
           </label>
           <label>
-            <span>Point max</span>
+            <span>ポイント上限</span>
             <input type="number" min={1} value={values.rank_points_max} onChange={setField("rank_points_max")} />
           </label>
         </div>
       </section>
 
       <section className="form-section">
-        <h2>Match Summary</h2>
+        <h2>対戦サマリー</h2>
         <div className="form-grid">
           <label>
-            <span>Matches</span>
+            <span>対戦数</span>
             <input required type="number" min={0} value={values.matches} onChange={setField("matches")} />
           </label>
           <label>
-            <span>Average place</span>
+            <span>平均順位</span>
             <input required type="number" min={1} max={4} step="0.01" value={values.avg_place} onChange={setField("avg_place")} />
           </label>
           <label>
-            <span>Average win score</span>
+            <span>平均和了点</span>
             <input type="number" min={0} value={values.avg_win_score} onChange={setField("avg_win_score")} />
           </label>
           <label>
-            <span>Max renchan</span>
+            <span>最大連荘</span>
             <input type="number" min={0} value={values.max_renchan} onChange={setField("max_renchan")} />
           </label>
           <label>
-            <span>Average win turn</span>
+            <span>平均和了巡数</span>
             <input type="number" min={0} step="0.01" value={values.avg_win_turn} onChange={setField("avg_win_turn")} />
           </label>
         </div>
       </section>
 
       <section className="form-section">
-        <h2>Placement Rates</h2>
+        <h2>順位率</h2>
         <div className="form-grid">
           {[
-            ["first_rate", "First"],
-            ["second_rate", "Second"],
-            ["third_rate", "Third"],
-            ["fourth_rate", "Fourth"],
-            ["bust_rate", "Bust"]
+            ["first_rate", "一位率"],
+            ["second_rate", "二位率"],
+            ["third_rate", "三位率"],
+            ["fourth_rate", "四位率"],
+            ["bust_rate", "飛び率"]
           ].map(([field, label]) => (
             <label key={field}>
               <span>{label}</span>
@@ -420,14 +420,14 @@ export function SnapshotForm({
       </section>
 
       <section className="form-section">
-        <h2>Action Rates</h2>
+        <h2>行動率</h2>
         <div className="form-grid">
           {[
-            ["win_rate", "Win"],
-            ["tsumo_rate", "Tsumo"],
-            ["deal_in_rate", "Deal-in"],
-            ["call_rate", "Call"],
-            ["riichi_rate", "Riichi"]
+            ["win_rate", "和了率"],
+            ["tsumo_rate", "ツモ率"],
+            ["deal_in_rate", "放銃率"],
+            ["call_rate", "副露率"],
+            ["riichi_rate", "立直率"]
           ].map(([field, label]) => (
             <label key={field}>
               <span>{label}</span>
@@ -446,9 +446,9 @@ export function SnapshotForm({
       </section>
 
       <section className="form-section">
-        <h2>Notes And Local Image</h2>
+        <h2>メモとローカル画像</h2>
         <label className="wide-label">
-          <span>Note</span>
+          <span>メモ</span>
           <textarea
             value={values.note}
             maxLength={5000}
@@ -459,7 +459,7 @@ export function SnapshotForm({
         <div className="image-row">
           <label className="file-button">
             <ImagePlus size={18} aria-hidden="true" />
-            <span>Choose local image</span>
+            <span>画像を選択</span>
             <input type="file" accept="image/*" onChange={handleFileChange} />
           </label>
           <button
@@ -473,14 +473,14 @@ export function SnapshotForm({
             ) : (
               <ScanText size={18} aria-hidden="true" />
             )}
-            <span>{ocrBusy ? "Running OCR" : "Run OCR"}</span>
+            <span>{ocrBusy ? "OCR実行中" : "OCRを実行"}</span>
           </button>
           {previewUrl ? <img className="local-preview" src={previewUrl} alt="" /> : null}
         </div>
         {ocrProgress ? <p className="ocr-progress">{ocrProgress}</p> : null}
         {ocrText ? (
           <details className="ocr-result">
-            <summary>OCR text</summary>
+            <summary>OCR結果テキスト</summary>
             <textarea value={ocrText} readOnly rows={5} />
           </details>
         ) : null}
@@ -490,19 +490,19 @@ export function SnapshotForm({
             <input value={values.source_image_sha256} onChange={setField("source_image_sha256")} />
           </label>
           <label>
-            <span>File name</span>
+            <span>ファイル名</span>
             <input value={values.file_name} maxLength={255} onChange={setField("file_name")} />
           </label>
           <label>
-            <span>Last modified</span>
+            <span>最終更新</span>
             <input value={values.file_last_modified} onChange={setField("file_last_modified")} />
           </label>
           <label>
-            <span>Width</span>
+            <span>幅</span>
             <input type="number" min={1} value={values.image_width} onChange={setField("image_width")} />
           </label>
           <label>
-            <span>Height</span>
+            <span>高さ</span>
             <input type="number" min={1} value={values.image_height} onChange={setField("image_height")} />
           </label>
         </div>
@@ -524,7 +524,7 @@ export function SnapshotForm({
       <div className="form-actions">
         <button type="submit" className="primary-button" disabled={busy}>
           <Save size={18} aria-hidden="true" />
-          <span>{busy ? "Saving" : submitLabel}</span>
+          <span>{busy ? "保存中" : submitLabel}</span>
         </button>
       </div>
     </form>

@@ -15,7 +15,7 @@ export function SnapshotEditPage({ id }: SnapshotEditPageProps) {
     getSnapshot(id)
       .then((result) => setSnapshot(result.item))
       .catch((caught) =>
-        setError(caught instanceof Error ? caught.message : "Snapshot load failed.")
+        setError(caught instanceof Error ? caught.message : "記録の読み込みに失敗しました。")
       );
   }, [id]);
 
@@ -29,19 +29,19 @@ export function SnapshotEditPage({ id }: SnapshotEditPageProps) {
     <main className="page-stack">
       <div className="page-header">
         <div>
-          <p className="eyebrow">Edit</p>
-          <h1>Snapshot {id}</h1>
+          <p className="eyebrow">編集</p>
+          <h1>記録 {id}</h1>
         </div>
       </div>
       {error ? <p className="error-banner">{error}</p> : null}
       {snapshot ? (
         <SnapshotForm
           initialSnapshot={snapshot}
-          submitLabel="Update snapshot"
+          submitLabel="記録を更新"
           onSubmit={handleSubmit}
         />
       ) : (
-        <p className="empty-state">Loading snapshot...</p>
+        <p className="empty-state">記録を読み込んでいます...</p>
       )}
     </main>
   );

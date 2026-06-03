@@ -19,7 +19,7 @@ export async function getImageDimensions(
           height: image.naturalHeight
         });
       };
-      image.onerror = () => reject(new Error("Unable to load image."));
+      image.onerror = () => reject(new Error("画像を読み込めませんでした。"));
       image.src = url;
     });
   } finally {

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Download, Edit, Trash2 } from "lucide-react";
+import { GAME_MODE_LABELS } from "../../shared/constants";
 import type { Snapshot } from "../../shared/types";
 import { deleteSnapshot, listSnapshots } from "../lib/api";
 import { formatDecimal, formatRate } from "../lib/format";
@@ -20,7 +21,7 @@ export function SnapshotListPage({ navigate }: SnapshotListPageProps) {
       setSnapshots(result.items);
       setError(null);
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Load failed.");
+      setError(caught instanceof Error ? caught.message : "読み込みに失敗しました。");
     } finally {
       setLoading(false);
     }
@@ -31,7 +32,7 @@ export function SnapshotListPage({ navigate }: SnapshotListPageProps) {
   }, []);
 
   async function handleDelete(snapshot: Snapshot) {
-    if (!window.confirm(`Delete snapshot ${snapshot.observed_date} ${snapshot.observed_time}?`)) {
+    if (!window.confirm(`${snapshot.observed_date} ${snapshot.observed_time} の記録を削除しますか?`)) {
       return;
     }
 
@@ -39,7 +40,7 @@ export function SnapshotListPage({ navigate }: SnapshotListPageProps) {
       await deleteSnapshot(snapshot.id);
       await refresh();
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Delete failed.");
+      setError(caught instanceof Error ? caught.message : "削除に失敗しました。");
     }
   }
 
@@ -47,8 +48,8 @@ export function SnapshotListPage({ navigate }: SnapshotListPageProps) {
     <main className="page-stack">
       <div className="page-header">
         <div>
-          <p className="eyebrow">Snapshots</p>
-          <h1>Snapshot List</h1>
+          <p className="eyebrow">記録一覧</p>
+          <h1>保存した記録</h1>
         </div>
         <a className="secondary-button" href="/api/export/snapshots.csv">
           <Download size={18} aria-hidden="true" />
@@ -57,41 +58,41 @@ export function SnapshotListPage({ navigate }: SnapshotListPageProps) {
       </div>
 
       {error ? <p className="error-banner">{error}</p> : null}
-      {loading ? <p className="empty-state">Loading snapshots...</p> : null}
+      {loading ? <p className="empty-state">記録を読み込んでいます...</p> : null}
 
       <section className="table-section">
         <div className="table-scroll">
           <table>
             <thead>
               <tr>
-                <th>Observed</th>
-                <th>Mode</th>
-                <th>Rank</th>
-                <th>Points</th>
-                <th>Matches</th>
-                <th>Avg</th>
-                <th>1st</th>
-                <th>2nd</th>
-                <th>3rd</th>
-                <th>4th</th>
-                <th>Win</th>
-                <th>Deal-in</th>
-                <th>Call</th>
-                <th>Riichi</th>
-                <th>Note</th>
-                <th>Actions</th>
+                <th>観測日時</th>
+                <th>モード</th>
+                <th>段位</th>
+                <th>ポイント</th>
+                <th>対戦数</th>
+                <th>平均</th>
+                <th>一位</th>
+                <th>二位</th>
+                <th>三位</th>
+                <th>四位</th>
+                <th>和了</th>
+                <th>放銃</th>
+                <th>副露</th>
+                <th>立直</th>
+                <th>メモ</th>
+                <th>操作</th>
               </tr>
             </thead>
             <tbody>
               {snapshots.length === 0 ? (
                 <tr>
-                  <td colSpan={16}>No snapshots yet.</td>
+                  <td colSpan={16}>まだ記録はありません。</td>
                 </tr>
               ) : (
                 snapshots.map((snapshot) => (
                   <tr key={snapshot.id}>
                     <td>{`${snapshot.observed_date} ${snapshot.observed_time}`}</td>
-                    <td>{snapshot.game_mode}</td>
+                    <td>{GAME_MODE_LABELS[snapshot.game_mode]}</td>
                     <td>{snapshot.rank_name ?? "-"}</td>
                     <td>
                       {snapshot.rank_points == null
@@ -108,14 +109,14 @@ export function SnapshotListPage({ navigate }: SnapshotListPageProps) {
                     <td>{formatRate(snapshot.deal_in_rate)}</td>
                     <td>{formatRate(snapshot.call_rate)}</td>
                     <td>{formatRate(snapshot.riichi_rate)}</td>
-                    <td>{snapshot.note ? "Yes" : "-"}</td>
+                    <td>{snapshot.note ? "あり" : "-"}</td>
                     <td>
                       <div className="row-actions">
                         <button
                           type="button"
                           className="icon-button"
-                          aria-label="Edit snapshot"
-                          title="Edit snapshot"
+                          aria-label="記録を編集"
+                          title="記録を編集"
                           onClick={() => navigate(`/snapshots/${snapshot.id}`)}
                         >
                           <Edit size={16} aria-hidden="true" />
@@ -123,8 +124,8 @@ export function SnapshotListPage({ navigate }: SnapshotListPageProps) {
                         <button
                           type="button"
                           className="icon-button danger"
-                          aria-label="Delete snapshot"
-                          title="Delete snapshot"
+                          aria-label="記録を削除"
+                          title="記録を削除"
                           onClick={() => void handleDelete(snapshot)}
                         >
                           <Trash2 size={16} aria-hidden="true" />

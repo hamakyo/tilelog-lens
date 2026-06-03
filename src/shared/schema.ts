@@ -85,7 +85,7 @@ export const snapshotCreateSchema = z
       value.rank_points_max == null ||
       value.rank_points <= value.rank_points_max,
     {
-      message: "rank_points must be less than or equal to rank_points_max",
+      message: "段位ポイントは最大値以下にしてください。",
       path: ["rank_points"]
     }
   );
@@ -105,7 +105,7 @@ export function getConsistencyWarnings(
   if (Math.abs(rankRateSum - 100) > 0.2) {
     warnings.push({
       code: "RANK_RATE_SUM_NOT_100",
-      message: "Placement rates do not sum to approximately 100%.",
+      message: "順位率の合計が約100%になっていません。",
       severity: "warning"
     });
   }
@@ -120,8 +120,7 @@ export function getConsistencyWarnings(
   if (Math.abs(calculatedAvgPlace - snapshot.avg_place) > 0.03) {
     warnings.push({
       code: "AVG_PLACE_MISMATCH",
-      message:
-        "Average place does not match the submitted placement rates closely.",
+      message: "平均順位と順位率から計算した値が大きくずれています。",
       severity: "warning"
     });
   }

@@ -4,6 +4,7 @@ export type OcrExtractedFields = Partial<
   Pick<
     SnapshotCreateInput,
     | "matches"
+    | "game_mode"
     | "avg_place"
     | "avg_win_score"
     | "max_renchan"
@@ -28,19 +29,39 @@ type OcrProgress = {
   progress: number;
 };
 
+type NumericOcrField = Exclude<keyof OcrExtractedFields, "game_mode">;
+
+type NumericCropDefinition = {
+  field: NumericOcrField;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  integer?: boolean;
+  rate?: boolean;
+};
+
 type FieldPattern = {
-  field: keyof OcrExtractedFields;
+  field: NumericOcrField;
   labels: string[];
   integer?: boolean;
+  min?: number;
+  max?: number;
 };
 
 const fieldPatterns: FieldPattern[] = [
   { field: "matches", labels: ["対戦数", "試合数", "matches", "games"], integer: true },
   { field: "avg_place", labels: ["平均順位", "average place", "avg place"] },
-  { field: "avg_win_score", labels: ["平均和了点", "平均和了", "avg win score"], integer: true },
+  {
+    field: "avg_win_score",
+    labels: ["平均和了点", "平均和了得点", "平均和了", "avg win score"],
+    integer: true,
+    min: 100,
+    max: 100000
+  },
   { field: "max_renchan", labels: ["最大連荘", "最大連莊", "max renchan"], integer: true },
-  { field: "avg_win_turn", labels: ["平均和了巡目", "平均和了巡", "avg win turn"] },
-  { field: "first_rate", labels: ["1位率", "一位率", "1st", "first"] },
+  { field: "avg_win_turn", labels: ["平均和了巡目", "平均和了巡数", "平均和了巡", "和了巡数", "avg win turn"], max: 30 },
+  { field: "first_rate", labels: ["1位率", "一位率", "ー位率", "1st", "first"] },
   { field: "second_rate", labels: ["2位率", "二位率", "2nd", "second"] },
   { field: "third_rate", labels: ["3位率", "三位率", "3rd", "third"] },
   { field: "fourth_rate", labels: ["4位率", "四位率", "4th", "fourth"] },
@@ -50,6 +71,30 @@ const fieldPatterns: FieldPattern[] = [
   { field: "deal_in_rate", labels: ["放銃率", "放铳率", "deal-in", "deal in"] },
   { field: "call_rate", labels: ["副露率", "鳴き率", "call rate", "call"] },
   { field: "riichi_rate", labels: ["立直率", "リーチ率", "riichi"] }
+];
+
+const mahjongSoulBaseSize = {
+  width: 2556,
+  height: 1179
+};
+
+const mahjongSoulNumericCrops: NumericCropDefinition[] = [
+  { field: "rank_points", x: 1810, y: 138, width: 185, height: 48 },
+  { field: "first_rate", x: 1148, y: 724, width: 170, height: 58, rate: true },
+  { field: "second_rate", x: 1148, y: 780, width: 170, height: 58, rate: true },
+  { field: "third_rate", x: 1148, y: 837, width: 170, height: 58, rate: true },
+  { field: "fourth_rate", x: 1148, y: 895, width: 170, height: 58, rate: true },
+  { field: "bust_rate", x: 1148, y: 952, width: 170, height: 58, rate: true },
+  { field: "matches", x: 1610, y: 724, width: 130, height: 58, integer: true },
+  { field: "avg_win_score", x: 1580, y: 780, width: 170, height: 58, integer: true },
+  { field: "avg_place", x: 1600, y: 837, width: 150, height: 58 },
+  { field: "max_renchan", x: 1660, y: 895, width: 90, height: 58, integer: true },
+  { field: "avg_win_turn", x: 1580, y: 952, width: 170, height: 58 },
+  { field: "win_rate", x: 1950, y: 724, width: 180, height: 58, rate: true },
+  { field: "tsumo_rate", x: 1950, y: 780, width: 180, height: 58, rate: true },
+  { field: "deal_in_rate", x: 1950, y: 837, width: 180, height: 58, rate: true },
+  { field: "call_rate", x: 1950, y: 895, width: 180, height: 58, rate: true },
+  { field: "riichi_rate", x: 1950, y: 952, width: 180, height: 58, rate: true }
 ];
 
 function normalizeFullWidth(input: string): string {
@@ -70,6 +115,7 @@ function normalizeOcrText(input: string): string {
   return normalizeFullWidth(input)
     .replace(/\r/g, "\n")
     .replace(/[|｜]/g, " ")
+    .replace(/[％]/g, "%")
     .replace(/[　\t]+/g, " ")
     .replace(/\s+\n/g, "\n")
     .replace(/\n\s+/g, "\n")
@@ -94,18 +140,30 @@ function numbersFromText(text: string): string[] {
   return text.match(/\d+(?:[.,]\d+)?/g) ?? [];
 }
 
+function escapeRegex(input: string): string {
+  return input.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function labelToLooseRegex(label: string): string {
+  return normalizeFullWidth(label)
+    .toLowerCase()
+    .replace(/\s+/g, "")
+    .split("")
+    .map(escapeRegex)
+    .join("[\\s:：・.．、,]*");
+}
+
 function findValueAfterLabel(line: string, labels: string[], integer = false): number | undefined {
-  const lowerLine = line.toLowerCase();
+  const normalizedLine = normalizeFullWidth(line).toLowerCase();
   for (const label of labels) {
-    const lowerLabel = label.toLowerCase();
-    const index = lowerLine.indexOf(lowerLabel);
-    if (index === -1) continue;
+    const pattern = new RegExp(
+      `${labelToLooseRegex(label)}[^0-9]{0,16}(\\d{1,6}(?:[.,]\\d{1,2})?)`,
+      "i"
+    );
+    const match = normalizedLine.match(pattern);
+    if (!match) continue;
 
-    const afterLabel = line.slice(index + label.length);
-    const candidates = numbersFromText(afterLabel);
-    if (candidates.length === 0) continue;
-
-    return parseNumber(candidates[0], integer);
+    return parseNumber(match[1], integer);
   }
 
   return undefined;
@@ -119,9 +177,26 @@ function clampRate(value: number | undefined): number | undefined {
 
 function extractRankPoints(line: string): Pick<OcrExtractedFields, "rank_points" | "rank_points_max"> {
   const normalized = line.toLowerCase();
-  if (!/(pt|point|ポイント|段位点|rank)/.test(normalized)) return {};
 
   const slashMatch = normalized.match(/(\d{1,6})\s*\/\s*(\d{1,6})/);
+  if (slashMatch) {
+    const point = Number(slashMatch[1]);
+    const pointMax = Number(slashMatch[2]);
+    if (
+      pointMax >= 100 &&
+      pointMax <= 10000 &&
+      point >= 0 &&
+      point <= pointMax
+    ) {
+      return {
+        rank_points: point,
+        rank_points_max: pointMax
+      };
+    }
+  }
+
+  if (!/(pt|point|ポイント|段位点|rank)/.test(normalized)) return {};
+
   if (slashMatch) {
     return {
       rank_points: Number(slashMatch[1]),
@@ -134,13 +209,27 @@ function extractRankPoints(line: string): Pick<OcrExtractedFields, "rank_points"
   return point == null ? {} : { rank_points: point };
 }
 
+function extractGameMode(text: string): Pick<OcrExtractedFields, "game_mode"> {
+  const compact = normalizeOcrText(text).replace(/\s+/g, "");
+  if (/(東風戦|東風|tonpu|east)/i.test(compact)) return { game_mode: "east" };
+  if (/(半荘戦|半荘|半莊|hanchan|south)/i.test(compact)) return { game_mode: "south" };
+  if (/(三人戦|三麻|3人|three)/i.test(compact)) return { game_mode: "three_player" };
+  return {};
+}
+
+function isAcceptedValue(pattern: FieldPattern, value: number): boolean {
+  if (pattern.min != null && value < pattern.min) return false;
+  if (pattern.max != null && value > pattern.max) return false;
+  return true;
+}
+
 export function parseMahjongStatsOcr(text: string): OcrExtractedFields {
   const normalized = normalizeOcrText(text);
   const lines = normalized
     .split("\n")
     .map((line) => line.trim())
     .filter(Boolean);
-  const fields: OcrExtractedFields = {};
+  const fields: OcrExtractedFields = extractGameMode(normalized);
 
   for (const line of lines) {
     Object.assign(fields, extractRankPoints(line));
@@ -149,6 +238,7 @@ export function parseMahjongStatsOcr(text: string): OcrExtractedFields {
       if (fields[pattern.field] != null) continue;
       const value = findValueAfterLabel(line, pattern.labels, pattern.integer);
       if (value == null) continue;
+      if (!isAcceptedValue(pattern, value)) continue;
       fields[pattern.field] = pattern.integer ? value : clampRate(value);
     }
   }
@@ -160,12 +250,424 @@ export function countExtractedFields(fields: OcrExtractedFields): number {
   return Object.values(fields).filter((value) => value != null).length;
 }
 
+type OcrCrop = {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+};
+
+const OCR_CROP_SCALE = 2;
+
+function loadImage(file: File): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+    const url = URL.createObjectURL(file);
+    image.onload = () => {
+      URL.revokeObjectURL(url);
+      resolve(image);
+    };
+    image.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error("画像を読み込めませんでした。"));
+    };
+    image.src = url;
+  });
+}
+
+function cropFromRatio(image: HTMLImageElement, crop: OcrCrop): OcrCrop {
+  const width = Math.max(1, Math.round(image.naturalWidth * crop.width));
+  const height = Math.max(1, Math.round(image.naturalHeight * crop.height));
+  const x = Math.min(
+    Math.max(0, Math.round(image.naturalWidth * crop.x)),
+    image.naturalWidth - width
+  );
+  const y = Math.min(
+    Math.max(0, Math.round(image.naturalHeight * crop.y)),
+    image.naturalHeight - height
+  );
+  return { x, y, width, height };
+}
+
+function applyHighContrast(canvas: HTMLCanvasElement): void {
+  const context = canvas.getContext("2d", { willReadFrequently: true });
+  if (!context) return;
+
+  const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+  const data = imageData.data;
+
+  for (let index = 0; index < data.length; index += 4) {
+    const red = data[index];
+    const green = data[index + 1];
+    const blue = data[index + 2];
+    const luminance = red * 0.299 + green * 0.587 + blue * 0.114;
+    const likelyYellowText = red > 135 && green > 95 && blue < 150;
+    const likelyLightText = luminance > 135;
+    const textPixel = likelyYellowText || likelyLightText;
+    data[index] = textPixel ? 0 : 255;
+    data[index + 1] = textPixel ? 0 : 255;
+    data[index + 2] = textPixel ? 0 : 255;
+  }
+
+  context.putImageData(imageData, 0, 0);
+}
+
+function applyNumericHighContrast(canvas: HTMLCanvasElement): void {
+  const context = canvas.getContext("2d", { willReadFrequently: true });
+  if (!context) return;
+
+  const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+  const data = imageData.data;
+
+  for (let index = 0; index < data.length; index += 4) {
+    const red = data[index];
+    const green = data[index + 1];
+    const blue = data[index + 2];
+    const luminance = red * 0.299 + green * 0.587 + blue * 0.114;
+    const yellowText = red > 115 && green > 75 && blue < 190;
+    const cyanText = green > 105 && blue > 105 && red < 165;
+    const lightText = luminance > 135;
+    const decimalDot = red > 80 && green > 65 && blue < 130;
+    const textPixel = yellowText || cyanText || lightText || decimalDot;
+    data[index] = textPixel ? 0 : 255;
+    data[index + 1] = textPixel ? 0 : 255;
+    data[index + 2] = textPixel ? 0 : 255;
+  }
+
+  context.putImageData(imageData, 0, 0);
+}
+
+async function canvasToPngFile(
+  canvas: HTMLCanvasElement,
+  fileName: string,
+  lastModified: number
+): Promise<File | null> {
+  const blob = await new Promise<Blob | null>((resolve) => {
+    canvas.toBlob(resolve, "image/png");
+  });
+  if (!blob) return null;
+
+  return new File([blob], fileName, {
+    type: "image/png",
+    lastModified
+  });
+}
+
+function buildNumericCropCanvas(
+  image: HTMLImageElement,
+  crop: NumericCropDefinition,
+  targetWidth: number,
+  targetHeight: number
+): HTMLCanvasElement | null {
+  const scaleX = image.naturalWidth / mahjongSoulBaseSize.width;
+  const scaleY = image.naturalHeight / mahjongSoulBaseSize.height;
+  const canvas = document.createElement("canvas");
+  canvas.width = targetWidth;
+  canvas.height = targetHeight;
+
+  const context = canvas.getContext("2d");
+  if (!context) return null;
+
+  context.fillStyle = "#ffffff";
+  context.fillRect(0, 0, canvas.width, canvas.height);
+  context.imageSmoothingEnabled = true;
+  context.imageSmoothingQuality = "high";
+  context.drawImage(
+    image,
+    crop.x * scaleX,
+    crop.y * scaleY,
+    crop.width * scaleX,
+    crop.height * scaleY,
+    0,
+    0,
+    canvas.width,
+    canvas.height
+  );
+  applyNumericHighContrast(canvas);
+  return canvas;
+}
+
+async function buildNumericCropFile(
+  image: HTMLImageElement,
+  sourceFile: File,
+  crop: NumericCropDefinition
+): Promise<File | null> {
+  const cropScale = 5;
+  const canvas = buildNumericCropCanvas(
+    image,
+    crop,
+    crop.width * cropScale,
+    crop.height * cropScale
+  );
+  if (!canvas) return null;
+
+  return canvasToPngFile(
+    canvas,
+    `${sourceFile.name.replace(/\.[^.]+$/, "")}-${crop.field}.png`,
+    sourceFile.lastModified
+  );
+}
+
+async function buildNumericColumnFile(
+  image: HTMLImageElement,
+  sourceFile: File
+): Promise<File | null> {
+  const rowWidth = 1000;
+  const rowHeight = 330;
+  const cropScale = 5;
+  const canvas = document.createElement("canvas");
+  canvas.width = rowWidth;
+  canvas.height = rowHeight * mahjongSoulNumericCrops.length;
+
+  const context = canvas.getContext("2d");
+  if (!context) return null;
+
+  context.fillStyle = "#ffffff";
+  context.fillRect(0, 0, canvas.width, canvas.height);
+  context.imageSmoothingEnabled = true;
+  context.imageSmoothingQuality = "high";
+
+  for (const [index, crop] of mahjongSoulNumericCrops.entries()) {
+    const cropCanvas = buildNumericCropCanvas(
+      image,
+      crop,
+      crop.width * cropScale,
+      crop.height * cropScale
+    );
+    if (!cropCanvas) continue;
+    context.drawImage(cropCanvas, 60, index * rowHeight + 20);
+  }
+
+  return canvasToPngFile(
+    canvas,
+    `${sourceFile.name.replace(/\.[^.]+$/, "")}-mahjong-soul-numbers.png`,
+    sourceFile.lastModified
+  );
+}
+
+function cleanNumericOcrText(text: string): string {
+  return normalizeFullWidth(text)
+    .replace(/[^\d./,%]/g, "")
+    .replace(/,/g, ".")
+    .replace(/\.{2,}/g, ".")
+    .replace(/%+/g, "%");
+}
+
+function parseNumericCropValue(
+  text: string,
+  crop: NumericCropDefinition
+): Partial<Record<NumericOcrField | "rank_points_max", number>> {
+  const clean = cleanNumericOcrText(text);
+
+  if (crop.field === "rank_points") {
+    const match = clean.match(/(\d{1,6})\s*\/\s*(\d{1,6})/);
+    if (!match) return {};
+    const rankPoints = Number(match[1]);
+    const rankPointsMax = Number(match[2]);
+    if (
+      !Number.isInteger(rankPoints) ||
+      !Number.isInteger(rankPointsMax) ||
+      rankPointsMax <= 0 ||
+      rankPoints > rankPointsMax
+    ) {
+      return {};
+    }
+    return { rank_points: rankPoints, rank_points_max: rankPointsMax };
+  }
+
+  const numberMatch = clean.match(/\d+(?:\.\d+)?/);
+  if (!numberMatch) return {};
+
+  const value = parseNumber(numberMatch[0], crop.integer);
+  if (value == null) return {};
+  if (crop.rate && clampRate(value) == null) return {};
+
+  return { [crop.field]: value };
+}
+
+function parseNumericColumnText(text: string): OcrExtractedFields {
+  const lines = normalizeOcrText(text)
+    .split(/\n+/)
+    .map(cleanNumericOcrText)
+    .filter(Boolean);
+  const fields: OcrExtractedFields = {};
+
+  for (const [index, crop] of mahjongSoulNumericCrops.entries()) {
+    if (crop.field === "rank_points" || crop.field === "call_rate") continue;
+    const line = lines[index];
+    if (!line) continue;
+    Object.assign(fields, parseNumericCropValue(line, crop));
+  }
+
+  return fields;
+}
+
+function syntheticOcrText(fields: OcrExtractedFields): string {
+  const lines: string[] = [];
+  if (fields.game_mode === "east") lines.push("東風戦");
+  if (fields.game_mode === "south") lines.push("半荘戦");
+  if (fields.game_mode === "three_player") lines.push("三人戦");
+  if (fields.rank_points != null && fields.rank_points_max != null) {
+    lines.push(`段位ポイント ${fields.rank_points}/${fields.rank_points_max}`);
+  }
+
+  const labels: Array<[keyof OcrExtractedFields, string]> = [
+    ["first_rate", "一位率"],
+    ["second_rate", "二位率"],
+    ["third_rate", "三位率"],
+    ["fourth_rate", "四位率"],
+    ["bust_rate", "飛び率"],
+    ["matches", "対戦数"],
+    ["avg_win_score", "平均和了"],
+    ["avg_place", "平均順位"],
+    ["max_renchan", "最大連荘"],
+    ["avg_win_turn", "和了巡数"],
+    ["win_rate", "和了率"],
+    ["tsumo_rate", "ツモ率"],
+    ["deal_in_rate", "放銃率"],
+    ["call_rate", "副露率"],
+    ["riichi_rate", "立直率"]
+  ];
+
+  for (const [field, label] of labels) {
+    const value = fields[field];
+    if (value == null || typeof value !== "number") continue;
+    lines.push(`${label} ${value}`);
+  }
+
+  return lines.join("\n");
+}
+
+async function recognizeMahjongSoulNumericLayout(
+  file: File,
+  onProgress?: (progress: OcrProgress) => void
+): Promise<OcrExtractedFields> {
+  const image = await loadImage(file);
+  const aspect = image.naturalWidth / image.naturalHeight;
+  if (aspect < 1.8 || aspect > 2.3) return {};
+
+  const tesseract = await import("tesseract.js");
+  const worker = await tesseract.default.createWorker("eng");
+  const fields: OcrExtractedFields = {};
+
+  try {
+    const columnFile = await buildNumericColumnFile(image, file);
+    if (columnFile) {
+      onProgress?.({
+        status: "雀魂スクショの数値欄をまとめて読み取っています",
+        progress: 15
+      });
+      await worker.setParameters({
+        tessedit_char_whitelist: "0123456789./%",
+        tessedit_pageseg_mode: tesseract.PSM.SINGLE_BLOCK
+      });
+      const columnResult = await worker.recognize(columnFile);
+      Object.assign(fields, parseNumericColumnText(columnResult.data.text));
+    }
+
+    await worker.setParameters({
+      tessedit_char_whitelist: "0123456789./%",
+      tessedit_pageseg_mode: tesseract.PSM.SINGLE_WORD
+    });
+
+    const focusedCrops = mahjongSoulNumericCrops.filter((crop) =>
+      crop.field === "rank_points" || crop.field === "call_rate"
+    );
+
+    for (const [index, crop] of focusedCrops.entries()) {
+      onProgress?.({
+        status: "誤読しやすい数値欄を確認しています",
+        progress: 55 + Math.round((index / focusedCrops.length) * 20)
+      });
+
+      const cropFile = await buildNumericCropFile(image, file, crop);
+      if (!cropFile) continue;
+
+      const result = await worker.recognize(cropFile);
+      Object.assign(fields, parseNumericCropValue(result.data.text, crop));
+    }
+  } finally {
+    await worker.terminate();
+  }
+
+  const count = countExtractedFields(fields);
+  if (count >= 10) {
+    return { game_mode: "east", ...fields };
+  }
+
+  return fields;
+}
+
+async function prepareSnapshotForOcr(file: File): Promise<File> {
+  const image = await loadImage(file);
+  const isLandscapeGameScreenshot = image.naturalWidth / image.naturalHeight > 1.6;
+  if (!isLandscapeGameScreenshot) return file;
+
+  const ratioCrops: OcrCrop[] = [
+    { x: 0.5, y: 0.04, width: 0.38, height: 0.18 },
+    { x: 0.36, y: 0.2, width: 0.53, height: 0.74 },
+    { x: 0.38, y: 0.54, width: 0.48, height: 0.36 }
+  ];
+  const crops = ratioCrops.map((crop) => cropFromRatio(image, crop));
+  const gap = 24;
+  const targetWidth = Math.max(...crops.map((crop) => crop.width)) * OCR_CROP_SCALE;
+  const targetHeight =
+    crops.reduce((sum, crop) => sum + crop.height * OCR_CROP_SCALE, 0) +
+    gap * (crops.length - 1);
+  const canvas = document.createElement("canvas");
+  canvas.width = targetWidth;
+  canvas.height = targetHeight;
+
+  const context = canvas.getContext("2d");
+  if (!context) return file;
+
+  context.fillStyle = "#ffffff";
+  context.fillRect(0, 0, canvas.width, canvas.height);
+  context.imageSmoothingEnabled = true;
+  context.imageSmoothingQuality = "high";
+
+  let y = 0;
+  for (const crop of crops) {
+    context.drawImage(
+      image,
+      crop.x,
+      crop.y,
+      crop.width,
+      crop.height,
+      0,
+      y,
+      crop.width * OCR_CROP_SCALE,
+      crop.height * OCR_CROP_SCALE
+    );
+    y += crop.height * OCR_CROP_SCALE + gap;
+  }
+
+  applyHighContrast(canvas);
+
+  const blob = await new Promise<Blob | null>((resolve) => {
+    canvas.toBlob(resolve, "image/png");
+  });
+  if (!blob) return file;
+
+  return new File([blob], `${file.name.replace(/\.[^.]+$/, "")}-ocr.png`, {
+    type: "image/png",
+    lastModified: file.lastModified
+  });
+}
+
 export async function recognizeSnapshotText(
   file: File,
   onProgress?: (progress: OcrProgress) => void
 ): Promise<string> {
+  onProgress?.({ status: "画像をOCR向けに前処理しています", progress: 0 });
+  const numericFields = await recognizeMahjongSoulNumericLayout(file, onProgress);
+  if (countExtractedFields(numericFields) >= 10) {
+    return syntheticOcrText(numericFields);
+  }
+
+  const ocrFile = await prepareSnapshotForOcr(file);
   const tesseract = await import("tesseract.js");
-  const result = await tesseract.recognize(file, "jpn+eng", {
+  const result = await tesseract.recognize(ocrFile, "jpn+eng", {
     logger: (message) => {
       if (
         typeof message.status === "string" &&

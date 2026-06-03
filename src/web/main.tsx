@@ -6,7 +6,7 @@ import "./styles.css";
 const root = document.getElementById("root");
 
 if (!root) {
-  throw new Error("Root element not found.");
+  throw new Error("アプリの描画先が見つかりません。");
 }
 
 createRoot(root).render(

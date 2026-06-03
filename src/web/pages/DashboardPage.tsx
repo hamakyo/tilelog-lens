@@ -51,7 +51,7 @@ export function DashboardPage({ navigate }: DashboardPageProps) {
         setSnapshots(snapshotResult.items);
         setDeltas(deltaResult.items);
       })
-      .catch((caught) => setError(caught instanceof Error ? caught.message : "Load failed."))
+      .catch((caught) => setError(caught instanceof Error ? caught.message : "読み込みに失敗しました。"))
       .finally(() => setLoading(false));
   }, []);
 
@@ -63,105 +63,105 @@ export function DashboardPage({ navigate }: DashboardPageProps) {
     <main className="page-stack">
       <div className="page-header">
         <div>
-          <p className="eyebrow">Dashboard</p>
+          <p className="eyebrow">ダッシュボード</p>
           <h1>TileLog Lens</h1>
         </div>
         <button className="primary-button" type="button" onClick={() => navigate("/import")}>
           <Activity size={18} aria-hidden="true" />
-          <span>New snapshot</span>
+          <span>新規記録</span>
         </button>
       </div>
 
       {error ? <p className="error-banner">{error}</p> : null}
-      {loading ? <p className="empty-state">Loading statistics...</p> : null}
+      {loading ? <p className="empty-state">成績を読み込んでいます...</p> : null}
 
       <section className="summary-grid">
         <div className="summary-tile">
           <Gauge size={20} aria-hidden="true" />
-          <span>Latest average place</span>
+          <span>最新の平均順位</span>
           <strong>{latest ? formatDecimal(latest.avg_place) : "-"}</strong>
         </div>
         <div className="summary-tile">
           <Activity size={20} aria-hidden="true" />
-          <span>Latest win / deal-in</span>
+          <span>最新の和了率 / 放銃率</span>
           <strong>
             {latest ? `${formatRate(latest.win_rate)} / ${formatRate(latest.deal_in_rate)}` : "-"}
           </strong>
         </div>
         <div className="summary-tile">
           <ShieldAlert size={20} aria-hidden="true" />
-          <span>Latest match delta</span>
+          <span>最新の対戦数差分</span>
           <strong>{latestDelta ? formatNumber(latestDelta.matches_delta) : "-"}</strong>
         </div>
       </section>
 
       <div className="chart-grid">
         <TrendChart
-          title="Average Place"
+          title="平均順位"
           data={chartData}
-          lines={[{ dataKey: "avg_place", label: "Average place", color: "#1f6f8b" }]}
+          lines={[{ dataKey: "avg_place", label: "平均順位", color: "#1f6f8b" }]}
         />
         <TrendChart
-          title="Win And Deal-In"
+          title="和了率と放銃率"
           data={chartData}
           lines={[
-            { dataKey: "win_rate", label: "Win", color: "#117a65" },
-            { dataKey: "deal_in_rate", label: "Deal-in", color: "#b23b3b" }
+            { dataKey: "win_rate", label: "和了率", color: "#117a65" },
+            { dataKey: "deal_in_rate", label: "放銃率", color: "#b23b3b" }
           ]}
         />
         <TrendChart
-          title="Attack Defense Gap"
+          title="攻守差"
           data={chartData}
           lines={[
-            { dataKey: "attack_defense_gap", label: "Gap", color: "#7f5f01" }
+            { dataKey: "attack_defense_gap", label: "差分", color: "#7f5f01" }
           ]}
         />
         <TrendChart
-          title="Call And Riichi"
+          title="副露率と立直率"
           data={chartData}
           lines={[
-            { dataKey: "call_rate", label: "Call", color: "#2f6fed" },
-            { dataKey: "riichi_rate", label: "Riichi", color: "#b0477d" }
+            { dataKey: "call_rate", label: "副露率", color: "#2f6fed" },
+            { dataKey: "riichi_rate", label: "立直率", color: "#b0477d" }
           ]}
         />
         <TrendChart
-          title="Top Two And Bottom Two"
+          title="上位率と下位率"
           data={chartData}
           lines={[
-            { dataKey: "top_two_rate", label: "Top two", color: "#147d64" },
-            { dataKey: "bottom_two_rate", label: "Bottom two", color: "#9b3b3b" }
+            { dataKey: "top_two_rate", label: "1-2位率", color: "#147d64" },
+            { dataKey: "bottom_two_rate", label: "3-4位率", color: "#9b3b3b" }
           ]}
         />
         <TrendChart
-          title="Rank Points"
+          title="段位ポイント"
           data={chartData.filter((point) => point.rank_points != null)}
-          lines={[{ dataKey: "rank_points", label: "Rank points", color: "#3d5a80" }]}
+          lines={[{ dataKey: "rank_points", label: "段位ポイント", color: "#3d5a80" }]}
         />
       </div>
 
       <section className="table-section">
         <div className="section-heading">
-          <h2>Period Delta Estimates</h2>
-          <p>Period rates are estimated from rounded cumulative screenshots.</p>
+          <h2>期間差分の推定</h2>
+          <p>期間内の率は、丸められた累積スクリーンショットから推定しています。</p>
         </div>
         <div className="table-scroll">
           <table>
             <thead>
               <tr>
-                <th>From</th>
-                <th>To</th>
-                <th>Matches</th>
-                <th>Win</th>
-                <th>Deal-in</th>
-                <th>Call</th>
-                <th>Riichi</th>
-                <th>Quality</th>
+                <th>開始</th>
+                <th>終了</th>
+                <th>対戦数</th>
+                <th>和了率</th>
+                <th>放銃率</th>
+                <th>副露率</th>
+                <th>立直率</th>
+                <th>品質</th>
               </tr>
             </thead>
             <tbody>
               {deltas.length === 0 ? (
                 <tr>
-                  <td colSpan={8}>No deltas yet.</td>
+                  <td colSpan={8}>まだ差分はありません。</td>
                 </tr>
               ) : (
                 deltas.map((delta) => (

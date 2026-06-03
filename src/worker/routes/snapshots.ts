@@ -33,8 +33,7 @@ async function buildDbWarnings(
   if (await hasDuplicateObservedAt(db, input.game_mode, observedAt, excludeId)) {
     warnings.push({
       code: "DUPLICATE_OBSERVED_AT",
-      message:
-        "A snapshot for this mode and observation time already exists.",
+      message: "同じモードと観測日時の記録がすでに存在します。",
       severity: "warning"
     });
   }
@@ -42,7 +41,7 @@ async function buildDbWarnings(
   if (await hasDuplicateImageHash(db, input.source_image_sha256 ?? null, excludeId)) {
     warnings.push({
       code: "DUPLICATE_IMAGE_HASH",
-      message: "This image hash has already been imported.",
+      message: "この画像ハッシュはすでにインポート済みです。",
       severity: "warning"
     });
   }
@@ -56,8 +55,7 @@ async function buildDbWarnings(
   if (previous && input.matches < previous.matches) {
     warnings.push({
       code: "MATCHES_DECREASED",
-      message:
-        "Match count decreased compared with the previous snapshot for this mode.",
+      message: "同じモードの前回記録より対戦数が減っています。",
       severity: "warning"
     });
   }
@@ -116,8 +114,7 @@ snapshotRoutes.post("/", async (c) => {
     return c.json(
       {
         error: "duplicate_observation_time",
-        details:
-          "A snapshot for this mode and observation time already exists.",
+        details: "同じモードと観測日時の記録がすでに存在します。",
         warnings
       },
       409
@@ -171,8 +168,7 @@ snapshotRoutes.put("/:id", async (c) => {
     return c.json(
       {
         error: "duplicate_observation_time",
-        details:
-          "A snapshot for this mode and observation time already exists.",
+        details: "同じモードと観測日時の記録がすでに存在します。",
         warnings
       },
       409

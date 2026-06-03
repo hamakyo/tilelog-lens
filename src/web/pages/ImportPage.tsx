@@ -12,11 +12,11 @@ export function ImportPage() {
     <main className="page-stack">
       <div className="page-header">
         <div>
-          <p className="eyebrow">Import</p>
-          <h1>New Snapshot</h1>
+          <p className="eyebrow">インポート</p>
+          <h1>新規記録</h1>
         </div>
       </div>
-      <SnapshotForm submitLabel="Save snapshot" onSubmit={handleSubmit} />
+      <SnapshotForm submitLabel="記録を保存" onSubmit={handleSubmit} />
     </main>
   );
 }
