@@ -194,6 +194,11 @@ h2 {
   background: #f4fafc;
 }
 
+.secondary-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
 .icon-button {
   display: inline-grid;
   place-items: center;
@@ -411,6 +416,40 @@ textarea:focus {
   border: 1px solid #cbd5dd;
   border-radius: 8px;
   background: #f4f6f8;
+}
+
+.spin-icon {
+  animation: spin 1s linear infinite;
+}
+
+.ocr-progress {
+  margin: 0;
+  color: #52636f;
+  font-size: 13px;
+}
+
+.ocr-result {
+  display: grid;
+  gap: 8px;
+}
+
+.ocr-result summary {
+  color: #40505c;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.ocr-result textarea {
+  color: #40505c;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 12px;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .metadata-grid {

@@ -8,6 +8,7 @@ TileLog Lens lets you record cumulative statistics snapshots, analyze trends, an
 
 - Records confirmed numerical statistics from your own post-game/profile statistics screenshots.
 - Requires observation date and `HH:mm` time for every snapshot.
+- Runs optional browser-side OCR to prefill known statistics fields from a local screenshot.
 - Stores numerical data in Cloudflare D1.
 - Shows trend charts and estimated period deltas.
 - Exports CSV for spreadsheet analysis.
@@ -179,7 +180,7 @@ pnpm run deploy
 2. Open Import page.
 3. Enter observation date and required `HH:mm` time.
 4. Optionally select a local screenshot for browser-only preview/OCR.
-5. Confirm or manually enter statistics.
+5. Run OCR if desired, then confirm or manually edit all statistics.
 6. Save snapshot to D1.
 7. View trend dashboard.
 8. Download CSV or anonymized AI JSON.
@@ -232,6 +233,7 @@ Default AI JSON export anonymizes player identifiers and includes:
 - Validate Access JWT in the Worker.
 - Allow only `OWNER_EMAIL`.
 - Reject image/base64 payloads in API requests.
+- Keep OCR text and screenshots in the browser; do not send them to the API.
 - Keep request body limits small.
 - Do not log JWTs, notes, player IDs, or export payloads.
 - Keep `workers_dev` disabled in production unless separately protected.

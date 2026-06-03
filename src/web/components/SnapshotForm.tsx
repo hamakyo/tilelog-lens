@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { AlertTriangle, ImagePlus, Save } from "lucide-react";
+import { AlertTriangle, ImagePlus, LoaderCircle, Save, ScanText } from "lucide-react";
 import { DEFAULT_TIMEZONE, GAME_MODE_LABELS, GAME_MODES } from "../../shared/constants";
 import type { Snapshot, SnapshotCreateInput, ValidationWarning } from "../../shared/types";
 import { getConsistencyWarnings } from "../../shared/schema";
@@ -8,6 +8,12 @@ import {
   getImageDimensions,
   sha256File
 } from "../lib/imageLocal";
+import {
+  countExtractedFields,
+  parseMahjongStatsOcr,
+  recognizeSnapshotText,
+  type OcrExtractedFields
+} from "../lib/ocr";
 
 type SnapshotFormValues = {
   observed_date: string;
@@ -159,6 +165,20 @@ function buildInput(values: SnapshotFormValues): SnapshotCreateInput {
   };
 }
 
+function withOcrFields(
+  values: SnapshotFormValues,
+  fields: OcrExtractedFields
+): SnapshotFormValues {
+  const next = { ...values };
+  const nextRecord = next as unknown as Record<string, string>;
+  for (const [key, value] of Object.entries(fields)) {
+    if (value == null) continue;
+    nextRecord[key] = String(value);
+  }
+  next.parser_version = "ocr-tesseract-v1";
+  return next;
+}
+
 export function SnapshotForm({
   initialSnapshot,
   submitLabel,
@@ -167,8 +187,12 @@ export function SnapshotForm({
   const [values, setValues] = useState<SnapshotFormValues>(() =>
     toValues(initialSnapshot)
   );
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [ocrBusy, setOcrBusy] = useState(false);
+  const [ocrProgress, setOcrProgress] = useState<string | null>(null);
+  const [ocrText, setOcrText] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [serverWarnings, setServerWarnings] = useState<ValidationWarning[]>([]);
 
@@ -201,6 +225,9 @@ export function SnapshotForm({
     const file = event.target.files?.[0];
     if (!file) return;
 
+    setSelectedFile(file);
+    setOcrText(null);
+    setOcrProgress(null);
     if (previewUrl) URL.revokeObjectURL(previewUrl);
     setPreviewUrl(URL.createObjectURL(file));
     setMessage("Reading local image metadata...");
@@ -218,11 +245,39 @@ export function SnapshotForm({
         file_last_modified: fileLastModifiedIso(file),
         image_width: String(dimensions.width),
         image_height: String(dimensions.height),
-        parser_version: "manual-v1"
+        parser_version: current.parser_version || "manual-v1"
       }));
       setMessage("Local image metadata is ready. The image itself stays in the browser.");
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Image metadata failed.");
+    }
+  }
+
+  async function handleRunOcr() {
+    if (!selectedFile) return;
+
+    setOcrBusy(true);
+    setOcrProgress("Starting OCR...");
+    setMessage(null);
+
+    try {
+      const text = await recognizeSnapshotText(selectedFile, (progress) => {
+        setOcrProgress(`${progress.status} ${progress.progress}%`);
+      });
+      const extracted = parseMahjongStatsOcr(text);
+      const count = countExtractedFields(extracted);
+      setOcrText(text);
+      setValues((current) => withOcrFields(current, extracted));
+      setMessage(
+        count === 0
+          ? "OCR finished, but no known statistics labels were found."
+          : `OCR filled ${count} field${count === 1 ? "" : "s"}. Please confirm values before saving.`
+      );
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "OCR failed.");
+    } finally {
+      setOcrBusy(false);
+      setOcrProgress(null);
     }
   }
 
@@ -407,8 +462,28 @@ export function SnapshotForm({
             <span>Choose local image</span>
             <input type="file" accept="image/*" onChange={handleFileChange} />
           </label>
+          <button
+            type="button"
+            className="secondary-button"
+            disabled={!selectedFile || ocrBusy}
+            onClick={() => void handleRunOcr()}
+          >
+            {ocrBusy ? (
+              <LoaderCircle className="spin-icon" size={18} aria-hidden="true" />
+            ) : (
+              <ScanText size={18} aria-hidden="true" />
+            )}
+            <span>{ocrBusy ? "Running OCR" : "Run OCR"}</span>
+          </button>
           {previewUrl ? <img className="local-preview" src={previewUrl} alt="" /> : null}
         </div>
+        {ocrProgress ? <p className="ocr-progress">{ocrProgress}</p> : null}
+        {ocrText ? (
+          <details className="ocr-result">
+            <summary>OCR text</summary>
+            <textarea value={ocrText} readOnly rows={5} />
+          </details>
+        ) : null}
         <div className="form-grid metadata-grid">
           <label>
             <span>SHA-256</span>
