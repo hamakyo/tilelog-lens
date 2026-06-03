@@ -39,6 +39,8 @@ type NumericCropDefinition = {
   height: number;
   integer?: boolean;
   rate?: boolean;
+  column?: "left" | "middle" | "right";
+  row?: number;
 };
 
 type FieldPattern = {
@@ -80,22 +82,35 @@ const mahjongSoulBaseSize = {
 
 const mahjongSoulNumericCrops: NumericCropDefinition[] = [
   { field: "rank_points", x: 1810, y: 138, width: 185, height: 48 },
-  { field: "first_rate", x: 1148, y: 724, width: 170, height: 58, rate: true },
-  { field: "second_rate", x: 1148, y: 780, width: 170, height: 58, rate: true },
-  { field: "third_rate", x: 1148, y: 837, width: 170, height: 58, rate: true },
-  { field: "fourth_rate", x: 1148, y: 895, width: 170, height: 58, rate: true },
-  { field: "bust_rate", x: 1148, y: 952, width: 170, height: 58, rate: true },
-  { field: "matches", x: 1610, y: 724, width: 130, height: 58, integer: true },
-  { field: "avg_win_score", x: 1580, y: 780, width: 170, height: 58, integer: true },
-  { field: "avg_place", x: 1600, y: 837, width: 150, height: 58 },
-  { field: "max_renchan", x: 1660, y: 895, width: 90, height: 58, integer: true },
-  { field: "avg_win_turn", x: 1580, y: 952, width: 170, height: 58 },
-  { field: "win_rate", x: 1950, y: 724, width: 180, height: 58, rate: true },
-  { field: "tsumo_rate", x: 1950, y: 780, width: 180, height: 58, rate: true },
-  { field: "deal_in_rate", x: 1950, y: 837, width: 180, height: 58, rate: true },
-  { field: "call_rate", x: 1950, y: 895, width: 180, height: 58, rate: true },
-  { field: "riichi_rate", x: 1950, y: 952, width: 180, height: 58, rate: true }
+  { field: "first_rate", x: 1148, y: 724, width: 170, height: 58, rate: true, column: "left", row: 0 },
+  { field: "second_rate", x: 1148, y: 780, width: 170, height: 58, rate: true, column: "left", row: 1 },
+  { field: "third_rate", x: 1148, y: 837, width: 170, height: 58, rate: true, column: "left", row: 2 },
+  { field: "fourth_rate", x: 1148, y: 895, width: 170, height: 58, rate: true, column: "left", row: 3 },
+  { field: "bust_rate", x: 1148, y: 952, width: 170, height: 58, rate: true, column: "left", row: 4 },
+  { field: "matches", x: 1625, y: 724, width: 115, height: 58, integer: true, column: "middle", row: 0 },
+  { field: "avg_win_score", x: 1580, y: 780, width: 170, height: 58, integer: true, column: "middle", row: 1 },
+  { field: "avg_place", x: 1600, y: 837, width: 150, height: 58, column: "middle", row: 2 },
+  { field: "max_renchan", x: 1660, y: 895, width: 90, height: 58, integer: true, column: "middle", row: 3 },
+  { field: "avg_win_turn", x: 1580, y: 952, width: 170, height: 58, column: "middle", row: 4 },
+  { field: "win_rate", x: 1950, y: 724, width: 180, height: 58, rate: true, column: "right", row: 0 },
+  { field: "tsumo_rate", x: 1950, y: 780, width: 180, height: 58, rate: true, column: "right", row: 1 },
+  { field: "deal_in_rate", x: 1950, y: 837, width: 180, height: 58, rate: true, column: "right", row: 2 },
+  { field: "call_rate", x: 1950, y: 895, width: 180, height: 58, rate: true, column: "right", row: 3 },
+  { field: "riichi_rate", x: 1950, y: 952, width: 180, height: 58, rate: true, column: "right", row: 4 }
 ];
+
+type MahjongSoulStatColumn = NonNullable<NumericCropDefinition["column"]>;
+
+type MahjongSoulDetectedRows = Partial<Record<MahjongSoulStatColumn, number[]>>;
+
+const mahjongSoulStatScanBands: Record<
+  MahjongSoulStatColumn,
+  { x1: number; x2: number }
+> = {
+  left: { x1: 1100, x2: 1325 },
+  middle: { x1: 1550, x2: 1750 },
+  right: { x1: 1900, x2: 2140 }
+};
 
 function normalizeFullWidth(input: string): string {
   return input
@@ -337,6 +352,92 @@ function applyNumericHighContrast(canvas: HTMLCanvasElement): void {
   context.putImageData(imageData, 0, 0);
 }
 
+function isMahjongSoulValuePixel(red: number, green: number, blue: number): boolean {
+  return red > 150 && green > 100 && blue < 90;
+}
+
+function detectMahjongSoulStatRows(image: HTMLImageElement): MahjongSoulDetectedRows {
+  const scaleX = image.naturalWidth / mahjongSoulBaseSize.width;
+  const scaleY = image.naturalHeight / mahjongSoulBaseSize.height;
+  const canvas = document.createElement("canvas");
+  canvas.width = image.naturalWidth;
+  canvas.height = image.naturalHeight;
+
+  const context = canvas.getContext("2d", { willReadFrequently: true });
+  if (!context) return {};
+
+  context.drawImage(image, 0, 0);
+  const rows: MahjongSoulDetectedRows = {};
+  const scanY1 = Math.round(650 * scaleY);
+  const scanY2 = Math.round(1090 * scaleY);
+  const minRowPixelCount = Math.max(8, Math.round(8 * scaleX));
+
+  for (const [column, band] of Object.entries(mahjongSoulStatScanBands) as Array<
+    [MahjongSoulStatColumn, { x1: number; x2: number }]
+  >) {
+    const x1 = Math.round(band.x1 * scaleX);
+    const x2 = Math.round(band.x2 * scaleX);
+    const groups: Array<Array<{ y: number; count: number }>> = [];
+
+    for (let y = scanY1; y <= scanY2; y += 1) {
+      const imageData = context.getImageData(x1, y, x2 - x1, 1).data;
+      let count = 0;
+
+      for (let index = 0; index < imageData.length; index += 4) {
+        if (
+          isMahjongSoulValuePixel(
+            imageData[index],
+            imageData[index + 1],
+            imageData[index + 2]
+          )
+        ) {
+          count += 1;
+        }
+      }
+
+      if (count <= minRowPixelCount) continue;
+
+      const lastGroup = groups[groups.length - 1];
+      if (!lastGroup || y > lastGroup[lastGroup.length - 1].y + 1) {
+        groups.push([]);
+      }
+      groups[groups.length - 1].push({ y, count });
+    }
+
+    const centers = groups
+      .map((group) => {
+        const total = group.reduce((sum, item) => sum + item.count, 0);
+        if (group.length < 3 || total <= 0) return undefined;
+        return (
+          group.reduce((sum, item) => sum + item.y * item.count, 0) / total / scaleY
+        );
+      })
+      .filter((value): value is number => value != null)
+      .slice(0, 5);
+
+    if (centers.length === 5) {
+      rows[column] = centers;
+    }
+  }
+
+  return rows;
+}
+
+function resolveNumericCrop(
+  crop: NumericCropDefinition,
+  detectedRows: MahjongSoulDetectedRows
+): NumericCropDefinition {
+  if (crop.column == null || crop.row == null) return crop;
+
+  const rowCenter = detectedRows[crop.column]?.[crop.row];
+  if (rowCenter == null) return crop;
+
+  return {
+    ...crop,
+    y: Math.round(rowCenter - crop.height / 2)
+  };
+}
+
 async function canvasToPngFile(
   canvas: HTMLCanvasElement,
   fileName: string,
@@ -390,14 +491,16 @@ function buildNumericCropCanvas(
 async function buildNumericCropFile(
   image: HTMLImageElement,
   sourceFile: File,
-  crop: NumericCropDefinition
+  crop: NumericCropDefinition,
+  detectedRows: MahjongSoulDetectedRows
 ): Promise<File | null> {
+  const resolvedCrop = resolveNumericCrop(crop, detectedRows);
   const cropScale = 5;
   const canvas = buildNumericCropCanvas(
     image,
-    crop,
-    crop.width * cropScale,
-    crop.height * cropScale
+    resolvedCrop,
+    resolvedCrop.width * cropScale,
+    resolvedCrop.height * cropScale
   );
   if (!canvas) return null;
 
@@ -410,7 +513,8 @@ async function buildNumericCropFile(
 
 async function buildNumericColumnFile(
   image: HTMLImageElement,
-  sourceFile: File
+  sourceFile: File,
+  detectedRows: MahjongSoulDetectedRows
 ): Promise<File | null> {
   const rowWidth = 1000;
   const rowHeight = 330;
@@ -428,11 +532,12 @@ async function buildNumericColumnFile(
   context.imageSmoothingQuality = "high";
 
   for (const [index, crop] of mahjongSoulNumericCrops.entries()) {
+    const resolvedCrop = resolveNumericCrop(crop, detectedRows);
     const cropCanvas = buildNumericCropCanvas(
       image,
-      crop,
-      crop.width * cropScale,
-      crop.height * cropScale
+      resolvedCrop,
+      resolvedCrop.width * cropScale,
+      resolvedCrop.height * cropScale
     );
     if (!cropCanvas) continue;
     context.drawImage(cropCanvas, 60, index * rowHeight + 20);
@@ -478,9 +583,14 @@ function parseNumericCropValue(
   const numberMatch = clean.match(/\d+(?:\.\d+)?/);
   if (!numberMatch) return {};
 
-  const value = parseNumber(numberMatch[0], crop.integer);
+  let value = parseNumber(numberMatch[0], crop.integer);
   if (value == null) return {};
+  if (crop.rate && value > 100 && value <= 10000) value = value / 100;
+  if (crop.field === "avg_place" && value > 4 && value <= 400) value = value / 100;
+  if (crop.field === "avg_win_turn" && value > 30 && value <= 3000) value = value / 100;
   if (crop.rate && clampRate(value) == null) return {};
+  if (crop.field === "avg_place" && (value < 1 || value > 4)) return {};
+  if (crop.field === "avg_win_turn" && (value < 1 || value > 30)) return {};
 
   return { [crop.field]: value };
 }
@@ -549,9 +659,11 @@ async function recognizeMahjongSoulNumericLayout(
   const tesseract = await import("tesseract.js");
   const worker = await tesseract.default.createWorker("eng");
   const fields: OcrExtractedFields = {};
+  const columnFields: OcrExtractedFields = {};
+  const detectedRows = detectMahjongSoulStatRows(image);
 
   try {
-    const columnFile = await buildNumericColumnFile(image, file);
+    const columnFile = await buildNumericColumnFile(image, file, detectedRows);
     if (columnFile) {
       onProgress?.({
         status: "雀魂スクショの数値欄をまとめて読み取っています",
@@ -562,17 +674,10 @@ async function recognizeMahjongSoulNumericLayout(
         tessedit_pageseg_mode: tesseract.PSM.SINGLE_BLOCK
       });
       const columnResult = await worker.recognize(columnFile);
-      Object.assign(fields, parseNumericColumnText(columnResult.data.text));
+      Object.assign(columnFields, parseNumericColumnText(columnResult.data.text));
     }
 
-    await worker.setParameters({
-      tessedit_char_whitelist: "0123456789./%",
-      tessedit_pageseg_mode: tesseract.PSM.SINGLE_WORD
-    });
-
-    const focusedCrops = mahjongSoulNumericCrops.filter((crop) =>
-      crop.field === "rank_points" || crop.field === "call_rate"
-    );
+    const focusedCrops = mahjongSoulNumericCrops;
 
     for (const [index, crop] of focusedCrops.entries()) {
       onProgress?.({
@@ -580,14 +685,36 @@ async function recognizeMahjongSoulNumericLayout(
         progress: 55 + Math.round((index / focusedCrops.length) * 20)
       });
 
-      const cropFile = await buildNumericCropFile(image, file, crop);
+      const cropFile = await buildNumericCropFile(image, file, crop, detectedRows);
       if (!cropFile) continue;
 
+      await worker.setParameters({
+        tessedit_char_whitelist: "0123456789./%",
+        tessedit_pageseg_mode: tesseract.PSM.SINGLE_WORD
+      });
       const result = await worker.recognize(cropFile);
-      Object.assign(fields, parseNumericCropValue(result.data.text, crop));
+      const parsed = parseNumericCropValue(result.data.text, crop);
+      if (Object.keys(parsed).length > 0) {
+        Object.assign(fields, parsed);
+        continue;
+      }
+
+      if (crop.integer || crop.field === "rank_points") continue;
+
+      await worker.setParameters({
+        tessedit_char_whitelist: "0123456789./%",
+        tessedit_pageseg_mode: tesseract.PSM.SINGLE_LINE
+      });
+      const retryResult = await worker.recognize(cropFile);
+      Object.assign(fields, parseNumericCropValue(retryResult.data.text, crop));
     }
   } finally {
     await worker.terminate();
+  }
+
+  const mutableFields = fields as Record<string, unknown>;
+  for (const [field, value] of Object.entries(columnFields)) {
+    if (mutableFields[field] == null) mutableFields[field] = value;
   }
 
   const count = countExtractedFields(fields);

@@ -87,4 +87,75 @@ describe("OCR parser", () => {
     expect(fields.call_rate).toBe(27.83);
     expect(fields.riichi_rate).toBe(26.07);
   });
+
+  it("extracts shifted Mahjong Soul profile detail screenshots", () => {
+    const samples = [
+      {
+        text: `
+          438/800
+          東風戦
+          一位率 18.06% 対戦数 227 和了率 19.30%
+          二位率 26.87% 平均和了 6623 ツモ率 30.38%
+          三位率 31.28% 平均順位 2.61 放銃率 17.92%
+          四位率 23.79% 最大連荘 4 副露率 26.55%
+          飛び率 3.08% 和了巡数 12.62 立直率 26.30%
+        `,
+        expected: {
+          rank_points: 438,
+          first_rate: 18.06,
+          matches: 227,
+          avg_win_turn: 12.62,
+          riichi_rate: 26.3
+        }
+      },
+      {
+        text: `
+          491/800
+          東風戦
+          一位率 18.41% 対戦数 239 和了率 19.61%
+          二位率 27.20% 平均和了 6555 ツモ率 29.53%
+          三位率 30.54% 平均順位 2.60 放銃率 17.76%
+          四位率 23.85% 最大連荘 4 副露率 27.57%
+          飛び率 2.93% 和了巡数 12.69 立直率 26.18%
+        `,
+        expected: {
+          rank_points: 491,
+          first_rate: 18.41,
+          matches: 239,
+          avg_win_turn: 12.69,
+          riichi_rate: 26.18
+        }
+      },
+      {
+        text: `
+          441/800
+          東風戦
+          一位率 18.14% 対戦数 226 和了率 19.22%
+          二位率 26.99% 平均和了 6634 ツモ率 30.21%
+          三位率 30.97% 平均順位 2.61 放銃率 17.91%
+          四位率 23.89% 最大連荘 4 副露率 26.41%
+          飛び率 3.10% 和了巡数 12.60 立直率 26.33%
+        `,
+        expected: {
+          rank_points: 441,
+          first_rate: 18.14,
+          matches: 226,
+          avg_win_turn: 12.6,
+          riichi_rate: 26.33
+        }
+      }
+    ];
+
+    for (const sample of samples) {
+      const fields = parseMahjongStatsOcr(sample.text);
+      expect(fields.game_mode).toBe("east");
+      expect(fields.rank_points_max).toBe(800);
+      expect(fields.rank_points).toBe(sample.expected.rank_points);
+      expect(fields.first_rate).toBe(sample.expected.first_rate);
+      expect(fields.matches).toBe(sample.expected.matches);
+      expect(fields.avg_win_turn).toBe(sample.expected.avg_win_turn);
+      expect(fields.riichi_rate).toBe(sample.expected.riichi_rate);
+      expect(countExtractedFields(fields)).toBe(18);
+    }
+  });
 });
