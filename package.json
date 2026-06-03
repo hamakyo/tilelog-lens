@@ -1,0 +1,36 @@
+{
+  "name": "tilelog-lens",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "vite build",
+    "dev": "pnpm run build && wrangler dev --local",
+    "dev:vite": "vite --host 127.0.0.1",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "db:migrate:local": "wrangler d1 migrations apply tilelog_lens --local",
+    "db:migrate:remote": "wrangler d1 migrations apply tilelog_lens --remote",
+    "deploy": "pnpm run build && wrangler deploy"
+  },
+  "dependencies": {
+    "hono": "^4.7.11",
+    "jose": "^6.0.11",
+    "lucide-react": "^0.468.0",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "recharts": "^3.0.0",
+    "zod": "^3.25.0"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20250601.0",
+    "@types/react": "^19.1.0",
+    "@types/react-dom": "^19.1.0",
+    "@vitejs/plugin-react": "^4.5.0",
+    "typescript": "^5.8.3",
+    "vite": "^6.3.5",
+    "vitest": "^3.2.0",
+    "wrangler": "^4.20.0"
+  }
+}

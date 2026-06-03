@@ -1,0 +1,105 @@
+import { useEffect, useMemo, useState } from "react";
+import {
+  BarChart3,
+  Download,
+  FilePlus2,
+  LayoutDashboard,
+  List,
+  Settings
+} from "lucide-react";
+import { PRIVACY_DISCLAIMER } from "../shared/constants";
+import { DashboardPage } from "./pages/DashboardPage";
+import { ExportPage } from "./pages/ExportPage";
+import { ImportPage } from "./pages/ImportPage";
+import { SettingsPage } from "./pages/SettingsPage";
+import { SnapshotEditPage } from "./pages/SnapshotEditPage";
+import { SnapshotListPage } from "./pages/SnapshotListPage";
+
+type NavItem = {
+  path: string;
+  label: string;
+  icon: typeof LayoutDashboard;
+};
+
+const navItems: NavItem[] = [
+  { path: "/", label: "Dashboard", icon: LayoutDashboard },
+  { path: "/import", label: "Import", icon: FilePlus2 },
+  { path: "/snapshots", label: "Snapshots", icon: List },
+  { path: "/export", label: "Export", icon: Download },
+  { path: "/settings", label: "Settings", icon: Settings }
+];
+
+function getPath(): string {
+  return window.location.pathname || "/";
+}
+
+export function App() {
+  const [path, setPath] = useState(getPath);
+
+  useEffect(() => {
+    const handlePopState = () => setPath(getPath());
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, []);
+
+  const navigate = (nextPath: string) => {
+    window.history.pushState(null, "", nextPath);
+    setPath(nextPath);
+  };
+
+  const content = useMemo(() => {
+    if (path === "/") return <DashboardPage navigate={navigate} />;
+    if (path === "/import") return <ImportPage />;
+    if (path === "/snapshots") return <SnapshotListPage navigate={navigate} />;
+    if (path === "/export") return <ExportPage />;
+    if (path === "/settings") return <SettingsPage />;
+
+    const editMatch = path.match(/^\/snapshots\/(\d+)$/);
+    if (editMatch) {
+      return <SnapshotEditPage id={Number(editMatch[1])} />;
+    }
+
+    return <DashboardPage navigate={navigate} />;
+  }, [path]);
+
+  return (
+    <div className="app-shell">
+      <aside className="sidebar">
+        <div className="brand-block">
+          <BarChart3 size={28} aria-hidden="true" />
+          <div>
+            <strong>TileLog Lens</strong>
+            <span>Owner tracker</span>
+          </div>
+        </div>
+        <nav aria-label="Primary">
+          {navItems.map((item) => {
+            const Icon = item.icon;
+            const active =
+              item.path === "/"
+                ? path === "/"
+                : path === item.path || path.startsWith(`${item.path}/`);
+            return (
+              <a
+                key={item.path}
+                href={item.path}
+                className={active ? "active" : ""}
+                onClick={(event) => {
+                  event.preventDefault();
+                  navigate(item.path);
+                }}
+              >
+                <Icon size={18} aria-hidden="true" />
+                <span>{item.label}</span>
+              </a>
+            );
+          })}
+        </nav>
+      </aside>
+      <div className="content-shell">
+        {content}
+        <footer>{PRIVACY_DISCLAIMER}</footer>
+      </div>
+    </div>
+  );
+}

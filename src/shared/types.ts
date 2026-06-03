@@ -1,0 +1,156 @@
+import type { GAME_MODES } from "./constants";
+
+export type GameMode = (typeof GAME_MODES)[number];
+
+export type Snapshot = {
+  id: number;
+  observed_date: string;
+  observed_time: string;
+  timezone: string;
+  observed_at_utc: string;
+  game_mode: GameMode;
+  player_name: string | null;
+  player_id: string | null;
+  rank_name: string | null;
+  rank_level: number | null;
+  rank_points: number | null;
+  rank_points_max: number | null;
+  matches: number;
+  avg_win_score: number | null;
+  avg_place: number;
+  max_renchan: number | null;
+  avg_win_turn: number | null;
+  first_rate: number;
+  second_rate: number;
+  third_rate: number;
+  fourth_rate: number;
+  bust_rate: number | null;
+  win_rate: number;
+  tsumo_rate: number | null;
+  deal_in_rate: number;
+  call_rate: number;
+  riichi_rate: number;
+  note: string | null;
+  source_image_sha256: string | null;
+  file_name: string | null;
+  file_last_modified: string | null;
+  exif_taken_at: string | null;
+  image_width: number | null;
+  image_height: number | null;
+  parser_version: string | null;
+  source_image_stored: 0;
+  created_at: string;
+  updated_at: string;
+};
+
+export type SnapshotCreateInput = {
+  observed_date: string;
+  observed_time: string;
+  timezone: string;
+  game_mode: GameMode;
+  matches: number;
+  avg_place: number;
+  first_rate: number;
+  second_rate: number;
+  third_rate: number;
+  fourth_rate: number;
+  win_rate: number;
+  deal_in_rate: number;
+  call_rate: number;
+  riichi_rate: number;
+  player_name?: string | null;
+  player_id?: string | null;
+  rank_name?: string | null;
+  rank_level?: number | null;
+  rank_points?: number | null;
+  rank_points_max?: number | null;
+  avg_win_score?: number | null;
+  max_renchan?: number | null;
+  avg_win_turn?: number | null;
+  bust_rate?: number | null;
+  tsumo_rate?: number | null;
+  note?: string | null;
+  source_image_sha256?: string | null;
+  file_name?: string | null;
+  file_last_modified?: string | null;
+  exif_taken_at?: string | null;
+  image_width?: number | null;
+  image_height?: number | null;
+  parser_version?: string | null;
+};
+
+export type SnapshotUpdateInput = SnapshotCreateInput;
+
+export type ValidationWarning = {
+  code:
+    | "RANK_RATE_SUM_NOT_100"
+    | "AVG_PLACE_MISMATCH"
+    | "MATCHES_DECREASED"
+    | "DUPLICATE_IMAGE_HASH"
+    | "DUPLICATE_OBSERVED_AT";
+  message: string;
+  severity: "warning";
+};
+
+export type DerivedMetric = {
+  snapshot_id: number;
+  observed_at_utc: string;
+  attack_defense_gap: number;
+  top_two_rate: number;
+  bottom_two_rate: number;
+  rank_point_progress: number | null;
+  calculated_avg_place: number;
+};
+
+export type EstimatedDelta = {
+  from_snapshot_id: number;
+  to_snapshot_id: number;
+  from_observed_at_utc: string;
+  to_observed_at_utc: string;
+  matches_delta: number;
+  estimated_first_delta?: number;
+  estimated_second_delta?: number;
+  estimated_third_delta?: number;
+  estimated_fourth_delta?: number;
+  estimated_win_delta?: number;
+  estimated_deal_in_delta?: number;
+  estimated_call_delta?: number;
+  estimated_riichi_delta?: number;
+  estimated_tsumo_delta?: number;
+  period_first_rate?: number;
+  period_second_rate?: number;
+  period_third_rate?: number;
+  period_fourth_rate?: number;
+  period_win_rate?: number;
+  period_deal_in_rate?: number;
+  period_call_rate?: number;
+  period_riichi_rate?: number;
+  period_tsumo_rate?: number;
+  quality: "ok" | "same_matches" | "negative_matches" | "insufficient_data";
+};
+
+export type AiContext = {
+  schema_version: "1.0";
+  app: string;
+  game: string;
+  exported_at: string;
+  privacy: {
+    anonymized: boolean;
+    screenshots_included: false;
+    source_images_stored: false;
+  };
+  metrics_description: Record<string, string>;
+  snapshots: Snapshot[];
+  derived_metrics: DerivedMetric[];
+  estimated_deltas: EstimatedDelta[];
+  notes: Array<{
+    snapshot_id: number;
+    observed_at_utc: string;
+    note: string;
+  }>;
+  analysis_request: {
+    language: "ja";
+    goal: string;
+    focus: string[];
+  };
+};
