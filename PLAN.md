@@ -6,21 +6,21 @@ Goal: create a clean Cloudflare-first TypeScript project skeleton.
 
 Tasks:
 
-- [ ] Initialize package.json.
-- [ ] Add TypeScript strict config.
-- [ ] Add Vite React SPA.
-- [ ] Add Hono Worker entry.
-- [ ] Add Cloudflare Workers types.
-- [ ] Add Vitest.
-- [ ] Add formatting/linting if desired.
-- [ ] Add `wrangler.jsonc` template.
-- [ ] Add `/api/health` route.
+- [x] Initialize package.json.
+- [x] Add TypeScript strict config.
+- [x] Add Vite React SPA.
+- [x] Add Hono Worker entry.
+- [x] Add Cloudflare Workers types.
+- [x] Add Vitest.
+- [x] Add formatting/linting if desired.
+- [x] Add `wrangler.jsonc` template.
+- [x] Add `/api/health` route.
 
 Acceptance criteria:
 
-- [ ] `npm run dev` starts local app.
-- [ ] `/api/health` returns `{ ok: true }`.
-- [ ] TypeScript compiles.
+- [x] `npm run dev` starts local app.
+- [x] `/api/health` returns `{ ok: true }`.
+- [x] TypeScript compiles.
 
 ## Phase 1 — D1 schema and local database
 
@@ -28,19 +28,19 @@ Goal: create D1 schema and database access helpers.
 
 Tasks:
 
-- [ ] Add `migrations/0001_init.sql`.
-- [ ] Create `stat_snapshots` table.
-- [ ] Optionally create `play_notes` table.
-- [ ] Add D1 query helpers.
-- [ ] Add typed row mappers.
-- [ ] Add local migration instructions to README.
+- [x] Add `migrations/0001_init.sql`.
+- [x] Create `stat_snapshots` table.
+- [x] Optionally create `play_notes` table.
+- [x] Add D1 query helpers.
+- [x] Add typed row mappers.
+- [x] Add local migration instructions to README.
 
 Acceptance criteria:
 
-- [ ] Migration applies locally.
-- [ ] Migration applies remotely in preview/prod.
-- [ ] Table includes `source_image_stored INTEGER NOT NULL DEFAULT 0 CHECK (source_image_stored = 0)`.
-- [ ] No table stores image data.
+- [x] Migration applies locally.
+- [x] Migration applies remotely in preview/prod.
+- [x] Table includes `source_image_stored INTEGER NOT NULL DEFAULT 0 CHECK (source_image_stored = 0)`.
+- [x] No table stores image data.
 
 ## Phase 2 — Shared schemas and validation
 
@@ -48,24 +48,24 @@ Goal: centralize input validation and consistency warnings.
 
 Tasks:
 
-- [ ] Add shared `SnapshotCreateInput` type.
-- [ ] Add Zod schema for snapshot creation.
-- [ ] Add Zod schema for snapshot update.
-- [ ] Add `observed_date` validation.
-- [ ] Add required `observed_time` validation for `HH:mm`.
-- [ ] Add rate range validation.
-- [ ] Add rank point validation.
-- [ ] Add consistency warning functions.
-- [ ] Add tests for validation.
+- [x] Add shared `SnapshotCreateInput` type.
+- [x] Add Zod schema for snapshot creation.
+- [x] Add Zod schema for snapshot update.
+- [x] Add `observed_date` validation.
+- [x] Add required `observed_time` validation for `HH:mm`.
+- [x] Add rate range validation.
+- [x] Add rank point validation.
+- [x] Add consistency warning functions.
+- [x] Add tests for validation.
 
 Acceptance criteria:
 
-- [ ] Missing time is rejected.
-- [ ] Invalid `24:00` is rejected.
-- [ ] `23:59` is accepted.
-- [ ] Rates outside 0-100 are rejected.
-- [ ] Placement rate sum warning works.
-- [ ] Average place mismatch warning works.
+- [x] Missing time is rejected.
+- [x] Invalid `24:00` is rejected.
+- [x] `23:59` is accepted.
+- [x] Rates outside 0-100 are rejected.
+- [x] Placement rate sum warning works.
+- [x] Average place mismatch warning works.
 
 ## Phase 3 — Access authentication middleware
 
@@ -73,21 +73,21 @@ Goal: protect API with Cloudflare Access JWT validation.
 
 Tasks:
 
-- [ ] Add `jose`.
-- [ ] Implement Access JWT validation middleware.
-- [ ] Verify `iss`.
-- [ ] Verify `aud`.
-- [ ] Verify expiration.
-- [ ] Verify email equals `OWNER_EMAIL`.
-- [ ] Add development-only bypass, disabled in production.
-- [ ] Add no-token/invalid-token tests where practical.
+- [x] Add `jose`.
+- [x] Implement Access JWT validation middleware.
+- [x] Verify `iss`.
+- [x] Verify `aud`.
+- [x] Verify expiration.
+- [x] Verify email equals `OWNER_EMAIL`.
+- [x] Add development-only bypass, disabled in production.
+- [x] Add no-token/invalid-token tests where practical.
 
 Acceptance criteria:
 
-- [ ] API rejects missing JWT in production.
-- [ ] API rejects non-owner email.
-- [ ] API does not log JWT.
-- [ ] README documents Cloudflare Access setup.
+- [x] API rejects missing JWT in production.
+- [x] API rejects non-owner email.
+- [x] API does not log JWT.
+- [x] README documents Cloudflare Access setup.
 
 ## Phase 4 — Request guards
 
@@ -95,17 +95,17 @@ Goal: enforce screenshot non-persistence at the API boundary.
 
 Tasks:
 
-- [ ] Require JSON content type for mutation routes.
-- [ ] Add request body size limit.
-- [ ] Reject suspicious keys: `image`, `screenshot`, `file`, `blob`, `base64`, `dataUrl`.
-- [ ] Reject strings containing `data:image/`.
-- [ ] Add tests for rejection behavior.
+- [x] Require JSON content type for mutation routes.
+- [x] Add request body size limit.
+- [x] Reject suspicious keys: `image`, `screenshot`, `file`, `blob`, `base64`, `dataUrl`.
+- [x] Reject strings containing `data:image/`.
+- [x] Add tests for rejection behavior.
 
 Acceptance criteria:
 
-- [ ] Payload with `data:image/png;base64,...` is rejected.
-- [ ] Payload with `screenshot` key is rejected.
-- [ ] Normal snapshot JSON is accepted.
+- [x] Payload with `data:image/png;base64,...` is rejected.
+- [x] Payload with `screenshot` key is rejected.
+- [x] Normal snapshot JSON is accepted.
 
 ## Phase 5 — Snapshot CRUD API
 
@@ -113,23 +113,23 @@ Goal: create the core data API.
 
 Tasks:
 
-- [ ] `GET /api/snapshots`.
-- [ ] `POST /api/snapshots`.
-- [ ] `GET /api/snapshots/:id`.
-- [ ] `PUT /api/snapshots/:id`.
-- [ ] `DELETE /api/snapshots/:id`.
-- [ ] Derive `observed_at_utc` server-side.
-- [ ] Return validation warnings on create/update.
-- [ ] Handle duplicate `game_mode + observed_at_utc`.
-- [ ] Handle duplicate image hash warning.
+- [x] `GET /api/snapshots`.
+- [x] `POST /api/snapshots`.
+- [x] `GET /api/snapshots/:id`.
+- [x] `PUT /api/snapshots/:id`.
+- [x] `DELETE /api/snapshots/:id`.
+- [x] Derive `observed_at_utc` server-side.
+- [x] Return validation warnings on create/update.
+- [x] Handle duplicate `game_mode + observed_at_utc`.
+- [x] Handle duplicate image hash warning.
 
 Acceptance criteria:
 
-- [ ] Can create a snapshot.
-- [ ] Can list snapshots sorted by observed time.
-- [ ] Can edit a snapshot.
-- [ ] Can delete a snapshot.
-- [ ] Duplicate observation time returns clear error.
+- [x] Can create a snapshot.
+- [x] Can list snapshots sorted by observed time.
+- [x] Can edit a snapshot.
+- [x] Can delete a snapshot.
+- [x] Duplicate observation time returns clear error.
 
 ## Phase 6 — React import and snapshot UI
 
@@ -137,25 +137,26 @@ Goal: build usable owner interface.
 
 Tasks:
 
-- [ ] Create app shell/navigation.
-- [ ] Create Import page.
-- [ ] Add required date input.
-- [ ] Add required time input with `step=60`.
-- [ ] Add statistics form fields.
-- [ ] Add local image picker.
-- [ ] Add local image preview.
-- [ ] Add browser-side SHA-256 helper.
-- [ ] Add browser-side image dimension helper.
-- [ ] Ensure API payload never includes image file or base64.
-- [ ] Create Snapshot list page.
-- [ ] Create Snapshot edit page.
+- [x] Create app shell/navigation.
+- [x] Create Import page.
+- [x] Add required date input.
+- [x] Add required time input with `step=60`.
+- [x] Add statistics form fields.
+- [x] Add local image picker.
+- [x] Add local image preview.
+- [x] Add browser-side SHA-256 helper.
+- [x] Add browser-side image dimension helper.
+- [x] Ensure API payload never includes image file or base64.
+- [x] Create Snapshot list page.
+- [x] Create Snapshot edit page.
+- [x] Create Settings page (owner info, basic config).
 
 Acceptance criteria:
 
-- [ ] Owner can manually enter and save snapshot.
-- [ ] Owner can select local image for preview only.
-- [ ] Network request contains no image bytes/base64.
-- [ ] Required `HH:mm` prevents save when empty.
+- [x] Owner can manually enter and save snapshot.
+- [x] Owner can select local image for preview only.
+- [x] Network request contains no image bytes/base64.
+- [x] Required `HH:mm` prevents save when empty.
 
 ## Phase 7 — Analytics
 
@@ -163,22 +164,22 @@ Goal: provide useful trend analysis.
 
 Tasks:
 
-- [ ] Add derived metric functions.
-- [ ] Add estimated period delta functions.
-- [ ] Add `GET /api/analytics/deltas`.
-- [ ] Add dashboard latest summary.
-- [ ] Add trend chart for average place.
-- [ ] Add trend chart for win/deal-in rates.
-- [ ] Add trend chart for attack-defense gap.
-- [ ] Add trend chart for call/riichi rates.
-- [ ] Add delta table.
-- [ ] Add caveat about rounded cumulative source data.
+- [x] Add derived metric functions.
+- [x] Add estimated period delta functions.
+- [x] Add `GET /api/analytics/deltas`.
+- [x] Add dashboard latest summary.
+- [x] Add trend chart for average place.
+- [x] Add trend chart for win/deal-in rates.
+- [x] Add trend chart for attack-defense gap.
+- [x] Add trend chart for call/riichi rates.
+- [x] Add delta table.
+- [x] Add caveat about rounded cumulative source data.
 
 Acceptance criteria:
 
-- [ ] Dashboard works with 0, 1, and multiple snapshots.
-- [ ] Delta table marks zero/negative match deltas.
-- [ ] Charts have table fallback.
+- [x] Dashboard works with 0, 1, and multiple snapshots.
+- [x] Delta table marks zero/negative match deltas.
+- [x] Charts have table fallback.
 
 ## Phase 8 — CSV export
 
@@ -186,19 +187,19 @@ Goal: download spreadsheet-friendly data.
 
 Tasks:
 
-- [ ] Implement CSV escaping helper.
-- [ ] Mitigate spreadsheet formula injection for user-controlled text.
-- [ ] Implement `/api/export/snapshots.csv`.
-- [ ] Implement `/api/export/deltas.csv`.
-- [ ] Add Export page buttons.
-- [ ] Add tests for CSV escaping.
+- [x] Implement CSV escaping helper.
+- [x] Mitigate spreadsheet formula injection for user-controlled text.
+- [x] Implement `/api/export/snapshots.csv`.
+- [x] Implement `/api/export/deltas.csv`.
+- [x] Add Export page buttons.
+- [x] Add tests for CSV escaping.
 
 Acceptance criteria:
 
-- [ ] CSV downloads in browser.
-- [ ] Header row included.
-- [ ] Japanese text preserved in UTF-8.
-- [ ] Quotes/commas/newlines escaped correctly.
+- [x] CSV downloads in browser.
+- [x] Header row included.
+- [x] Japanese text preserved in UTF-8.
+- [x] Quotes/commas/newlines escaped correctly.
 
 ## Phase 9 — AI JSON export
 
@@ -206,22 +207,22 @@ Goal: produce AI-friendly structured export.
 
 Tasks:
 
-- [ ] Define AI context JSON type.
-- [ ] Implement derived metrics export.
-- [ ] Implement estimated deltas export.
-- [ ] Implement notes export.
-- [ ] Default anonymization to true.
-- [ ] Add `privacy` metadata.
-- [ ] Implement `/api/export/ai-context.json`.
-- [ ] Add Export page download button.
-- [ ] Add tests for anonymization.
+- [x] Define AI context JSON type.
+- [x] Implement derived metrics export.
+- [x] Implement estimated deltas export.
+- [x] Implement notes export.
+- [x] Default anonymization to true.
+- [x] Add `privacy` metadata.
+- [x] Implement `/api/export/ai-context.json`.
+- [x] Add Export page download button.
+- [x] Add tests for anonymization.
 
 Acceptance criteria:
 
-- [ ] JSON downloads in browser.
-- [ ] Default export excludes player name/player ID.
-- [ ] JSON states screenshots are not included and not stored.
-- [ ] JSON includes analysis request in Japanese.
+- [x] JSON downloads in browser.
+- [x] Default export excludes player name/player ID.
+- [x] JSON states screenshots are not included and not stored.
+- [x] JSON includes analysis request in Japanese.
 
 ## Phase 10 — Cloudflare deployment hardening
 
@@ -229,24 +230,24 @@ Goal: deploy safely for personal use.
 
 Tasks:
 
-- [ ] Create D1 database.
-- [ ] Apply remote migrations.
-- [ ] Configure production route/custom domain.
-- [ ] Set `workers_dev = false` or protect workers.dev with Access.
-- [ ] Configure Cloudflare Access app.
-- [ ] Enable One-time PIN / OTP.
-- [ ] Allow only owner email.
-- [ ] Set secrets: `OWNER_EMAIL`, `ACCESS_AUD`.
-- [ ] Validate production login.
-- [ ] Validate unauthorized email cannot access.
-- [ ] Validate API rejects direct unauthenticated request.
+- [x] Create D1 database.
+- [x] Apply remote migrations.
+- [x] Configure production route/custom domain.
+- [x] Set `workers_dev = false` or protect workers.dev with Access.
+- [x] Configure Cloudflare Access app.
+- [x] Enable One-time PIN / OTP.
+- [x] Allow only owner email.
+- [x] Set secrets: `OWNER_EMAIL`, `ACCESS_AUD`.
+- [x] Validate production login.
+- [x] Validate unauthorized email cannot access.
+- [x] Validate API rejects direct unauthenticated request.
 
 Acceptance criteria:
 
-- [ ] Production app requires OTP login.
-- [ ] Only owner email can access.
-- [ ] D1 writes work in production.
-- [ ] CSV/JSON export works in production.
+- [x] Production app requires OTP login.
+- [x] Only owner email can access.
+- [x] D1 writes work in production.
+- [x] CSV/JSON export works in production.
 
 ## Phase 11 — Documentation and polish
 
@@ -254,22 +255,23 @@ Goal: make the repo clear enough for future maintenance/portfolio review.
 
 Tasks:
 
-- [ ] Update README with exact commands.
-- [ ] Add screenshots only if they do not contain Mahjong Soul copyrighted UI/assets, or use mock UI data.
-- [ ] Add disclaimer to README and UI footer.
-- [ ] Add privacy/security notes.
-- [ ] Add known limitations.
-- [ ] Add backlog.
+- [x] Update README with exact commands.
+- [x] Add screenshots only if they do not contain Mahjong Soul copyrighted UI/assets, or use mock UI data.
+- [x] Add disclaimer to README and UI footer.
+- [x] Add privacy/security notes.
+- [x] Add known limitations.
+- [x] Add backlog.
 
 Acceptance criteria:
 
-- [ ] New developer/Codex can understand project from README/SPEC/DESIGN/AGENTS/PLAN.
-- [ ] Disclaimer is present.
-- [ ] No official assets are committed.
+- [x] New developer/Codex can understand project from README/SPEC/DESIGN/AGENTS/PLAN.
+- [x] Disclaimer is present.
+- [x] No official assets are committed.
 
 ## Backlog after MVP
 
-- [ ] Browser-side OCR using fixed crop regions.
+- [x] Browser-side OCR using fixed crop regions.
+- [x] Settings page (basic config / owner info display).
 - [ ] Manual crop-region calibration UI.
 - [ ] Multiple game modes.
 - [ ] Import from manually prepared CSV.
