@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { DEFAULT_TIMEZONE, GAME_MODES } from "./constants";
+import { DEFAULT_TIMEZONE, GAME_MODES, RANK_NAMES } from "./constants";
 import type { SnapshotCreateInput, ValidationWarning } from "./types";
 
 const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
@@ -48,7 +48,7 @@ export const snapshotCreateSchema = z
     game_mode: z.enum(GAME_MODES).default("east"),
     player_name: optionalString(80),
     player_id: optionalString(80),
-    rank_name: optionalString(40),
+    rank_name: z.preprocess(emptyToNull, z.enum(RANK_NAMES).nullable().optional()),
     rank_level: optionalInt(z.number().min(0).max(20)),
     rank_points: optionalInt(z.number().min(0)),
     rank_points_max: optionalInt(z.number().positive()),

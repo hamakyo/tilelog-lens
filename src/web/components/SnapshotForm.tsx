@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { AlertTriangle, ImagePlus, LoaderCircle, Save, ScanText } from "lucide-react";
-import { DEFAULT_TIMEZONE, GAME_MODE_LABELS, GAME_MODES } from "../../shared/constants";
+import { DEFAULT_TIMEZONE, GAME_MODE_LABELS, GAME_MODES, RANK_NAMES, RANK_NAME_LABELS } from "../../shared/constants";
 import type { Snapshot, SnapshotCreateInput, ValidationWarning } from "../../shared/types";
 import { getConsistencyWarnings } from "../../shared/schema";
 import {
@@ -423,7 +423,14 @@ export function SnapshotForm({
           </label>
           <label>
             <span>段位名</span>
-            <input value={values.rank_name} maxLength={40} onChange={setField("rank_name")} />
+            <select value={values.rank_name} onChange={setField("rank_name")}>
+              <option value="">選択してください</option>
+              {RANK_NAMES.map((rank) => (
+                <option key={rank} value={rank}>
+                  {RANK_NAME_LABELS[rank]}
+                </option>
+              ))}
+            </select>
           </label>
           <label>
             <span>段位レベル</span>
