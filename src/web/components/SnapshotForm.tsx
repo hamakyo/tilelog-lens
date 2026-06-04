@@ -59,6 +59,57 @@ type SnapshotFormProps = {
 
 const today = new Date().toISOString().slice(0, 10);
 
+const fieldLabels: Record<keyof SnapshotFormValues, string> = {
+  observed_date: "日付",
+  observed_time: "時刻",
+  timezone: "タイムゾーン",
+  game_mode: "モード",
+  player_name: "プレイヤー名",
+  player_id: "プレイヤーID",
+  rank_name: "段位名",
+  rank_level: "段位レベル",
+  rank_points: "段位ポイント",
+  rank_points_max: "ポイント上限",
+  matches: "対戦数",
+  avg_win_score: "平均和了点",
+  avg_place: "平均順位",
+  max_renchan: "最大連荘",
+  avg_win_turn: "平均和了巡数",
+  first_rate: "一位率",
+  second_rate: "二位率",
+  third_rate: "三位率",
+  fourth_rate: "四位率",
+  bust_rate: "飛び率",
+  win_rate: "和了率",
+  tsumo_rate: "ツモ率",
+  deal_in_rate: "放銃率",
+  call_rate: "副露率",
+  riichi_rate: "立直率",
+  note: "メモ",
+  source_image_sha256: "SHA-256",
+  file_name: "ファイル名",
+  file_last_modified: "最終更新",
+  exif_taken_at: "EXIF撮影日時",
+  image_width: "幅",
+  image_height: "高さ",
+  parser_version: "パーサーバージョン"
+};
+
+const requiredFormFields: Array<keyof SnapshotFormValues> = [
+  "observed_date",
+  "observed_time",
+  "matches",
+  "avg_place",
+  "first_rate",
+  "second_rate",
+  "third_rate",
+  "fourth_rate",
+  "win_rate",
+  "deal_in_rate",
+  "call_rate",
+  "riichi_rate"
+];
+
 function toValues(snapshot?: Snapshot): SnapshotFormValues {
   return {
     observed_date: snapshot?.observed_date ?? today,
@@ -180,6 +231,18 @@ function withOcrFields(
   return next;
 }
 
+function ocrFilledLabels(fields: OcrExtractedFields): string[] {
+  return Object.entries(fields)
+    .filter(([key, value]) => value != null && key !== "game_mode")
+    .map(([key]) => fieldLabels[key as keyof SnapshotFormValues] ?? key);
+}
+
+function missingRequiredLabels(values: SnapshotFormValues): string[] {
+  return requiredFormFields
+    .filter((field) => values[field].trim() === "")
+    .map((field) => fieldLabels[field]);
+}
+
 export function SnapshotForm({
   initialSnapshot,
   submitLabel,
@@ -194,6 +257,8 @@ export function SnapshotForm({
   const [ocrBusy, setOcrBusy] = useState(false);
   const [ocrProgress, setOcrProgress] = useState<string | null>(null);
   const [ocrText, setOcrText] = useState<string | null>(null);
+  const [ocrFilledFields, setOcrFilledFields] = useState<string[]>([]);
+  const [ocrMissingRequired, setOcrMissingRequired] = useState<string[]>([]);
   const [message, setMessage] = useState<string | null>(null);
   const [serverWarnings, setServerWarnings] = useState<ValidationWarning[]>([]);
 
@@ -229,6 +294,8 @@ export function SnapshotForm({
     setSelectedFile(file);
     setOcrText(null);
     setOcrProgress(null);
+    setOcrFilledFields([]);
+    setOcrMissingRequired([]);
     if (previewUrl) URL.revokeObjectURL(previewUrl);
     setPreviewUrl(URL.createObjectURL(file));
     setMessage("ローカル画像のメタデータを読み取っています...");
@@ -268,11 +335,16 @@ export function SnapshotForm({
       const extracted = parseMahjongStatsOcr(text);
       const count = countExtractedFields(extracted);
       setOcrText(text);
-      setValues((current) => withOcrFields(current, extracted));
+      setOcrFilledFields(ocrFilledLabels(extracted));
+      setValues((current) => {
+        const next = withOcrFields(current, extracted);
+        setOcrMissingRequired(missingRequiredLabels(next));
+        return next;
+      });
       setMessage(
         count === 0
           ? "OCRは完了しましたが、対応している成績ラベルを検出できませんでした。"
-          : `OCRで${count}項目を入力しました。保存前に値を確認してください。`
+          : `OCRで${count}項目を入力しました。未入力の必須項目を確認してください。`
       );
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "OCRに失敗しました。");
@@ -479,6 +551,24 @@ export function SnapshotForm({
           {previewUrl ? <img className="local-preview" src={previewUrl} alt="" /> : null}
         </div>
         {ocrProgress ? <p className="ocr-progress">{ocrProgress}</p> : null}
+        {ocrFilledFields.length > 0 || ocrMissingRequired.length > 0 ? (
+          <div className="ocr-summary" role="status">
+            {ocrFilledFields.length > 0 ? (
+              <p>
+                <strong>OCR入力済み:</strong> {ocrFilledFields.join("、")}
+              </p>
+            ) : null}
+            {ocrMissingRequired.length > 0 ? (
+              <p>
+                <strong>未入力の必須項目:</strong> {ocrMissingRequired.join("、")}
+              </p>
+            ) : (
+              <p>
+                <strong>未入力の必須項目:</strong> なし
+              </p>
+            )}
+          </div>
+        ) : null}
         {ocrText ? (
           <details className="ocr-result">
             <summary>OCR結果テキスト</summary>

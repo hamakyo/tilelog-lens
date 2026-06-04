@@ -12,6 +12,7 @@ import {
   listSnapshots,
   updateSnapshot
 } from "../lib/d1";
+import { logWorkerError } from "../lib/logger";
 import { nowIso, observedAtUtc } from "../lib/time";
 import { readGuardedJsonRequest } from "../middleware/requestGuards";
 
@@ -129,6 +130,7 @@ snapshotRoutes.post("/", async (c) => {
     if (message.includes("UNIQUE")) {
       return c.json({ error: "duplicate_observation_time" }, 409);
     }
+    logWorkerError(c, "snapshot_create_failed", error);
     return c.json({ error: "snapshot_create_failed" }, 500);
   }
 });
@@ -184,6 +186,7 @@ snapshotRoutes.put("/:id", async (c) => {
     if (message.includes("UNIQUE")) {
       return c.json({ error: "duplicate_observation_time" }, 409);
     }
+    logWorkerError(c, "snapshot_update_failed", error, { snapshot_id: id });
     return c.json({ error: "snapshot_update_failed" }, 500);
   }
 });

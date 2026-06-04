@@ -4,6 +4,7 @@ import { accessAuth } from "./middleware/accessAuth";
 import { analyticsRoutes } from "./routes/analytics";
 import { exportCsvRoutes } from "./routes/exportCsv";
 import { exportJsonRoutes } from "./routes/exportJson";
+import { logWorkerError } from "./lib/logger";
 import { snapshotRoutes } from "./routes/snapshots";
 
 const app = new Hono<AppBindings>();
@@ -26,6 +27,11 @@ app.route("/api/snapshots", snapshotRoutes);
 app.route("/api/analytics", analyticsRoutes);
 app.route("/api/export", exportCsvRoutes);
 app.route("/api/export", exportJsonRoutes);
+
+app.onError((error, c) => {
+  logWorkerError(c, "unhandled_worker_error", error);
+  return c.json({ error: "internal_server_error" }, 500);
+});
 
 app.notFound((c) => {
   if (c.env.ASSETS) {

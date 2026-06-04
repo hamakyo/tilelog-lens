@@ -428,6 +428,22 @@ textarea:focus {
   font-size: 13px;
 }
 
+.ocr-summary {
+  display: grid;
+  gap: 6px;
+  padding: 10px 12px;
+  border: 1px solid #cddde4;
+  border-radius: 8px;
+  background: #f6fbfd;
+  color: #33454f;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.ocr-summary p {
+  margin: 0;
+}
+
 .ocr-result {
   display: grid;
   gap: 8px;

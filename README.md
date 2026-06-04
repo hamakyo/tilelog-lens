@@ -184,11 +184,63 @@ For remote D1:
 wrangler d1 migrations apply tilelog_lens --remote
 ```
 
+## D1 backup and restore
+
+Create a remote D1 SQL backup before applying remote migrations or making risky
+data changes:
+
+```bash
+pnpm run db:backup:remote
+```
+
+The command writes `backups/tilelog_lens-remote-latest.sql`. Files under
+`backups/*.sql` are intentionally gitignored because they may contain personal
+stats, notes, player identifiers, and source metadata.
+
+For a timestamped backup, run:
+
+```bash
+mkdir -p backups
+wrangler d1 export tilelog_lens --remote --skip-confirmation --output "backups/tilelog_lens-remote-$(date -u +%Y%m%dT%H%M%SZ).sql"
+```
+
+Restore into local D1 first and inspect the app before restoring remote data:
+
+```bash
+wrangler d1 execute tilelog_lens --local --file backups/tilelog_lens-remote-latest.sql
+pnpm run dev
+```
+
+Remote restore is intentionally manual:
+
+```bash
+wrangler d1 execute tilelog_lens --remote --file backups/tilelog_lens-remote-latest.sql
+```
+
+Only run remote restore after confirming the target database and backup file.
+Do not commit backups.
+
 Deploy:
 
 ```bash
 pnpm run deploy
 ```
+
+## Continuous integration
+
+GitHub Actions runs the main verification suite on pushes to `main` and pull
+requests:
+
+```bash
+pnpm run typecheck
+pnpm test
+pnpm run build
+pnpm run test:e2e
+```
+
+The E2E suite uses synthetic image fixtures only and verifies mobile import,
+local metadata extraction, safe API payload shape, required `HH:mm`, and export
+link reachability.
 
 ## MVP usage flow
 
@@ -257,6 +309,8 @@ Default AI JSON export anonymizes player identifiers and includes:
 - Keep OCR text and screenshots in the browser; do not send them to the API.
 - Keep request body limits small.
 - Do not log JWTs, notes, player IDs, or export payloads.
+- Worker error logs are structured and limited to event, method, path, error
+  type/message, and non-sensitive identifiers such as snapshot id.
 - Keep `workers_dev` disabled in production unless separately protected.
 
 ## Known limitations
