@@ -119,6 +119,20 @@ wrangler secret put OWNER_EMAIL
 wrangler secret put ACCESS_AUD
 ```
 
+## Configuration visibility
+
+`wrangler.jsonc` may contain deployment-specific identifiers such as the D1 database ID, production hostname, and Cloudflare Access issuer/JWKS URL.
+
+These values are not application secrets by themselves, but they reveal deployment metadata. For a public repository, review whether you want to keep them committed or replace them with placeholders.
+
+Never commit:
+
+- `OWNER_EMAIL`
+- `ACCESS_AUD`
+- API tokens
+- Cloudflare account tokens
+- any private keys or credentials
+
 ## Cloudflare Access setup summary
 
 1. Open Cloudflare Zero Trust.
@@ -203,6 +217,10 @@ It stores:
 - optional notes
 - optional source image hash
 - optional source metadata
+
+MVP stores one optional note directly on `stat_snapshots.note`. A separate
+`play_notes` table is reserved for future richer note-taking features and is
+not part of the initial migration.
 
 It does not store:
 

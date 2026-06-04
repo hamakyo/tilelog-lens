@@ -173,6 +173,7 @@ function withOcrFields(
   const nextRecord = next as unknown as Record<string, string>;
   for (const [key, value] of Object.entries(fields)) {
     if (value == null) continue;
+    if (key === "game_mode") continue;
     nextRecord[key] = String(value);
   }
   next.parser_version = "ocr-tesseract-v1";

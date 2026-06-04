@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildDerivedMetrics, buildEstimatedDeltas } from "../src/worker/lib/metrics";
+import { buildDerivedMetrics, buildEstimatedDeltas } from "../src/shared/metrics";
 import { makeSnapshot } from "./fixtures";
 
 describe("metrics", () => {

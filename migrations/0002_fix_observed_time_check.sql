@@ -1,4 +1,4 @@
-CREATE TABLE IF NOT EXISTS stat_snapshots (
+CREATE TABLE IF NOT EXISTS stat_snapshots_new (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
 
   observed_date TEXT NOT NULL
@@ -62,6 +62,91 @@ CREATE TABLE IF NOT EXISTS stat_snapshots (
 
   UNIQUE (game_mode, observed_at_utc)
 );
+
+INSERT INTO stat_snapshots_new (
+  id,
+  observed_date,
+  observed_time,
+  timezone,
+  observed_at_utc,
+  game_mode,
+  player_name,
+  player_id,
+  rank_name,
+  rank_level,
+  rank_points,
+  rank_points_max,
+  matches,
+  avg_win_score,
+  avg_place,
+  max_renchan,
+  avg_win_turn,
+  first_rate,
+  second_rate,
+  third_rate,
+  fourth_rate,
+  bust_rate,
+  win_rate,
+  tsumo_rate,
+  deal_in_rate,
+  call_rate,
+  riichi_rate,
+  note,
+  source_image_sha256,
+  file_name,
+  file_last_modified,
+  exif_taken_at,
+  image_width,
+  image_height,
+  parser_version,
+  source_image_stored,
+  created_at,
+  updated_at
+)
+SELECT
+  id,
+  observed_date,
+  observed_time,
+  timezone,
+  observed_at_utc,
+  game_mode,
+  player_name,
+  player_id,
+  rank_name,
+  rank_level,
+  rank_points,
+  rank_points_max,
+  matches,
+  avg_win_score,
+  avg_place,
+  max_renchan,
+  avg_win_turn,
+  first_rate,
+  second_rate,
+  third_rate,
+  fourth_rate,
+  bust_rate,
+  win_rate,
+  tsumo_rate,
+  deal_in_rate,
+  call_rate,
+  riichi_rate,
+  note,
+  source_image_sha256,
+  file_name,
+  file_last_modified,
+  exif_taken_at,
+  image_width,
+  image_height,
+  parser_version,
+  source_image_stored,
+  created_at,
+  updated_at
+FROM stat_snapshots;
+
+DROP TABLE stat_snapshots;
+
+ALTER TABLE stat_snapshots_new RENAME TO stat_snapshots;
 
 CREATE INDEX IF NOT EXISTS idx_stat_snapshots_observed_at
   ON stat_snapshots(observed_at_utc);

@@ -88,6 +88,21 @@ describe("OCR parser", () => {
     expect(fields.riichi_rate).toBe(26.07);
   });
 
+  it("does not infer a game mode from numeric-only OCR text", () => {
+    const fields = parseMahjongStatsOcr(`
+      585/800
+      一位率 19.09% 対戦数 241 和了率 19.80%
+      二位率 26.97% 平均和了 6536 ツモ率 29.34%
+      三位率 30.29% 平均順位 2.59 放銃率 17.66%
+      四位率 23.65% 最大連荘 4 副露率 27.83%
+      飛び率 2.90% 和了巡数 12.66 立直率 26.07%
+    `);
+
+    expect(fields.game_mode).toBeUndefined();
+    expect(fields.rank_points).toBe(585);
+    expect(fields.matches).toBe(241);
+  });
+
   it("extracts shifted Mahjong Soul profile detail screenshots", () => {
     const samples = [
       {

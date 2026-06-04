@@ -1,7 +1,7 @@
 import { Hono } from "hono";
+import { buildDerivedMetrics, buildEstimatedDeltas } from "../../shared/metrics";
 import type { AppBindings } from "../env";
 import { listAllSnapshots } from "../lib/d1";
-import { buildDerivedMetrics, buildEstimatedDeltas } from "../lib/metrics";
 
 export const analyticsRoutes = new Hono<AppBindings>();
 

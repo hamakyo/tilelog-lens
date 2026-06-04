@@ -25,10 +25,11 @@ Cloudflare Worker
 
 Cloudflare D1
   ├─ stat_snapshots
-  └─ play_notes
+  └─ play_notes (future, not in MVP migration)
 ```
 
 No screenshot storage service is used in MVP. R2 is intentionally omitted.
+MVP stores one optional note directly on `stat_snapshots.note`.
 
 ## 2. Runtime flow
 
@@ -150,7 +151,10 @@ CREATE TABLE stat_snapshots (
     CHECK (observed_date GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'),
 
   observed_time TEXT NOT NULL
-    CHECK (observed_time GLOB '[0-2][0-9]:[0-5][0-9]'),
+    CHECK (
+      observed_time GLOB '[0-1][0-9]:[0-5][0-9]'
+      OR observed_time GLOB '2[0-3]:[0-5][0-9]'
+    ),
 
   timezone TEXT NOT NULL DEFAULT 'Asia/Tokyo',
   observed_at_utc TEXT NOT NULL,
@@ -215,9 +219,13 @@ CREATE INDEX idx_stat_snapshots_source_hash
   ON stat_snapshots(source_image_sha256);
 ```
 
-### 5.2 Notes table: `play_notes`
+### 5.2 Future notes table: `play_notes`
 
-MVP can store notes directly in `stat_snapshots.note`. Add `play_notes` if richer notes are needed.
+MVP stores one optional note directly on `stat_snapshots.note`.
+A separate `play_notes` table is reserved for future richer note-taking
+features and is not part of the initial migration.
+
+Future example:
 
 ```sql
 CREATE TABLE play_notes (
@@ -699,4 +707,3 @@ Do not include sensitive details.
 - Cloudflare Access JWT validation: https://developers.cloudflare.com/cloudflare-one/access-controls/applications/http-apps/authorization-cookie/validating-json/
 - Cloudflare D1 with Hono: https://developers.cloudflare.com/d1/examples/d1-and-hono/
 - Hono on Cloudflare Workers: https://hono.dev/docs/getting-started/cloudflare-workers
-

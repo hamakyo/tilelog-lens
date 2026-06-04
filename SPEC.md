@@ -251,6 +251,10 @@ Examples:
 
 Notes are useful for AI analysis, but the UI must warn the owner not to include sensitive personal information unless they intend to export it.
 
+MVP stores one optional note directly on `stat_snapshots.note`. A separate
+`play_notes` table is reserved for future richer note-taking features and is
+not part of the initial migration.
+
 ## 7. Validation requirements
 
 ### 7.1 Field validation
@@ -348,4 +352,3 @@ MVP is complete when:
 10. AI context JSON export works and defaults to anonymized data.
 11. README includes non-official, personal-use, post-game-only disclaimer.
 12. No code or UI implies official affiliation with Mahjong Soul / 雀魂.
-

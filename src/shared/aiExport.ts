@@ -1,6 +1,6 @@
 import { APP_NAME, GAME_NAME } from "./constants";
+import { buildDerivedMetrics, buildEstimatedDeltas } from "./metrics";
 import type { AiContext, Snapshot } from "./types";
-import { buildDerivedMetrics, buildEstimatedDeltas } from "../worker/lib/metrics";
 
 const metricsDescription: Record<string, string> = {
   avg_place: "平均順位。低いほど良い。",

@@ -1,4 +1,4 @@
-import type { DerivedMetric, EstimatedDelta, Snapshot } from "../../shared/types";
+import type { DerivedMetric, EstimatedDelta, Snapshot } from "./types";
 
 function round2(value: number): number {
   return Math.round(value * 100) / 100;

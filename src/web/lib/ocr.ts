@@ -719,7 +719,7 @@ async function recognizeMahjongSoulNumericLayout(
 
   const count = countExtractedFields(fields);
   if (count >= 10) {
-    return { game_mode: "east", ...fields };
+    return fields;
   }
 
   return fields;

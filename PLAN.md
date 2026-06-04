@@ -30,7 +30,7 @@ Tasks:
 
 - [x] Add `migrations/0001_init.sql`.
 - [x] Create `stat_snapshots` table.
-- [x] Optionally create `play_notes` table.
+- [x] Reserve `play_notes` for future richer note-taking; MVP uses `stat_snapshots.note`.
 - [x] Add D1 query helpers.
 - [x] Add typed row mappers.
 - [x] Add local migration instructions to README.
@@ -293,4 +293,3 @@ Do not add these:
 - [ ] Traffic interception.
 - [ ] Browser extension reading live game state.
 - [ ] Official-looking branding.
-
