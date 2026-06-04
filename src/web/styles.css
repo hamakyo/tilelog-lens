@@ -558,14 +558,21 @@ footer {
   .sidebar {
     position: static;
     height: auto;
+    overflow: hidden;
     padding: 14px;
     border-right: 0;
     border-bottom: 1px solid #d9dee3;
   }
 
   .sidebar nav {
-    grid-template-columns: repeat(5, minmax(96px, 1fr));
+    display: flex;
+    width: 100%;
+    max-width: 100%;
     overflow-x: auto;
+  }
+
+  .sidebar nav a {
+    flex: 0 0 122px;
   }
 
   .summary-grid,
@@ -595,7 +602,7 @@ footer {
     grid-template-columns: 1fr;
   }
 
-  .sidebar nav {
-    grid-template-columns: repeat(5, 122px);
+  .sidebar nav a {
+    flex-basis: 112px;
   }
 }

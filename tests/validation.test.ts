@@ -11,7 +11,14 @@ describe("snapshot validation", () => {
     expect(snapshotCreateSchema.safeParse(input).success).toBe(false);
   });
 
-  it("rejects 24:00 and accepts 23:59", () => {
+  it("accepts 00:00 and 23:59, rejects 24:00 and 29:59", () => {
+    expect(
+      snapshotCreateSchema.safeParse({
+        ...baseSnapshotInput,
+        observed_time: "00:00"
+      }).success
+    ).toBe(true);
+
     expect(
       snapshotCreateSchema.safeParse({
         ...baseSnapshotInput,
@@ -25,6 +32,13 @@ describe("snapshot validation", () => {
         observed_time: "23:59"
       }).success
     ).toBe(true);
+
+    expect(
+      snapshotCreateSchema.safeParse({
+        ...baseSnapshotInput,
+        observed_time: "29:59"
+      }).success
+    ).toBe(false);
   });
 
   it("rejects invalid dates and rates outside 0-100", () => {

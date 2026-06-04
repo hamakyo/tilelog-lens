@@ -103,6 +103,15 @@ describe("OCR parser", () => {
     expect(fields.matches).toBe(241);
   });
 
+  it("returns game mode only when mode text is detected", () => {
+    expect(parseMahjongStatsOcr("半荘戦\n対戦数 10\n一位率 25%").game_mode).toBe(
+      "south"
+    );
+    expect(parseMahjongStatsOcr("三人戦\n対戦数 10\n一位率 25%").game_mode).toBe(
+      "three_player"
+    );
+  });
+
   it("extracts shifted Mahjong Soul profile detail screenshots", () => {
     const samples = [
       {

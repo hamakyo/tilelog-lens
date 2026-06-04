@@ -10,6 +10,10 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:headed": "playwright test --headed",
+    "dev:e2e": "pnpm run build && wrangler dev --local --ip 127.0.0.1 --port 8787 --var ENVIRONMENT:development --var DEV_AUTH_BYPASS:true --var OWNER_EMAIL:dev@example.com --var ACCESS_AUD:local-development --var ACCESS_ISSUER:https://example.cloudflareaccess.com --var ACCESS_JWKS_URL:https://example.cloudflareaccess.com/cdn-cgi/access/certs",
     "db:migrate:local": "wrangler d1 migrations apply tilelog_lens --local",
     "db:migrate:remote": "wrangler d1 migrations apply tilelog_lens --remote",
     "deploy": "pnpm run build && wrangler deploy"
@@ -26,6 +30,8 @@
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20250601.0",
+    "@playwright/test": "^1.60.0",
+    "@types/node": "^24.0.0",
     "@types/react": "^19.1.0",
     "@types/react-dom": "^19.1.0",
     "@vitejs/plugin-react": "^4.5.0",

@@ -5,6 +5,8 @@ dist/
 *.log
 
 coverage/
+playwright-report/
+test-results/
 .vite/
 
 .env
