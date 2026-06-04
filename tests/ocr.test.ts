@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   countExtractedFields,
-  parseMahjongStatsOcr
+  parseMahjongStatsOcr,
+  selectMahjongSoulStatRowCenters
 } from "../src/web/lib/ocr";
 
 describe("OCR parser", () => {
@@ -181,5 +182,20 @@ describe("OCR parser", () => {
       expect(fields.riichi_rate).toBe(sample.expected.riichi_rate);
       expect(countExtractedFields(fields)).toBe(18);
     }
+  });
+
+  it("selects the visible five stat rows from collapsed profile detail screenshots", () => {
+    expect(
+      selectMahjongSoulStatRowCenters([
+        549.7,
+        623.6,
+        680.2,
+        736.1,
+        792.5,
+        852.1,
+        940.4,
+        1026.9
+      ])
+    ).toEqual([623.6, 680.2, 736.1, 792.5, 852.1]);
   });
 });

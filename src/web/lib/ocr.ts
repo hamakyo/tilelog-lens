@@ -356,6 +356,27 @@ function isMahjongSoulValuePixel(red: number, green: number, blue: number): bool
   return red > 150 && green > 100 && blue < 90;
 }
 
+export function selectMahjongSoulStatRowCenters(centers: number[]): number[] | undefined {
+  if (centers.length < 5) return undefined;
+
+  let bestWindow: number[] | undefined;
+  let bestScore = Number.POSITIVE_INFINITY;
+
+  for (let index = 0; index <= centers.length - 5; index += 1) {
+    const window = centers.slice(index, index + 5);
+    const gaps = window.slice(1).map((center, gapIndex) => center - window[gapIndex]);
+    if (gaps.some((gap) => gap < 42 || gap > 76)) continue;
+
+    const score = gaps.reduce((sum, gap) => sum + Math.abs(gap - 57), 0);
+    if (score < bestScore) {
+      bestScore = score;
+      bestWindow = window;
+    }
+  }
+
+  return bestWindow;
+}
+
 function detectMahjongSoulStatRows(image: HTMLImageElement): MahjongSoulDetectedRows {
   const scaleX = image.naturalWidth / mahjongSoulBaseSize.width;
   const scaleY = image.naturalHeight / mahjongSoulBaseSize.height;
@@ -368,7 +389,7 @@ function detectMahjongSoulStatRows(image: HTMLImageElement): MahjongSoulDetected
 
   context.drawImage(image, 0, 0);
   const rows: MahjongSoulDetectedRows = {};
-  const scanY1 = Math.round(650 * scaleY);
+  const scanY1 = Math.round(540 * scaleY);
   const scanY2 = Math.round(1090 * scaleY);
   const minRowPixelCount = Math.max(8, Math.round(8 * scaleX));
 
@@ -413,10 +434,11 @@ function detectMahjongSoulStatRows(image: HTMLImageElement): MahjongSoulDetected
         );
       })
       .filter((value): value is number => value != null)
-      .slice(0, 5);
+      .sort((a, b) => a - b);
 
-    if (centers.length === 5) {
-      rows[column] = centers;
+    const statCenters = selectMahjongSoulStatRowCenters(centers);
+    if (statCenters) {
+      rows[column] = statCenters;
     }
   }
 
