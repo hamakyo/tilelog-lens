@@ -7,7 +7,7 @@ export const baseSnapshotInput: SnapshotCreateInput = {
   game_mode: "south",
   player_name: "Player",
   player_id: "player-1",
-  rank_name: "Master",
+  rank_name: "雀士",
   rank_level: 1,
   rank_points: 1200,
   rank_points_max: 2000,
