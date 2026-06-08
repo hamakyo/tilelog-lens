@@ -14,17 +14,26 @@ export function ExportPage() {
       </div>
 
       <section className="export-grid">
-        <a className="export-action" href="/api/export/snapshots.csv">
+        <a
+          className="export-action"
+          href="/api/export/snapshots.csv"
+          download="tilelog-snapshots.csv"
+        >
           <Download size={22} aria-hidden="true" />
           <span>記録CSV</span>
         </a>
-        <a className="export-action" href="/api/export/deltas.csv">
+        <a
+          className="export-action"
+          href="/api/export/deltas.csv"
+          download="tilelog-deltas.csv"
+        >
           <Download size={22} aria-hidden="true" />
           <span>差分CSV</span>
         </a>
         <a
           className="export-action"
           href={`/api/export/ai-context.json?anonymize=${String(anonymize)}`}
+          download="tilelog-ai-context.json"
         >
           <Download size={22} aria-hidden="true" />
           <span>AI用JSON</span>

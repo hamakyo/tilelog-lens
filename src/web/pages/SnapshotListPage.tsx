@@ -51,7 +51,11 @@ export function SnapshotListPage({ navigate }: SnapshotListPageProps) {
           <p className="eyebrow">記録一覧</p>
           <h1>保存した記録</h1>
         </div>
-        <a className="secondary-button" href="/api/export/snapshots.csv">
+        <a
+          className="secondary-button"
+          href="/api/export/snapshots.csv"
+          download="tilelog-snapshots.csv"
+        >
           <Download size={18} aria-hidden="true" />
           <span>CSV</span>
         </a>

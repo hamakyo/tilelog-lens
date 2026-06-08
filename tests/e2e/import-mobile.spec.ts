@@ -168,13 +168,25 @@ test("mobile export page is reachable", async ({ page }) => {
     "href",
     "/api/export/snapshots.csv"
   );
+  await expect(page.getByRole("link", { name: "記録CSV" })).toHaveAttribute(
+    "download",
+    "tilelog-snapshots.csv"
+  );
   await expect(page.getByRole("link", { name: "差分CSV" })).toHaveAttribute(
     "href",
     "/api/export/deltas.csv"
   );
+  await expect(page.getByRole("link", { name: "差分CSV" })).toHaveAttribute(
+    "download",
+    "tilelog-deltas.csv"
+  );
   await expect(page.getByRole("link", { name: "AI用JSON" })).toHaveAttribute(
     "href",
     "/api/export/ai-context.json?anonymize=true"
+  );
+  await expect(page.getByRole("link", { name: "AI用JSON" })).toHaveAttribute(
+    "download",
+    "tilelog-ai-context.json"
   );
   await expectNoDocumentOverflow(page);
 });
