@@ -1,6 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { Activity, Gauge, ShieldAlert } from "lucide-react";
 import type { EstimatedDelta, Snapshot } from "../../shared/types";
+import { GAME_MODE_LABELS } from "../../shared/constants";
+import {
+  buildImprovementPriorities,
+  buildPeriodAnalyses
+} from "../../shared/metrics";
 import { listDeltas, listSnapshots } from "../lib/api";
 import { formatDateTime, formatDecimal, formatNumber, formatRate } from "../lib/format";
 import { TrendChart } from "../components/TrendChart";
@@ -56,7 +61,22 @@ export function DashboardPage({ navigate }: DashboardPageProps) {
   }, []);
 
   const latest = snapshots[0];
+  const modeSnapshots = useMemo(
+    () =>
+      latest
+        ? snapshots.filter((snapshot) => snapshot.game_mode === latest.game_mode)
+        : [],
+    [latest, snapshots]
+  );
   const chartData = useMemo(() => toChartPoints(snapshots), [snapshots]);
+  const periodAnalyses = useMemo(
+    () => buildPeriodAnalyses(modeSnapshots),
+    [modeSnapshots]
+  );
+  const improvementPriorities = useMemo(
+    () => buildImprovementPriorities(modeSnapshots),
+    [modeSnapshots]
+  );
   const latestDelta = deltas[deltas.length - 1];
 
   return (
@@ -93,6 +113,88 @@ export function DashboardPage({ navigate }: DashboardPageProps) {
           <span>最新の対戦数差分</span>
           <strong>{latestDelta ? formatNumber(latestDelta.matches_delta) : "-"}</strong>
         </div>
+      </section>
+
+      <section className="analysis-section">
+        <div className="section-heading">
+          <h2>直近期間</h2>
+          <p>{latest ? GAME_MODE_LABELS[latest.game_mode] : "-"}</p>
+        </div>
+        <div className="period-grid">
+          {periodAnalyses.length === 0 ? (
+            <p className="empty-state">まだ期間分析はありません。</p>
+          ) : (
+            periodAnalyses.map((period) => (
+              <div className="period-tile" key={period.label}>
+                <div className="period-tile-header">
+                  <strong>{period.label}</strong>
+                  <span>{period.actual_matches > 0 ? `${period.actual_matches}戦` : "-"}</span>
+                </div>
+                {period.quality === "insufficient_data" ? (
+                  <p className="period-empty">記録不足</p>
+                ) : (
+                  <dl className="period-metrics">
+                    <div>
+                      <dt>平均順位</dt>
+                      <dd>{formatDecimal(period.period_avg_place)}</dd>
+                    </div>
+                    <div>
+                      <dt>和了率</dt>
+                      <dd>{formatRate(period.period_win_rate)}</dd>
+                    </div>
+                    <div>
+                      <dt>放銃率</dt>
+                      <dd>{formatRate(period.period_deal_in_rate)}</dd>
+                    </div>
+                    <div>
+                      <dt>攻守差</dt>
+                      <dd>{formatDecimal(period.attack_defense_gap)}</dd>
+                    </div>
+                  </dl>
+                )}
+                <span className={`quality-pill quality-${period.quality}`}>
+                  {period.quality === "ok"
+                    ? "良好"
+                    : period.quality === "limited_data"
+                      ? "概算"
+                      : "不足"}
+                </span>
+              </div>
+            ))
+          )}
+        </div>
+      </section>
+
+      <section className="analysis-section">
+        <div className="section-heading">
+          <h2>改善優先度</h2>
+          <p>{improvementPriorities.length > 0 ? `${improvementPriorities.length}件` : "課題なし"}</p>
+        </div>
+        {improvementPriorities.length === 0 ? (
+          <p className="empty-state">大きく悪化している指標はありません。</p>
+        ) : (
+          <div className="priority-list">
+            {improvementPriorities.map((priority) => (
+              <article className="priority-item" key={priority.id}>
+                <div className="priority-score">
+                  <span className={`severity-pill severity-${priority.severity}`}>
+                    {priority.severity === "high"
+                      ? "高"
+                      : priority.severity === "medium"
+                        ? "中"
+                        : "低"}
+                  </span>
+                  <strong>{priority.score}</strong>
+                </div>
+                <div className="priority-body">
+                  <h3>{priority.title}</h3>
+                  <p>{priority.reason}</p>
+                  <p>{priority.action}</p>
+                </div>
+              </article>
+            ))}
+          </div>
+        )}
       </section>
 
       <div className="chart-grid">

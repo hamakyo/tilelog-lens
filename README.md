@@ -12,6 +12,7 @@ TileLog Lens lets you record cumulative statistics snapshots, analyze trends, an
 - Supports East, South, three-player, and other game modes.
 - Stores numerical data in Cloudflare D1.
 - Shows trend charts and estimated period deltas.
+- Shows recent-period performance differences and improvement priority scores.
 - Exports CSV for spreadsheet analysis.
 - Exports AI-friendly JSON for external analysis.
 - Uses Cloudflare Access email One-time PIN / OTP for owner-only login.
@@ -55,6 +56,42 @@ Screenshots are processed locally in the browser and are not stored on the serve
 - Zod
 - jose
 - Vitest
+
+## System architecture
+
+```mermaid
+flowchart LR
+  User["Owner browser"]
+  Screenshot["Local screenshot file"]
+  SPA["React SPA\nImport / Dashboard / Export"]
+  OCR["Browser-only OCR\nSHA-256 + metadata extraction"]
+  Access["Cloudflare Access\nEmail OTP"]
+  Worker["Cloudflare Worker\nHono API"]
+  Auth["Access JWT validation\nOwner email check"]
+  Guards["Request guards\nNo image/base64 payloads"]
+  D1["Cloudflare D1\nConfirmed numeric stats only"]
+  Assets["Cloudflare Assets\nBuilt SPA files"]
+  Export["User-initiated CSV / JSON export\nAI JSON anonymized by default"]
+
+  User --> SPA
+  Screenshot --> OCR
+  OCR --> SPA
+  SPA --> Access
+  Access --> Worker
+  Worker --> Auth
+  Auth --> Guards
+  Guards --> D1
+  D1 --> Worker
+  Worker --> Export
+  Worker --> Assets
+
+  Screenshot -. "image bytes stay in browser" .-> SPA
+  SPA -. "never uploads screenshots" .-> Guards
+```
+
+Screenshots are processed only in the browser. API requests carry confirmed
+statistics and optional image metadata such as hash, dimensions, and file name,
+but never screenshot images or base64 payloads.
 
 ## Recommended repository structure
 

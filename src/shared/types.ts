@@ -129,6 +129,39 @@ export type EstimatedDelta = {
   quality: "ok" | "same_matches" | "negative_matches" | "insufficient_data";
 };
 
+export type PeriodAnalysis = {
+  label: string;
+  target_matches: number;
+  actual_matches: number;
+  from_snapshot_id: number;
+  to_snapshot_id: number;
+  from_observed_at_utc: string;
+  to_observed_at_utc: string;
+  period_avg_place?: number;
+  period_first_rate?: number;
+  period_second_rate?: number;
+  period_third_rate?: number;
+  period_fourth_rate?: number;
+  period_win_rate?: number;
+  period_deal_in_rate?: number;
+  period_call_rate?: number;
+  period_riichi_rate?: number;
+  attack_defense_gap?: number;
+  quality: "ok" | "limited_data" | "insufficient_data";
+};
+
+export type ImprovementPriority = {
+  id: string;
+  title: string;
+  severity: "high" | "medium" | "low";
+  score: number;
+  reason: string;
+  action: string;
+  metric: string;
+  current_value: number;
+  target_value: number;
+};
+
 export type AiContext = {
   schema_version: "1.0";
   app: string;

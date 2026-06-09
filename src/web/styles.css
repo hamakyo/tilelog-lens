@@ -264,6 +264,170 @@ h2 {
   font-size: 20px;
 }
 
+.analysis-section {
+  display: grid;
+  gap: 12px;
+}
+
+.analysis-section .section-heading {
+  padding: 0;
+}
+
+.period-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.period-tile,
+.priority-item {
+  border: 1px solid #d9dee3;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.period-tile {
+  display: grid;
+  gap: 12px;
+  min-height: 172px;
+  padding: 14px;
+}
+
+.period-tile-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.period-tile-header strong {
+  color: #172026;
+  font-size: 15px;
+}
+
+.period-tile-header span,
+.period-empty {
+  color: #64737f;
+  font-size: 13px;
+}
+
+.period-empty {
+  margin: 0;
+}
+
+.period-metrics {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin: 0;
+}
+
+.period-metrics div {
+  display: grid;
+  gap: 2px;
+}
+
+.period-metrics dt {
+  color: #64737f;
+  font-size: 12px;
+}
+
+.period-metrics dd {
+  margin: 0;
+  color: #172026;
+  font-size: 18px;
+  font-weight: 800;
+}
+
+.quality-pill,
+.severity-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  justify-self: start;
+  min-width: 42px;
+  min-height: 24px;
+  border-radius: 999px;
+  padding: 3px 9px;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.quality-ok {
+  background: #e7f5ef;
+  color: #126247;
+}
+
+.quality-limited_data {
+  background: #fff5d8;
+  color: #6f5300;
+}
+
+.quality-insufficient_data {
+  background: #edf1f4;
+  color: #5a6872;
+}
+
+.priority-list {
+  display: grid;
+  gap: 10px;
+}
+
+.priority-item {
+  display: grid;
+  grid-template-columns: 84px minmax(0, 1fr);
+  gap: 12px;
+  padding: 14px;
+}
+
+.priority-score {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+}
+
+.priority-score strong {
+  color: #172026;
+  font-size: 28px;
+  line-height: 1;
+}
+
+.severity-high {
+  background: #ffe9e5;
+  color: #973228;
+}
+
+.severity-medium {
+  background: #fff5d8;
+  color: #6f5300;
+}
+
+.severity-low {
+  background: #e7f5ef;
+  color: #126247;
+}
+
+.priority-body {
+  display: grid;
+  gap: 6px;
+}
+
+.priority-body h3,
+.priority-body p {
+  margin: 0;
+}
+
+.priority-body h3 {
+  color: #172026;
+  font-size: 15px;
+}
+
+.priority-body p {
+  color: #52636f;
+  font-size: 13px;
+  line-height: 1.55;
+}
+
 .chart-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -593,6 +757,7 @@ footer {
 
   .summary-grid,
   .chart-grid,
+  .period-grid,
   .export-grid {
     grid-template-columns: 1fr;
   }
@@ -620,5 +785,9 @@ footer {
 
   .sidebar nav a {
     flex-basis: 112px;
+  }
+
+  .priority-item {
+    grid-template-columns: 1fr;
   }
 }
