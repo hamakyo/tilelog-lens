@@ -1,50 +1,42 @@
 # TileLog Lens
 
-Unofficial, personal-use, post-game statistics tracker for Mahjong Soul / 雀魂 screenshots.
+TileLog Lens は、雀魂 / Mahjong Soul の対局後スクリーンショットから確認した数値を記録する、非公式・個人利用向けの戦績トラッカーです。
 
-TileLog Lens lets you record cumulative statistics snapshots, analyze trends, and export CSV/JSON for AI-assisted review. It is designed for **private post-game record keeping only**.
+累積戦績のスナップショットを保存し、傾向分析、期間差分、CSV/JSONエクスポートを行えます。用途は **対局後の個人記録** に限定しています。
 
-## What this app does
+## このアプリでできること
 
-- Records confirmed numerical statistics from your own post-game/profile statistics screenshots.
-- Requires observation date and `HH:mm` time for every snapshot.
-- Runs optional browser-side OCR to prefill known statistics fields from a local screenshot.
-- Supports East, South, three-player, and other game modes.
-- Stores numerical data in Cloudflare D1.
-- Shows trend charts and estimated period deltas.
-- Shows recent-period performance differences and improvement priority scores.
-- Exports CSV for spreadsheet analysis.
-- Exports AI-friendly JSON for external analysis.
-- Uses Cloudflare Access email One-time PIN / OTP for owner-only login.
-- Includes a Settings page for owner info and basic configuration.
+- 自分の対局後・プロフィール戦績スクリーンショットから確認した数値を記録します。
+- すべての記録で観測日と `HH:mm` 形式の時刻を必須にします。
+- ローカルスクリーンショットに対して、ブラウザ内だけで任意のOCRを実行します。
+- 東風戦、半荘戦、三人戦、その他のゲームモードに対応します。
+- 確認済みの数値データを Cloudflare D1 に保存します。
+- トレンドチャート、推定期間差分、直近期の成績差分を表示します。
+- 改善優先度スコアを表示します。
+- 表計算向けCSVをエクスポートします。
+- 外部AI分析に渡しやすいJSONをエクスポートします。
+- Cloudflare Access のメールOTPで所有者だけがログインできます。
+- 設定ページで所有者情報や基本設定を確認できます。
 
-## What this app does not do
+## このアプリでしないこと
 
-- It does not store screenshots server-side.
-- It does not modify the game client.
-- It does not inspect network traffic.
-- It does not automate gameplay.
-- It does not provide real-time in-game advice.
-- It does not use official logos, characters, or copyrighted assets in the app UI.
-- It is not affiliated with Yostar or Mahjong Soul / 雀魂.
+- スクリーンショット画像をサーバー側に保存しません。
+- ゲームクライアントを改変しません。
+- 通信内容を解析しません。
+- 対局を自動化しません。
+- 対局中のリアルタイム助言を提供しません。
+- アプリUIに公式ロゴ、キャラクター、著作物アセットを使用しません。
+- Yostar または Mahjong Soul / 雀魂 との公式な関係を示しません。
 
-## Disclaimer
+## 免責事項
 
-This application is an unofficial personal statistics tracker for Mahjong Soul / 雀魂.
+本アプリは、雀魂 / Mahjong Soul の非公式・個人用戦績記録ツールです。
 
-It is designed only for post-game personal record keeping. It does not modify the game client, inspect network traffic, automate gameplay, or provide real-time in-game assistance.
+対局後の個人記録だけを目的としており、ゲームクライアントの改変、通信解析、自動操作、リアルタイム支援は行いません。
 
-Screenshots are processed locally in the browser and are not stored on the server. Only manually confirmed numerical statistics are saved.
+スクリーンショット画像はブラウザ内でのみ処理し、サーバーには保存しません。保存されるのは、ユーザーが確認した戦績数値と任意の画像メタデータだけです。
 
-日本語:
-
-本アプリは「雀魂」の非公式・個人用戦績記録ツールです。
-
-対局中の判断補助、ゲームクライアントの改変、通信解析、自動操作、リアルタイム支援を目的としません。
-
-スクリーンショット画像はブラウザ内でのみ処理し、サーバーには保存しません。保存されるのは、ユーザーが確認した戦績数値のみです。
-
-## Stack
+## 技術スタック
 
 - React SPA
 - Vite
@@ -57,21 +49,21 @@ Screenshots are processed locally in the browser and are not stored on the serve
 - jose
 - Vitest
 
-## System architecture
+## システム構成
 
 ```mermaid
 flowchart LR
-  User["Owner browser"]
-  Screenshot["Local screenshot file"]
-  SPA["React SPA\nImport / Dashboard / Export"]
-  OCR["Browser-only OCR\nSHA-256 + metadata extraction"]
-  Access["Cloudflare Access\nEmail OTP"]
+  User["所有者のブラウザ"]
+  Screenshot["ローカルスクリーンショット"]
+  SPA["React SPA\nインポート / ダッシュボード / エクスポート"]
+  OCR["ブラウザ内OCR\nSHA-256 + メタデータ抽出"]
+  Access["Cloudflare Access\nメールOTP"]
   Worker["Cloudflare Worker\nHono API"]
-  Auth["Access JWT validation\nOwner email check"]
-  Guards["Request guards\nNo image/base64 payloads"]
-  D1["Cloudflare D1\nConfirmed numeric stats only"]
-  Assets["Cloudflare Assets\nBuilt SPA files"]
-  Export["User-initiated CSV / JSON export\nAI JSON anonymized by default"]
+  Auth["Access JWT検証\n所有者メール確認"]
+  Guards["リクエストガード\n画像/base64ペイロード拒否"]
+  D1["Cloudflare D1\n確認済み数値だけ保存"]
+  Assets["Cloudflare Assets\nビルド済みSPA"]
+  Export["ユーザー操作によるCSV / JSON出力\nAI JSONは既定で匿名化"]
 
   User --> SPA
   Screenshot --> OCR
@@ -85,15 +77,13 @@ flowchart LR
   Worker --> Export
   Worker --> Assets
 
-  Screenshot -. "image bytes stay in browser" .-> SPA
-  SPA -. "never uploads screenshots" .-> Guards
+  Screenshot -. "画像本体はブラウザ内に留まる" .-> SPA
+  SPA -. "スクリーンショットをアップロードしない" .-> Guards
 ```
 
-Screenshots are processed only in the browser. API requests carry confirmed
-statistics and optional image metadata such as hash, dimensions, and file name,
-but never screenshot images or base64 payloads.
+スクリーンショットはブラウザ内だけで処理します。APIリクエストには、確認済みの戦績数値と、必要に応じてハッシュ・画像サイズ・ファイル名などのメタデータだけを含めます。スクリーンショット画像やbase64ペイロードは送信しません。
 
-## Recommended repository structure
+## 推奨リポジトリ構成
 
 ```txt
 .
@@ -111,9 +101,9 @@ but never screenshot images or base64 payloads.
 └─ SPEC.md
 ```
 
-## Environment variables and bindings
+## 環境変数とバインディング
 
-Expected Worker environment:
+Worker が想定する環境は次の通りです。
 
 ```ts
 interface Env {
@@ -126,7 +116,7 @@ interface Env {
 }
 ```
 
-Example `wrangler.jsonc` fragment:
+`wrangler.jsonc` の例です。
 
 ```jsonc
 {
@@ -149,56 +139,52 @@ Example `wrangler.jsonc` fragment:
 }
 ```
 
-Set secrets:
+Secrets は次のように設定します。
 
 ```bash
 wrangler secret put OWNER_EMAIL
 wrangler secret put ACCESS_AUD
 ```
 
-## Configuration visibility
+## 設定情報の扱い
 
-`wrangler.jsonc` may contain deployment-specific identifiers such as the D1 database ID, production hostname, and Cloudflare Access issuer/JWKS URL.
+`wrangler.jsonc` には、D1 database ID、本番ホスト名、Cloudflare Access issuer/JWKS URL など、デプロイ固有の識別子が含まれる場合があります。
 
-These values are not application secrets by themselves, but they reveal deployment metadata. For a public repository, review whether you want to keep them committed or replace them with placeholders.
+これらは単体ではアプリケーション秘密情報ではありませんが、デプロイ構成のメタデータです。公開リポジトリにする場合は、コミットしたままにするかプレースホルダーへ置き換えるかを確認してください。
 
-Never commit:
+次の値はコミットしないでください。
 
 - `OWNER_EMAIL`
 - `ACCESS_AUD`
-- API tokens
-- Cloudflare account tokens
-- any private keys or credentials
+- APIトークン
+- Cloudflareアカウントトークン
+- 秘密鍵や認証情報
 
-## Cloudflare Access setup summary
+## Cloudflare Access 設定概要
 
-1. Open Cloudflare Zero Trust.
-2. Create a self-hosted Access application for the production hostname.
-3. Enable One-time PIN / OTP login.
-4. Create an Allow policy.
-5. Include only your owner email address.
-6. Do not add `Everyone`, broad domains, or bypass policies.
-7. Confirm the application audience tag and set it as `ACCESS_AUD`.
-8. Set `ACCESS_ISSUER` and `ACCESS_JWKS_URL` for JWT validation.
-9. Disable `workers_dev` in production, or protect workers.dev with Access too.
+1. Cloudflare Zero Trust を開きます。
+2. 本番ホスト名用の self-hosted Access application を作成します。
+3. One-time PIN / OTP ログインを有効にします。
+4. Allow policy を作成します。
+5. 所有者のメールアドレスだけを許可対象にします。
+6. `Everyone`、広すぎるドメイン、bypass policy は追加しません。
+7. Application audience tag を確認し、`ACCESS_AUD` として設定します。
+8. JWT検証用に `ACCESS_ISSUER` と `ACCESS_JWKS_URL` を設定します。
+9. 本番では `workers_dev` を無効にするか、workers.dev も Access で保護します。
 
-Current intended production hostname:
+現在想定している本番ホスト名は次の通りです。
 
 ```txt
 tilelog-lens.hamakyo.dev
 ```
 
-The Worker route is configured for that hostname. Create a proxied DNS record
-for `tilelog-lens.hamakyo.dev` in Cloudflare DNS before expecting the hostname
-to resolve.
+Worker route はこのホスト名向けに設定されています。ホスト名でアクセスするには、Cloudflare DNS で `tilelog-lens.hamakyo.dev` の proxied DNS record を作成してください。
 
-Until Cloudflare Access is configured and `ACCESS_AUD`, `ACCESS_ISSUER`, and
-`ACCESS_JWKS_URL` are set correctly, the Worker rejects requests without a
-valid Access JWT.
+Cloudflare Access が設定され、`ACCESS_AUD`、`ACCESS_ISSUER`、`ACCESS_JWKS_URL` が正しく設定されるまでは、有効な Access JWT がないリクエストを Worker が拒否します。
 
-## Local development
+## ローカル開発
 
-Commands:
+基本コマンドです。
 
 ```bash
 pnpm install
@@ -207,7 +193,7 @@ pnpm test
 pnpm run build
 ```
 
-For local D1:
+ローカルD1を使う場合:
 
 ```bash
 wrangler d1 create tilelog_lens
@@ -215,58 +201,53 @@ pnpm run db:migrate:local
 pnpm run dev
 ```
 
-For remote D1:
+リモートD1にマイグレーションを適用する場合:
 
 ```bash
 wrangler d1 migrations apply tilelog_lens --remote
 ```
 
-## D1 backup and restore
+## D1バックアップと復元
 
-Create a remote D1 SQL backup before applying remote migrations or making risky
-data changes:
+リモートマイグレーションやリスクのあるデータ変更の前に、リモートD1のSQLバックアップを作成します。
 
 ```bash
 pnpm run db:backup:remote
 ```
 
-The command writes `backups/tilelog_lens-remote-latest.sql`. Files under
-`backups/*.sql` are intentionally gitignored because they may contain personal
-stats, notes, player identifiers, and source metadata.
+このコマンドは `backups/tilelog_lens-remote-latest.sql` を出力します。`backups/*.sql` は、個人戦績、メモ、プレイヤー識別子、ソースメタデータを含む可能性があるため、意図的にgitignoreしています。
 
-For a timestamped backup, run:
+タイムスタンプ付きバックアップを作成する場合:
 
 ```bash
 mkdir -p backups
 wrangler d1 export tilelog_lens --remote --skip-confirmation --output "backups/tilelog_lens-remote-$(date -u +%Y%m%dT%H%M%SZ).sql"
 ```
 
-Restore into local D1 first and inspect the app before restoring remote data:
+復元はまずローカルD1で試し、アプリの表示を確認してからリモートに適用してください。
 
 ```bash
 wrangler d1 execute tilelog_lens --local --file backups/tilelog_lens-remote-latest.sql
 pnpm run dev
 ```
 
-Remote restore is intentionally manual:
+リモート復元は意図的に手動操作にしています。
 
 ```bash
 wrangler d1 execute tilelog_lens --remote --file backups/tilelog_lens-remote-latest.sql
 ```
 
-Only run remote restore after confirming the target database and backup file.
-Do not commit backups.
+リモート復元は、対象データベースとバックアップファイルを確認してから実行してください。バックアップファイルはコミットしないでください。
 
-Deploy:
+## デプロイ
 
 ```bash
 pnpm run deploy
 ```
 
-## Continuous integration
+## 継続的インテグレーション
 
-GitHub Actions runs the main verification suite on pushes to `main` and pull
-requests:
+GitHub Actions は `main` へのpushとpull requestで主要な検証を実行します。
 
 ```bash
 pnpm run typecheck
@@ -275,96 +256,91 @@ pnpm run build
 pnpm run test:e2e
 ```
 
-The E2E suite uses synthetic image fixtures only and verifies mobile import,
-local metadata extraction, safe API payload shape, required `HH:mm`, and export
-link reachability.
+E2Eテストは合成画像フィクスチャだけを使用し、モバイルインポート、ローカルメタデータ抽出、安全なAPIペイロード形状、必須 `HH:mm`、エクスポートリンク到達性を検証します。
 
-## MVP usage flow
+## 基本利用フロー
 
-1. Login through Cloudflare Access email OTP.
-2. Open Import page.
-3. Enter observation date and required `HH:mm` time.
-4. Optionally select a local screenshot for browser-only preview/OCR.
-5. Run OCR if desired, then confirm or manually edit all statistics.
-6. Save snapshot to D1.
-7. View trend dashboard.
-8. Download CSV or anonymized AI JSON.
-9. Open Settings to review owner info or export options.
+1. Cloudflare Access のメールOTPでログインします。
+2. インポートページを開きます。
+3. 観測日と必須の `HH:mm` 時刻を入力します。
+4. 必要に応じてローカルスクリーンショットを選択し、ブラウザ内プレビュー/OCRを使います。
+5. OCR結果を確認し、必要な項目を手動で修正します。
+6. スナップショットをD1に保存します。
+7. ダッシュボードで傾向を確認します。
+8. CSVまたは匿名化済みAI JSONをダウンロードします。
+9. 設定ページで所有者情報やエクスポート設定を確認します。
 
-## Data model summary
+## データモデル概要
 
-The main table is `stat_snapshots`.
+主テーブルは `stat_snapshots` です。
 
-It stores:
+保存する主なデータ:
 
-- observation datetime
-- game mode
-- rank data
-- match count
-- placement rates
-- win/deal-in/call/riichi rates
-- optional notes
-- optional source image hash
-- optional source metadata
+- 観測日時
+- ゲームモード
+- 段位情報
+- 対戦数
+- 順位率
+- 和了率、放銃率、副露率、立直率
+- 任意メモ
+- 任意のソース画像ハッシュ
+- 任意のソースメタデータ
 
-MVP stores one optional note directly on `stat_snapshots.note`. A separate
-`play_notes` table is reserved for future richer note-taking features and is
-not part of the initial migration.
+MVPでは、任意メモを `stat_snapshots.note` に直接保存します。より詳細なメモ機能向けの `play_notes` テーブルは将来用に予約しており、初期マイグレーションには含めていません。
 
-It does not store:
+保存しないデータ:
 
-- image bytes
-- base64 screenshots
-- screenshot URLs
-- official assets
+- 画像バイト列
+- base64スクリーンショット
+- スクリーンショットURL
+- 公式アセット
 
-## Export behavior
+## エクスポート動作
 
-CSV/JSON files are generated on demand from D1 and returned as download responses. They are not stored server-side.
+CSV/JSONファイルは、D1からオンデマンドで生成し、ダウンロードレスポンスとして返します。サーバー側には保存しません。
 
-Default AI JSON export anonymizes player identifiers and includes:
+デフォルトのAI JSONエクスポートはプレイヤー識別子を匿名化し、次の内容を含みます。
 
-- metrics description
-- snapshots
-- derived metrics
-- estimated deltas
-- analysis request
-- privacy metadata showing screenshots are not included
+- 指標説明
+- スナップショット
+- 派生指標
+- 推定差分
+- 分析リクエスト
+- スクリーンショットが含まれないことを示すプライバシーメタデータ
 
-## Privacy notes
+## プライバシー注意事項
 
-- Keep the app private behind Cloudflare Access.
-- Do not put sensitive personal information in notes unless you intend to export it.
-- Review exported JSON/CSV before uploading to third-party AI tools.
-- Use anonymized export by default.
+- アプリは Cloudflare Access の背後で非公開にしてください。
+- エクスポートする意図がない限り、メモ欄に機微な個人情報を入れないでください。
+- JSON/CSVを第三者AIツールへアップロードする前に内容を確認してください。
+- 既定では匿名化エクスポートを使用してください。
 
-## Security notes
+## セキュリティ注意事項
 
-- Validate Access JWT in the Worker.
-- Allow only `OWNER_EMAIL`.
-- Reject image/base64 payloads in API requests.
-- Keep OCR text and screenshots in the browser; do not send them to the API.
-- Keep request body limits small.
-- Do not log JWTs, notes, player IDs, or export payloads.
-- Worker error logs are structured and limited to event, method, path, error
-  type/message, and non-sensitive identifiers such as snapshot id.
-- Keep `workers_dev` disabled in production unless separately protected.
+- Workerで Access JWT を検証します。
+- `OWNER_EMAIL` だけを許可します。
+- APIリクエスト内の画像/base64ペイロードを拒否します。
+- OCRテキストとスクリーンショットはブラウザ内に留め、APIへ送信しません。
+- リクエストボディ制限は小さく保ちます。
+- JWT、メモ、プレイヤーID、エクスポートペイロードをログに出力しません。
+- Workerのエラーログは、イベント、メソッド、パス、エラー種別/メッセージ、snapshot id などの非機微な識別子に限定します。
+- 本番では、別途保護しない限り `workers_dev` を無効にします。
 
-## Known limitations
+## 既知の制限
 
-- OCR uses fixed crop regions and may require manual correction.
-- Crop-region calibration UI is not yet implemented.
-- No CSV import for bulk loading historical data.
-- PWA / offline mode is not implemented.
-- Dark mode is not implemented.
+- OCRは固定クロップ領域を使うため、手動修正が必要な場合があります。
+- クロップ領域のキャリブレーションUIは未実装です。
+- 過去データ一括投入用のCSVインポートは未実装です。
+- PWA / オフラインモードは未実装です。
+- ダークモードは未実装です。
 
-## Official documentation references
+## 公式ドキュメント参照
 
 - Cloudflare Access One-time PIN: https://developers.cloudflare.com/cloudflare-one/integrations/identity-providers/one-time-pin/
 - Cloudflare Access JWT validation: https://developers.cloudflare.com/cloudflare-one/access-controls/applications/http-apps/authorization-cookie/validating-json/
 - Cloudflare D1 with Hono: https://developers.cloudflare.com/d1/examples/d1-and-hono/
 - Hono on Cloudflare Workers: https://hono.dev/docs/getting-started/cloudflare-workers
 
-## License
+## ライセンス
 
-Choose a license before publishing. For private personal use, no public license is required. If publishing the repository, MIT is a reasonable default, but do not include any Mahjong Soul / 雀魂 assets.
+公開前にライセンスを選択してください。個人利用の非公開リポジトリであれば、公開ライセンスは必須ではありません。リポジトリを公開する場合はMITが無難ですが、Mahjong Soul / 雀魂のアセットは含めないでください。
