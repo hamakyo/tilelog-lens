@@ -93,6 +93,16 @@ type OcrCalibrationPreset = {
   calibration: OcrCalibration;
 };
 
+type OcrDiffItem = {
+  field: keyof SnapshotFormValues;
+  label: string;
+  beforeValue: string;
+  ocrValue: string;
+  currentValue: string;
+  changedByOcr: boolean;
+  changedAfterOcr: boolean;
+};
+
 const fieldLabels: Record<keyof SnapshotFormValues, string> = {
   observed_date: "日付",
   observed_time: "時刻",
@@ -296,6 +306,37 @@ function ocrFilledLabels(fields: OcrExtractedFields): string[] {
     .map(([key]) => fieldLabels[key as keyof SnapshotFormValues] ?? key);
 }
 
+function formatOcrDiffValue(value: string | undefined): string {
+  return value == null || value.trim() === "" ? "-" : value;
+}
+
+function buildOcrDiffItems(
+  beforeValues: SnapshotFormValues | null,
+  fields: OcrExtractedFields,
+  currentValues: SnapshotFormValues
+): OcrDiffItem[] {
+  if (!beforeValues) return [];
+
+  return Object.entries(fields)
+    .filter(([key, value]) => value != null && key !== "game_mode")
+    .map(([key, value]) => {
+      const field = key as keyof SnapshotFormValues;
+      const beforeValue = beforeValues[field];
+      const ocrValue = String(value);
+      const currentValue = currentValues[field];
+
+      return {
+        field,
+        label: fieldLabels[field] ?? key,
+        beforeValue: formatOcrDiffValue(beforeValue),
+        ocrValue: formatOcrDiffValue(ocrValue),
+        currentValue: formatOcrDiffValue(currentValue),
+        changedByOcr: beforeValue !== ocrValue,
+        changedAfterOcr: currentValue !== ocrValue
+      };
+    });
+}
+
 function missingRequiredLabels(values: SnapshotFormValues): string[] {
   return requiredFormFields
     .filter((field) => values[field].trim() === "")
@@ -494,6 +535,8 @@ export function SnapshotForm({
   const [ocrText, setOcrText] = useState<string | null>(null);
   const [ocrFilledFields, setOcrFilledFields] = useState<string[]>([]);
   const [ocrConfidenceItems, setOcrConfidenceItems] = useState<OcrConfidenceItem[]>([]);
+  const [ocrBaselineValues, setOcrBaselineValues] = useState<SnapshotFormValues | null>(null);
+  const [lastOcrFields, setLastOcrFields] = useState<OcrExtractedFields>({});
   const [ocrMissingRequired, setOcrMissingRequired] = useState<string[]>([]);
   const [message, setMessage] = useState<string | null>(null);
   const [serverWarnings, setServerWarnings] = useState<ValidationWarning[]>([]);
@@ -566,6 +609,10 @@ export function SnapshotForm({
     if (!previousSnapshot || matches == null) return null;
     return matches - previousSnapshot.matches;
   }, [previousSnapshot, values]);
+  const ocrDiffItems = useMemo(
+    () => buildOcrDiffItems(ocrBaselineValues, lastOcrFields, values),
+    [lastOcrFields, ocrBaselineValues, values]
+  );
 
   const setField =
     (field: keyof SnapshotFormValues) =>
@@ -647,6 +694,8 @@ export function SnapshotForm({
     setOcrProgress(null);
     setOcrFilledFields([]);
     setOcrConfidenceItems([]);
+    setOcrBaselineValues(null);
+    setLastOcrFields({});
     setOcrMissingRequired([]);
     if (previewUrl) URL.revokeObjectURL(previewUrl);
     setPreviewUrl(URL.createObjectURL(file));
@@ -679,6 +728,7 @@ export function SnapshotForm({
     setOcrBusy(true);
     setOcrProgress("OCRを開始しています...");
     setMessage(null);
+    const beforeOcrValues = values;
 
     try {
       const text = await recognizeSnapshotText(
@@ -692,6 +742,8 @@ export function SnapshotForm({
       const count = countExtractedFields(extracted);
       setOcrText(text);
       setOcrFilledFields(ocrFilledLabels(extracted));
+      setOcrBaselineValues(beforeOcrValues);
+      setLastOcrFields(extracted);
       setValues((current) => {
         const next = withOcrFields(current, extracted);
         setOcrConfidenceItems(buildOcrConfidenceItems(extracted, next));
@@ -1093,6 +1145,54 @@ export function SnapshotForm({
                   <small>{item.reason}</small>
                 </div>
               ))}
+            </div>
+          </div>
+        ) : null}
+        {ocrDiffItems.length > 0 ? (
+          <div className="ocr-diff">
+            <div className="section-heading inline-heading">
+              <h3>OCR差分確認</h3>
+              <p>OCR実行前、OCR値、現在値を比較します。</p>
+            </div>
+            <div className="table-scroll compact-table">
+              <table>
+                <thead>
+                  <tr>
+                    <th>項目</th>
+                    <th>OCR前</th>
+                    <th>OCR値</th>
+                    <th>現在値</th>
+                    <th>状態</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {ocrDiffItems.map((item) => (
+                    <tr key={item.field}>
+                      <td>{item.label}</td>
+                      <td>{item.beforeValue}</td>
+                      <td>{item.ocrValue}</td>
+                      <td>{item.currentValue}</td>
+                      <td>
+                        <span
+                          className={`code-pill ${
+                            item.changedAfterOcr
+                              ? "pill-warning"
+                              : item.changedByOcr
+                                ? "pill-ok"
+                                : ""
+                          }`}
+                        >
+                          {item.changedAfterOcr
+                            ? "手修正あり"
+                            : item.changedByOcr
+                              ? "OCR適用"
+                              : "変更なし"}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           </div>
         ) : null}

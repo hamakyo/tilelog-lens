@@ -6,7 +6,11 @@ import type { Snapshot } from "../../shared/types";
 import { listSnapshots } from "../lib/api";
 import { formatDateTime } from "../lib/format";
 
-export function QualityPage() {
+type QualityPageProps = {
+  navigate: (path: string) => void;
+};
+
+export function QualityPage({ navigate }: QualityPageProps) {
   const [snapshots, setSnapshots] = useState<Snapshot[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -75,12 +79,13 @@ export function QualityPage() {
                 <th>記録</th>
                 <th>コード</th>
                 <th>内容</th>
+                <th>操作</th>
               </tr>
             </thead>
             <tbody>
               {issues.length === 0 ? (
                 <tr>
-                  <td colSpan={5}>確認が必要な記録はありません。</td>
+                  <td colSpan={6}>確認が必要な記録はありません。</td>
                 </tr>
               ) : (
                 issues.map((issue) => {
@@ -97,6 +102,15 @@ export function QualityPage() {
                         <span className="code-pill">{issue.code}</span>
                       </td>
                       <td>{issue.message}</td>
+                      <td>
+                        <button
+                          type="button"
+                          className="secondary-button compact-button"
+                          onClick={() => navigate(`/snapshots/${issue.snapshot_id}`)}
+                        >
+                          編集
+                        </button>
+                      </td>
                     </tr>
                   );
                 })

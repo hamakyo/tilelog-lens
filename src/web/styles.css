@@ -308,12 +308,26 @@ h2 {
   gap: 12px;
 }
 
+.goal-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
 .period-tile,
 .period-comparison-card,
+.goal-tile,
 .priority-item {
   border: 1px solid #d9dee3;
   border-radius: 8px;
   background: #fff;
+}
+
+.goal-tile {
+  display: grid;
+  gap: 12px;
+  min-height: 134px;
+  padding: 14px;
 }
 
 .period-comparison-card {
@@ -650,8 +664,29 @@ tr:last-child td {
   font-weight: 800;
 }
 
+.code-pill.pill-ok {
+  background: #e7f5ef;
+  color: #126247;
+}
+
+.code-pill.pill-warning {
+  background: #fff5d8;
+  color: #6f5300;
+}
+
 .compact-table table {
   min-width: 620px;
+}
+
+table input[type="checkbox"] {
+  width: 18px;
+  min-height: 18px;
+  padding: 0;
+}
+
+.compact-button {
+  min-height: 30px;
+  padding: 5px 10px;
 }
 
 .row-actions {
@@ -780,6 +815,25 @@ textarea:focus {
 }
 
 .ocr-confidence h3 {
+  margin: 0;
+  color: #172026;
+  font-size: 14px;
+}
+
+.ocr-diff {
+  display: grid;
+  gap: 8px;
+  border: 1px solid #d7dee3;
+  border-radius: 8px;
+  background: #fff;
+  padding: 12px;
+}
+
+.inline-heading {
+  padding: 0;
+}
+
+.inline-heading h3 {
   margin: 0;
   color: #172026;
   font-size: 14px;
@@ -1017,6 +1071,11 @@ textarea:focus {
   justify-content: flex-end;
 }
 
+.split-actions {
+  justify-content: space-between;
+  gap: 10px;
+}
+
 .export-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(180px, 1fr));
@@ -1115,6 +1174,7 @@ footer {
   .chart-grid,
   .period-grid,
   .period-comparison-grid,
+  .goal-grid,
   .rank-point-grid,
   .calibration-grid,
   .preset-row,

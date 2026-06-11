@@ -181,6 +181,28 @@ export type RankPointAnalysis = {
   status: "ready" | "missing_points" | "missing_cap";
 };
 
+export type AnalysisGoalMetric =
+  | "avg_place"
+  | "win_rate"
+  | "deal_in_rate"
+  | "fourth_rate"
+  | "attack_defense_gap"
+  | "rank_point_progress";
+
+export type AnalysisGoal = {
+  id: AnalysisGoalMetric;
+  label: string;
+  target_value: number;
+  direction: "at_most" | "at_least";
+  enabled: boolean;
+};
+
+export type AnalysisGoalStatus = AnalysisGoal & {
+  current_value: number | null;
+  achieved: boolean | null;
+  delta_to_target: number | null;
+};
+
 export type SnapshotComparisonMetric = {
   key: string;
   label: string;

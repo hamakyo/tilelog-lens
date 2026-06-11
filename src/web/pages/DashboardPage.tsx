@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Activity, Flag, Gauge, ShieldAlert } from "lucide-react";
-import type { EstimatedDelta, Snapshot } from "../../shared/types";
+import type { AnalysisGoal, EstimatedDelta, Snapshot } from "../../shared/types";
 import {
   GAME_MODE_LABELS,
   GAME_MODES,
@@ -16,7 +16,9 @@ import {
   buildPeriodAnalyses,
   buildRankPointAnalysis
 } from "../../shared/metrics";
+import { buildAnalysisGoalStatuses } from "../../shared/goals";
 import { listDeltas, listSnapshots } from "../lib/api";
+import { loadAnalysisGoals } from "../lib/analysisGoals";
 import { formatDateTime, formatDecimal, formatNumber, formatRate } from "../lib/format";
 import { TrendChart } from "../components/TrendChart";
 
@@ -85,6 +87,19 @@ function metricTone(
   return improved ? "good" : "bad";
 }
 
+function goalValueText(goal: AnalysisGoal, value: number | null): string {
+  if (value == null) return "-";
+  if (
+    goal.id === "win_rate" ||
+    goal.id === "deal_in_rate" ||
+    goal.id === "fourth_rate" ||
+    goal.id === "rank_point_progress"
+  ) {
+    return formatRate(value);
+  }
+  return formatDecimal(value);
+}
+
 function rankLabel(snapshot: Snapshot | undefined): string {
   if (!snapshot?.rank_name) return "-";
   const level = snapshot.rank_level;
@@ -112,11 +127,15 @@ function rankPointMaxForSnapshot(snapshot: Snapshot): number | null {
 export function DashboardPage({ navigate }: DashboardPageProps) {
   const [snapshots, setSnapshots] = useState<Snapshot[]>([]);
   const [deltas, setDeltas] = useState<EstimatedDelta[]>([]);
+  const [analysisGoals, setAnalysisGoals] = useState<AnalysisGoal[]>(() =>
+    loadAnalysisGoals()
+  );
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedMode, setSelectedMode] = useState<Snapshot["game_mode"] | "all">("all");
 
   useEffect(() => {
+    setAnalysisGoals(loadAnalysisGoals());
     Promise.all([listSnapshots(), listDeltas()])
       .then(([snapshotResult, deltaResult]) => {
         setSnapshots(snapshotResult.items);
@@ -162,6 +181,10 @@ export function DashboardPage({ navigate }: DashboardPageProps) {
   const rankPointAnalysis = useMemo(
     () => buildRankPointAnalysis(modeSnapshots),
     [modeSnapshots]
+  );
+  const goalStatuses = useMemo(
+    () => buildAnalysisGoalStatuses(analysisGoals, latest),
+    [analysisGoals, latest]
   );
   const displayDeltas = useMemo(
     () =>
@@ -235,6 +258,50 @@ export function DashboardPage({ navigate }: DashboardPageProps) {
               : `${rankLabel(latest)} / ${formatNumber(rankPointAnalysis.remaining_points)}pt`}
           </strong>
         </div>
+      </section>
+
+      <section className="analysis-section">
+        <div className="section-heading">
+          <h2>分析目標</h2>
+          <p>設定ページで目標値を変更できます。</p>
+        </div>
+        {goalStatuses.length === 0 ? (
+          <p className="empty-state">有効な分析目標はありません。</p>
+        ) : (
+          <div className="goal-grid">
+            {goalStatuses.map((goal) => (
+              <article className="goal-tile" key={goal.id}>
+                <div className="period-tile-header">
+                  <strong>{goal.label}</strong>
+                  <span
+                    className={`quality-pill ${
+                      goal.achieved == null
+                        ? "quality-insufficient_data"
+                        : goal.achieved
+                          ? "quality-ok"
+                          : "quality-limited_data"
+                    }`}
+                  >
+                    {goal.achieved == null ? "未判定" : goal.achieved ? "達成" : "未達"}
+                  </span>
+                </div>
+                <dl className="period-metrics">
+                  <div>
+                    <dt>現在</dt>
+                    <dd>{goalValueText(goal, goal.current_value)}</dd>
+                  </div>
+                  <div>
+                    <dt>目標</dt>
+                    <dd>
+                      {goal.direction === "at_most" ? "≦ " : "≧ "}
+                      {goalValueText(goal, goal.target_value)}
+                    </dd>
+                  </div>
+                </dl>
+              </article>
+            ))}
+          </div>
+        )}
       </section>
 
       <section className="analysis-section rank-point-section">

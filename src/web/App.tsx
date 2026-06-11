@@ -58,7 +58,7 @@ export function App() {
     if (path === "/import") return <ImportPage />;
     if (path === "/snapshots") return <SnapshotListPage navigate={navigate} />;
     if (path === "/compare") return <ComparePage />;
-    if (path === "/quality") return <QualityPage />;
+    if (path === "/quality") return <QualityPage navigate={navigate} />;
     if (path === "/export") return <ExportPage />;
     if (path === "/settings") return <SettingsPage />;
 
