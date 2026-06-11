@@ -2,8 +2,11 @@ import { describe, expect, it } from "vitest";
 import {
   buildDerivedMetrics,
   buildDataQualityWarnings,
+  buildDataQualityReport,
+  buildDuplicateSnapshotCandidates,
   buildEstimatedDeltas,
   buildImprovementPriorities,
+  buildPeriodComparisons,
   buildPeriodAnalyses,
   buildRankPointAnalysis,
   buildSnapshotComparison
@@ -272,5 +275,89 @@ describe("metrics", () => {
     expect(warnings.map((warning) => warning.code)).toContain("RANK_POINTS_EXCEED_CAP");
     expect(warnings.map((warning) => warning.code)).toContain("RATE_DELTA_NEGATIVE");
     expect(warnings.map((warning) => warning.code)).toContain("PERIOD_DELTA_INCONSISTENT");
+  });
+
+  it("finds duplicate candidates before saving", () => {
+    const candidates = buildDuplicateSnapshotCandidates(
+      {
+        observed_date: "2026-06-03",
+        observed_time: "23:59",
+        timezone: "Asia/Tokyo",
+        game_mode: "south",
+        matches: 100,
+        avg_place: 2.5,
+        first_rate: 25,
+        second_rate: 25,
+        third_rate: 25,
+        fourth_rate: 25,
+        win_rate: 25,
+        deal_in_rate: 12,
+        call_rate: 35,
+        riichi_rate: 18,
+        source_image_sha256: "a".repeat(64)
+      },
+      [
+        makeSnapshot({
+          id: 1,
+          source_image_sha256: "a".repeat(64)
+        })
+      ]
+    );
+
+    expect(candidates.map((candidate) => candidate.reason)).toContain("same_image_hash");
+    expect(candidates.map((candidate) => candidate.reason)).toContain("same_observed_at");
+    expect(candidates.map((candidate) => candidate.reason)).toContain("same_date_and_matches");
+  });
+
+  it("builds a data quality report across snapshots", () => {
+    const report = buildDataQualityReport([
+      makeSnapshot({
+        id: 1,
+        observed_at_utc: "2026-06-01T00:00:00.000Z",
+        observed_date: "2026-06-01",
+        matches: 100,
+        source_image_sha256: "b".repeat(64)
+      }),
+      makeSnapshot({
+        id: 2,
+        observed_at_utc: "2026-06-02T00:00:00.000Z",
+        observed_date: "2026-06-02",
+        matches: 95,
+        first_rate: 40,
+        second_rate: 20,
+        third_rate: 20,
+        fourth_rate: 10,
+        source_image_sha256: "b".repeat(64)
+      })
+    ]);
+
+    expect(report.map((issue) => issue.code)).toContain("MATCHES_DECREASED");
+    expect(report.map((issue) => issue.code)).toContain("RANK_RATE_SUM_NOT_100");
+    expect(report.map((issue) => issue.code)).toContain("DUPLICATE_IMAGE_HASH");
+  });
+
+  it("builds period comparisons for recent windows and months", () => {
+    const snapshots = Array.from({ length: 22 }, (_, index) =>
+      makeSnapshot({
+        id: index + 1,
+        observed_date: index < 11 ? "2026-05-15" : "2026-06-15",
+        observed_time: `${String(index).padStart(2, "0").slice(-2)}:00`,
+        observed_at_utc: `2026-${index < 11 ? "05" : "06"}-15T${String(index % 24).padStart(2, "0")}:00:00.000Z`,
+        matches: 100 + index,
+        avg_place: index < 12 ? 2.6 : 2.4,
+        win_rate: index < 12 ? 20 : 24,
+        deal_in_rate: index < 12 ? 14 : 11
+      })
+    );
+
+    const comparisons = buildPeriodComparisons(snapshots);
+
+    expect(comparisons).toHaveLength(2);
+    expect(comparisons[0].quality).toBe("ok");
+    expect(comparisons[0].metrics.find((metric) => metric.key === "avg_place")?.delta).toBeLessThan(0);
+    expect(comparisons[1]).toMatchObject({
+      id: "month",
+      quality: "ok"
+    });
   });
 });

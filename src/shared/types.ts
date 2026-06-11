@@ -201,6 +201,37 @@ export type SnapshotComparison = {
   quality: "ok" | "same_matches" | "negative_matches" | "different_mode";
 };
 
+export type PeriodComparison = {
+  id: string;
+  label: string;
+  from_label: string;
+  to_label: string;
+  from_count: number;
+  to_count: number;
+  metrics: SnapshotComparisonMetric[];
+  quality: "ok" | "limited_data" | "insufficient_data";
+};
+
+export type DuplicateSnapshotCandidate = {
+  snapshot_id: number;
+  observed_at_utc: string;
+  observed_date: string;
+  observed_time: string;
+  game_mode: GameMode;
+  matches: number;
+  reason: "same_image_hash" | "same_observed_at" | "same_date_and_matches";
+  message: string;
+};
+
+export type DataQualityIssue = {
+  snapshot_id: number;
+  observed_at_utc: string;
+  game_mode: GameMode;
+  code: ValidationWarning["code"];
+  message: string;
+  severity: "warning";
+};
+
 export type AiContext = {
   schema_version: "1.0";
   app: string;
@@ -216,9 +247,11 @@ export type AiContext = {
   derived_metrics: DerivedMetric[];
   estimated_deltas: EstimatedDelta[];
   period_analyses: PeriodAnalysis[];
+  period_comparisons: PeriodComparison[];
   improvement_priorities: ImprovementPriority[];
   rank_point_analysis: RankPointAnalysis | null;
   data_quality_warnings: ValidationWarning[];
+  data_quality_issues: DataQualityIssue[];
   notes: Array<{
     snapshot_id: number;
     observed_at_utc: string;

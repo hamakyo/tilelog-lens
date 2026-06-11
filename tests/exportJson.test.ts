@@ -57,8 +57,11 @@ describe("AI JSON export", () => {
     ]);
 
     expect(context.period_analyses.length).toBeGreaterThan(0);
+    expect(context.period_comparisons.length).toBeGreaterThan(0);
     expect(context.improvement_priorities.length).toBeGreaterThan(0);
     expect(context.rank_point_analysis).not.toBeUndefined();
+    expect(context.data_quality_issues).toEqual(expect.any(Array));
     expect(context.analysis_request.focus).toContain("改善優先度");
+    expect(context.analysis_request.focus).toContain("データ品質警告");
   });
 });

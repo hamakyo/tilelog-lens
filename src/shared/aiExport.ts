@@ -1,9 +1,11 @@
 import { APP_NAME, GAME_NAME } from "./constants";
 import {
   buildDataQualityWarnings,
+  buildDataQualityReport,
   buildDerivedMetrics,
   buildEstimatedDeltas,
   buildImprovementPriorities,
+  buildPeriodComparisons,
   buildPeriodAnalyses,
   buildRankPointAnalysis
 } from "./metrics";
@@ -55,11 +57,13 @@ export function buildAiContext(
     derived_metrics: buildDerivedMetrics(sanitizedSnapshots),
     estimated_deltas: buildEstimatedDeltas(sanitizedSnapshots),
     period_analyses: buildPeriodAnalyses(latestModeSnapshots),
+    period_comparisons: buildPeriodComparisons(latestModeSnapshots),
     improvement_priorities: buildImprovementPriorities(latestModeSnapshots),
     rank_point_analysis: buildRankPointAnalysis(latestModeSnapshots),
     data_quality_warnings: latest
       ? buildDataQualityWarnings(latest, ordered, { excludeId: latest.id })
       : [],
+    data_quality_issues: buildDataQualityReport(ordered),
     notes: sanitizedSnapshots
       .filter((snapshot) => snapshot.note != null && snapshot.note.trim() !== "")
       .map((snapshot) => ({
@@ -78,7 +82,9 @@ export function buildAiContext(
         "3位・4位率の低減",
         "段位ポイントの推移",
         "直近期の悪化指標",
+        "期間比較",
         "改善優先度",
+        "データ品質警告",
         "サンプル数が十分か"
       ]
     }

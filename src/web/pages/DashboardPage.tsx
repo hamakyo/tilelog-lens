@@ -12,6 +12,7 @@ import {
 import {
   buildEstimatedDeltas,
   buildImprovementPriorities,
+  buildPeriodComparisons,
   buildPeriodAnalyses,
   buildRankPointAnalysis
 } from "../../shared/metrics";
@@ -65,6 +66,23 @@ function toChartPoints(snapshots: Snapshot[]): ChartPoint[] {
 function formatSignedNumber(value: number | null | undefined): string {
   if (value == null) return "-";
   return value > 0 ? `+${value}` : String(value);
+}
+
+function metricUnitValue(value: number | null, unit: "number" | "rate" | "rank_point" | "place"): string {
+  if (value == null) return "-";
+  if (unit === "rate") return formatRate(value);
+  if (unit === "rank_point") return `${formatNumber(value)}pt`;
+  if (unit === "place") return formatDecimal(value);
+  return formatDecimal(value);
+}
+
+function metricTone(
+  delta: number | null,
+  betterDirection: "up" | "down" | "neutral"
+): string {
+  if (delta == null || delta === 0 || betterDirection === "neutral") return "neutral";
+  const improved = betterDirection === "up" ? delta > 0 : delta < 0;
+  return improved ? "good" : "bad";
 }
 
 function rankLabel(snapshot: Snapshot | undefined): string {
@@ -131,6 +149,10 @@ export function DashboardPage({ navigate }: DashboardPageProps) {
   const chartData = useMemo(() => toChartPoints(displaySnapshots), [displaySnapshots]);
   const periodAnalyses = useMemo(
     () => buildPeriodAnalyses(modeSnapshots),
+    [modeSnapshots]
+  );
+  const periodComparisons = useMemo(
+    () => buildPeriodComparisons(modeSnapshots),
     [modeSnapshots]
   );
   const improvementPriorities = useMemo(
@@ -356,6 +378,57 @@ export function DashboardPage({ navigate }: DashboardPageProps) {
               </div>
             ))
           )}
+        </div>
+      </section>
+
+      <section className="analysis-section">
+        <div className="section-heading">
+          <h2>期間比較</h2>
+          <p>直近窓と月単位の平均値を比較します。</p>
+        </div>
+        <div className="period-comparison-grid">
+          {periodComparisons.map((comparison) => (
+            <article className="period-comparison-card" key={comparison.id}>
+              <div className="period-tile-header">
+                <strong>{comparison.label}</strong>
+                <span>
+                  {comparison.quality === "ok"
+                    ? "比較可能"
+                    : comparison.quality === "limited_data"
+                      ? "データ少"
+                      : "不足"}
+                </span>
+              </div>
+              <p>
+                {comparison.from_label} {comparison.from_count}件 / {comparison.to_label} {comparison.to_count}件
+              </p>
+              <div className="table-scroll compact-table">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>指標</th>
+                      <th>{comparison.from_label}</th>
+                      <th>{comparison.to_label}</th>
+                      <th>差分</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {comparison.metrics.map((metric) => (
+                      <tr key={metric.key}>
+                        <td>{metric.label}</td>
+                        <td>{metricUnitValue(metric.from_value, metric.unit)}</td>
+                        <td>{metricUnitValue(metric.to_value, metric.unit)}</td>
+                        <td className={`comparison-delta ${metricTone(metric.delta, metric.better_direction)}`}>
+                          {metric.delta != null && metric.delta > 0 ? "+" : ""}
+                          {metricUnitValue(metric.delta, metric.unit)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </article>
+          ))}
         </div>
       </section>
 

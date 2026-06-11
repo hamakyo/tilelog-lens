@@ -1,7 +1,10 @@
 import type {
+  DataQualityIssue,
   DerivedMetric,
+  DuplicateSnapshotCandidate,
   EstimatedDelta,
   ImprovementPriority,
+  PeriodComparison,
   PeriodAnalysis,
   RankPointAnalysis,
   Snapshot,
@@ -66,6 +69,14 @@ function comparisonMetric(
   };
 }
 
+function average(values: Array<number | null | undefined>): number | null {
+  const usableValues = values.filter((value): value is number => value != null);
+  if (usableValues.length === 0) return null;
+  return round2(
+    usableValues.reduce((sum, value) => sum + value, 0) / usableValues.length
+  );
+}
+
 function priority(
   id: string,
   title: string,
@@ -111,6 +122,35 @@ export function calculatedAvgPlace(snapshot: Pick<Snapshot, "first_rate" | "seco
       snapshot.fourth_rate * 4) /
       100
   );
+}
+
+function buildConsistencyWarnings(
+  snapshot: Pick<SnapshotCreateInput, "first_rate" | "second_rate" | "third_rate" | "fourth_rate" | "avg_place">
+): ValidationWarning[] {
+  const warnings: ValidationWarning[] = [];
+  const rankRateSum =
+    snapshot.first_rate +
+    snapshot.second_rate +
+    snapshot.third_rate +
+    snapshot.fourth_rate;
+
+  if (Math.abs(rankRateSum - 100) > 0.2) {
+    warnings.push({
+      code: "RANK_RATE_SUM_NOT_100",
+      message: "順位率の合計が約100%になっていません。",
+      severity: "warning"
+    });
+  }
+
+  if (Math.abs(calculatedAvgPlace(snapshot) - snapshot.avg_place) > 0.03) {
+    warnings.push({
+      code: "AVG_PLACE_MISMATCH",
+      message: "平均順位と順位率から計算した値が大きくずれています。",
+      severity: "warning"
+    });
+  }
+
+  return warnings;
 }
 
 export function buildDerivedMetrics(snapshots: Snapshot[]): DerivedMetric[] {
@@ -540,6 +580,182 @@ export function buildSnapshotComparison(
   };
 }
 
+function averageSnapshotMetrics(snapshots: Snapshot[]): SnapshotComparisonMetric[] {
+  return [
+    comparisonMetric("avg_place", "平均順位", null, average(snapshots.map((snapshot) => snapshot.avg_place)), "place", "down"),
+    comparisonMetric("first_rate", "一位率", null, average(snapshots.map((snapshot) => snapshot.first_rate)), "rate", "up"),
+    comparisonMetric("fourth_rate", "四位率", null, average(snapshots.map((snapshot) => snapshot.fourth_rate)), "rate", "down"),
+    comparisonMetric("win_rate", "和了率", null, average(snapshots.map((snapshot) => snapshot.win_rate)), "rate", "up"),
+    comparisonMetric("deal_in_rate", "放銃率", null, average(snapshots.map((snapshot) => snapshot.deal_in_rate)), "rate", "down"),
+    comparisonMetric(
+      "attack_defense_gap",
+      "攻守差",
+      null,
+      average(snapshots.map((snapshot) => snapshot.win_rate - snapshot.deal_in_rate)),
+      "number",
+      "up"
+    ),
+    comparisonMetric("rank_points", "段位ポイント", null, average(snapshots.map((snapshot) => snapshot.rank_points)), "rank_point", "up")
+  ];
+}
+
+function buildSnapshotGroupComparison(
+  id: string,
+  label: string,
+  fromLabel: string,
+  toLabel: string,
+  fromSnapshots: Snapshot[],
+  toSnapshots: Snapshot[],
+  expectedCount?: number
+): PeriodComparison {
+  const fromMetrics = averageSnapshotMetrics(fromSnapshots);
+  const toMetrics = averageSnapshotMetrics(toSnapshots);
+
+  return {
+    id,
+    label,
+    from_label: fromLabel,
+    to_label: toLabel,
+    from_count: fromSnapshots.length,
+    to_count: toSnapshots.length,
+    metrics: toMetrics.map((toMetric, index) => ({
+      ...toMetric,
+      from_value: fromMetrics[index].to_value,
+      delta:
+        fromMetrics[index].to_value == null || toMetric.to_value == null
+          ? null
+          : round2(toMetric.to_value - fromMetrics[index].to_value)
+    })),
+    quality:
+      fromSnapshots.length === 0 || toSnapshots.length === 0
+        ? "insufficient_data"
+        : expectedCount != null &&
+            (fromSnapshots.length < expectedCount || toSnapshots.length < expectedCount)
+          ? "limited_data"
+          : "ok"
+  };
+}
+
+function monthKey(snapshot: Pick<Snapshot, "observed_date">): string {
+  return snapshot.observed_date.slice(0, 7);
+}
+
+function monthLabel(key: string): string {
+  const [year, month] = key.split("-");
+  return `${year}年${Number(month)}月`;
+}
+
+export function buildRecentWindowComparison(
+  snapshots: Snapshot[],
+  windowSize = 10
+): PeriodComparison {
+  const ordered = [...snapshots].sort(byObservedAsc);
+  const toSnapshots = ordered.slice(-windowSize);
+  const fromSnapshots = ordered.slice(
+    Math.max(0, ordered.length - windowSize * 2),
+    Math.max(0, ordered.length - windowSize)
+  );
+
+  return buildSnapshotGroupComparison(
+    `recent-${windowSize}`,
+    `直近${windowSize}件 vs 前${windowSize}件`,
+    `前${windowSize}件`,
+    `直近${windowSize}件`,
+    fromSnapshots,
+    toSnapshots,
+    windowSize
+  );
+}
+
+export function buildCalendarMonthComparison(snapshots: Snapshot[]): PeriodComparison {
+  const ordered = [...snapshots].sort(byObservedAsc);
+  const keys = Array.from(new Set(ordered.map(monthKey))).sort();
+  const latestKey = keys.at(-1);
+  const previousKey = keys.at(-2);
+
+  const toSnapshots = latestKey
+    ? ordered.filter((snapshot) => monthKey(snapshot) === latestKey)
+    : [];
+  const fromSnapshots = previousKey
+    ? ordered.filter((snapshot) => monthKey(snapshot) === previousKey)
+    : [];
+
+  return buildSnapshotGroupComparison(
+    "month",
+    "今月 vs 前月",
+    previousKey ? monthLabel(previousKey) : "前月",
+    latestKey ? monthLabel(latestKey) : "今月",
+    fromSnapshots,
+    toSnapshots
+  );
+}
+
+export function buildPeriodComparisons(snapshots: Snapshot[]): PeriodComparison[] {
+  return [
+    buildRecentWindowComparison(snapshots, 10),
+    buildCalendarMonthComparison(snapshots)
+  ];
+}
+
+export function buildDuplicateSnapshotCandidates(
+  input: SnapshotCreateInput,
+  snapshots: Snapshot[],
+  options: { excludeId?: number } = {}
+): DuplicateSnapshotCandidate[] {
+  const candidates: DuplicateSnapshotCandidate[] = [];
+  const currentKey = inputObservedKey(input);
+  const seen = new Set<string>();
+
+  const addCandidate = (
+    snapshot: Snapshot,
+    reason: DuplicateSnapshotCandidate["reason"],
+    message: string
+  ) => {
+    const key = `${snapshot.id}:${reason}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+    candidates.push({
+      snapshot_id: snapshot.id,
+      observed_at_utc: snapshot.observed_at_utc,
+      observed_date: snapshot.observed_date,
+      observed_time: snapshot.observed_time,
+      game_mode: snapshot.game_mode,
+      matches: snapshot.matches,
+      reason,
+      message
+    });
+  };
+
+  for (const snapshot of snapshots) {
+    if (snapshot.id === options.excludeId) continue;
+
+    if (
+      input.source_image_sha256 != null &&
+      input.source_image_sha256 !== "" &&
+      snapshot.source_image_sha256 === input.source_image_sha256
+    ) {
+      addCandidate(snapshot, "same_image_hash", "画像ハッシュが一致しています。");
+    }
+
+    if (
+      snapshot.game_mode === input.game_mode &&
+      snapshotObservedKey(snapshot) === currentKey
+    ) {
+      addCandidate(snapshot, "same_observed_at", "同じモードと観測日時の記録があります。");
+    }
+
+    if (
+      snapshot.game_mode === input.game_mode &&
+      snapshot.observed_date === input.observed_date &&
+      snapshot.matches === input.matches
+    ) {
+      addCandidate(snapshot, "same_date_and_matches", "同じ日付・モード・対戦数の記録があります。");
+    }
+  }
+
+  return candidates.sort((a, b) => b.observed_at_utc.localeCompare(a.observed_at_utc));
+}
+
 export function buildDataQualityWarnings(
   input: SnapshotCreateInput,
   snapshots: Snapshot[],
@@ -609,4 +825,76 @@ export function buildDataQualityWarnings(
   }
 
   return warnings;
+}
+
+function duplicateIssueMaps(snapshots: Snapshot[]): {
+  observedKeys: Map<string, Snapshot[]>;
+  imageHashes: Map<string, Snapshot[]>;
+} {
+  const observedKeys = new Map<string, Snapshot[]>();
+  const imageHashes = new Map<string, Snapshot[]>();
+
+  for (const snapshot of snapshots) {
+    const observedKey = `${snapshot.game_mode}:${snapshot.observed_at_utc}`;
+    observedKeys.set(observedKey, [...(observedKeys.get(observedKey) ?? []), snapshot]);
+
+    if (snapshot.source_image_sha256) {
+      imageHashes.set(
+        snapshot.source_image_sha256,
+        [...(imageHashes.get(snapshot.source_image_sha256) ?? []), snapshot]
+      );
+    }
+  }
+
+  return { observedKeys, imageHashes };
+}
+
+export function buildDataQualityReport(snapshots: Snapshot[]): DataQualityIssue[] {
+  const ordered = [...snapshots].sort(byObservedAsc);
+  const duplicates = duplicateIssueMaps(ordered);
+  const issues: DataQualityIssue[] = [];
+
+  for (const snapshot of ordered) {
+    const warnings = [
+      ...buildConsistencyWarnings(snapshot),
+      ...buildDataQualityWarnings(snapshot, ordered, { excludeId: snapshot.id })
+    ];
+    const observedKey = `${snapshot.game_mode}:${snapshot.observed_at_utc}`;
+
+    if ((duplicates.observedKeys.get(observedKey)?.length ?? 0) > 1) {
+      warnings.push({
+        code: "DUPLICATE_OBSERVED_AT",
+        message: "同じモードと観測日時の記録が複数あります。",
+        severity: "warning"
+      });
+    }
+
+    if (
+      snapshot.source_image_sha256 &&
+      (duplicates.imageHashes.get(snapshot.source_image_sha256)?.length ?? 0) > 1
+    ) {
+      warnings.push({
+        code: "DUPLICATE_IMAGE_HASH",
+        message: "同じ画像ハッシュの記録が複数あります。",
+        severity: "warning"
+      });
+    }
+
+    const uniqueWarnings = new Map(
+      warnings.map((warning) => [`${warning.code}:${warning.message}`, warning])
+    );
+
+    for (const warning of uniqueWarnings.values()) {
+      issues.push({
+        snapshot_id: snapshot.id,
+        observed_at_utc: snapshot.observed_at_utc,
+        game_mode: snapshot.game_mode,
+        code: warning.code,
+        message: warning.message,
+        severity: warning.severity
+      });
+    }
+  }
+
+  return issues.sort((a, b) => b.observed_at_utc.localeCompare(a.observed_at_utc));
 }

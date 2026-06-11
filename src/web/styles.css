@@ -302,11 +302,30 @@ h2 {
   gap: 12px;
 }
 
+.period-comparison-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
 .period-tile,
+.period-comparison-card,
 .priority-item {
   border: 1px solid #d9dee3;
   border-radius: 8px;
   background: #fff;
+}
+
+.period-comparison-card {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+}
+
+.period-comparison-card p {
+  margin: 0;
+  color: #64737f;
+  font-size: 13px;
 }
 
 .period-tile {
@@ -619,6 +638,22 @@ tr:last-child td {
   color: #52636f;
 }
 
+.code-pill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 22px;
+  border-radius: 999px;
+  background: #edf1f4;
+  color: #40505c;
+  padding: 2px 8px;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.compact-table table {
+  min-width: 620px;
+}
+
 .row-actions {
   display: inline-flex;
   gap: 6px;
@@ -652,6 +687,13 @@ label {
   color: #53636f;
   font-size: 12px;
   font-weight: 800;
+}
+
+label.field-warning input,
+label.field-warning select,
+label.field-warning textarea {
+  border-color: #d7a315;
+  background: #fffaf0;
 }
 
 input,
@@ -728,6 +770,71 @@ textarea:focus {
   margin: 0;
 }
 
+.ocr-confidence {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid #d7dee3;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.ocr-confidence h3 {
+  margin: 0;
+  color: #172026;
+  font-size: 14px;
+}
+
+.confidence-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.confidence-item {
+  display: grid;
+  gap: 3px;
+  min-height: 92px;
+  border: 1px solid #d7dee3;
+  border-radius: 8px;
+  padding: 10px;
+}
+
+.confidence-item span,
+.confidence-item small {
+  color: #64737f;
+  font-size: 12px;
+}
+
+.confidence-item strong {
+  color: #172026;
+  font-size: 16px;
+}
+
+.confidence-item em {
+  justify-self: start;
+  border-radius: 999px;
+  padding: 2px 8px;
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 800;
+}
+
+.confidence-item.high em {
+  background: #e7f5ef;
+  color: #126247;
+}
+
+.confidence-item.medium em {
+  background: #fff5d8;
+  color: #6f5300;
+}
+
+.confidence-item.low em {
+  background: #fff1ef;
+  color: #91352e;
+}
+
 .ocr-result {
   display: grid;
   gap: 8px;
@@ -781,6 +888,80 @@ textarea:focus {
   color: #172026;
   font-size: 13px;
   font-weight: 800;
+}
+
+.preset-row {
+  display: grid;
+  grid-template-columns: minmax(160px, 1fr) minmax(160px, 1fr) auto auto;
+  gap: 12px;
+  align-items: end;
+  padding-top: 12px;
+}
+
+.assist-panel {
+  display: grid;
+  gap: 14px;
+  border: 1px solid #d9dee3;
+  border-radius: 8px;
+  background: #fff;
+  padding: 16px;
+}
+
+.assist-panel h2 {
+  margin-bottom: 10px;
+}
+
+.assist-panel p {
+  margin: 10px 0 0;
+  color: #64737f;
+  font-size: 13px;
+}
+
+.assist-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 10px;
+  margin: 0;
+}
+
+.assist-grid div {
+  display: grid;
+  gap: 2px;
+  min-height: 56px;
+  border: 1px solid #e1e7eb;
+  border-radius: 8px;
+  padding: 8px;
+}
+
+.assist-grid dt {
+  color: #64737f;
+  font-size: 12px;
+}
+
+.assist-grid dd {
+  margin: 0;
+  color: #172026;
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.candidate-list {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.candidate-list li {
+  display: grid;
+  gap: 3px;
+  border: 1px solid #dec978;
+  border-radius: 8px;
+  background: #fff9df;
+  padding: 9px 10px;
+  color: #6b5205;
+  font-size: 13px;
 }
 
 @keyframes spin {
@@ -842,6 +1023,11 @@ textarea:focus {
   gap: 12px;
 }
 
+.export-card {
+  display: grid;
+  gap: 8px;
+}
+
 .export-action {
   min-height: 88px;
   border: 1px solid #ccd8df;
@@ -865,6 +1051,19 @@ textarea:focus {
   margin: 0;
   color: #52636f;
   line-height: 1.6;
+}
+
+.export-preview {
+  overflow-x: auto;
+  max-height: 460px;
+  margin: 16px;
+  border: 1px solid #d7dee3;
+  border-radius: 8px;
+  background: #f7f9fa;
+  color: #172026;
+  padding: 12px;
+  font-size: 12px;
+  line-height: 1.5;
 }
 
 .checkbox-row {
@@ -915,15 +1114,19 @@ footer {
   .summary-grid,
   .chart-grid,
   .period-grid,
+  .period-comparison-grid,
   .rank-point-grid,
   .calibration-grid,
+  .preset-row,
   .export-grid {
     grid-template-columns: 1fr;
   }
 
   .form-grid,
   .compare-grid,
-  .metadata-grid {
+  .metadata-grid,
+  .confidence-grid,
+  .assist-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
@@ -940,7 +1143,9 @@ footer {
 
   .form-grid,
   .compare-grid,
-  .metadata-grid {
+  .metadata-grid,
+  .confidence-grid,
+  .assist-grid {
     grid-template-columns: 1fr;
   }
 

@@ -12,7 +12,10 @@ import {
 } from "../../shared/constants";
 import type { Snapshot, SnapshotCreateInput, ValidationWarning } from "../../shared/types";
 import { getConsistencyWarnings } from "../../shared/schema";
-import { buildDataQualityWarnings } from "../../shared/metrics";
+import {
+  buildDataQualityWarnings,
+  buildDuplicateSnapshotCandidates
+} from "../../shared/metrics";
 import {
   fileLastModifiedIso,
   getImageDimensions,
@@ -72,6 +75,23 @@ type SnapshotFormProps = {
 
 const today = new Date().toISOString().slice(0, 10);
 const ocrCalibrationStorageKey = "tilelog-lens:ocr-calibration";
+const ocrCalibrationPresetsStorageKey = "tilelog-lens:ocr-calibration-presets";
+
+type OcrConfidenceLevel = "高" | "中" | "要確認";
+
+type OcrConfidenceItem = {
+  field: keyof SnapshotFormValues;
+  label: string;
+  value: string;
+  confidence: OcrConfidenceLevel;
+  reason: string;
+};
+
+type OcrCalibrationPreset = {
+  id: string;
+  name: string;
+  calibration: OcrCalibration;
+};
 
 const fieldLabels: Record<keyof SnapshotFormValues, string> = {
   observed_date: "日付",
@@ -119,6 +139,19 @@ const requiredFormFields: Array<keyof SnapshotFormValues> = [
   "third_rate",
   "fourth_rate",
   "win_rate",
+  "deal_in_rate",
+  "call_rate",
+  "riichi_rate"
+];
+
+const rateFormFields: Array<keyof SnapshotFormValues> = [
+  "first_rate",
+  "second_rate",
+  "third_rate",
+  "fourth_rate",
+  "bust_rate",
+  "win_rate",
+  "tsumo_rate",
   "deal_in_rate",
   "call_rate",
   "riichi_rate"
@@ -288,6 +321,163 @@ function saveOcrCalibration(calibration: OcrCalibration): void {
   window.localStorage.setItem(ocrCalibrationStorageKey, JSON.stringify(calibration));
 }
 
+function loadOcrCalibrationPresets(): OcrCalibrationPreset[] {
+  try {
+    const parsed = JSON.parse(
+      window.localStorage.getItem(ocrCalibrationPresetsStorageKey) ?? "[]"
+    ) as OcrCalibrationPreset[];
+    return parsed.filter(
+      (preset) =>
+        typeof preset.id === "string" &&
+        typeof preset.name === "string" &&
+        typeof preset.calibration?.offsetX === "number" &&
+        typeof preset.calibration?.offsetY === "number" &&
+        typeof preset.calibration?.scale === "number"
+    );
+  } catch {
+    return [];
+  }
+}
+
+function saveOcrCalibrationPresets(presets: OcrCalibrationPreset[]): void {
+  window.localStorage.setItem(
+    ocrCalibrationPresetsStorageKey,
+    JSON.stringify(presets)
+  );
+}
+
+function snapshotObservedKey(
+  snapshot: Pick<Snapshot, "observed_date" | "observed_time">
+): string {
+  return `${snapshot.observed_date}T${snapshot.observed_time}`;
+}
+
+function currentObservedKey(values: SnapshotFormValues): string {
+  return `${values.observed_date}T${values.observed_time}`;
+}
+
+function numericValue(values: SnapshotFormValues, field: keyof SnapshotFormValues): number | null {
+  const value = values[field];
+  if (value.trim() === "") return null;
+  const numberValue = Number(value);
+  return Number.isFinite(numberValue) ? numberValue : null;
+}
+
+function confidenceClass(confidence: OcrConfidenceLevel): string {
+  if (confidence === "高") return "high";
+  if (confidence === "中") return "medium";
+  return "low";
+}
+
+function buildOcrConfidenceItems(
+  fields: OcrExtractedFields,
+  values: SnapshotFormValues
+): OcrConfidenceItem[] {
+  const extractedFields = new Set(Object.keys(fields) as Array<keyof SnapshotFormValues>);
+  const targetFields = Array.from(
+    new Set<keyof SnapshotFormValues>([
+      ...requiredFormFields,
+      ...Array.from(extractedFields).filter((field) => field !== "game_mode")
+    ])
+  );
+  const rankRates = [
+    numericValue(values, "first_rate"),
+    numericValue(values, "second_rate"),
+    numericValue(values, "third_rate"),
+    numericValue(values, "fourth_rate")
+  ];
+  const rankRateSum =
+    rankRates.every((value) => value != null)
+      ? rankRates.reduce((sum, value) => sum + (value ?? 0), 0)
+      : null;
+  const calculatedPlace =
+    rankRateSum != null && rankRateSum > 0
+      ? (rankRates[0]! * 1 + rankRates[1]! * 2 + rankRates[2]! * 3 + rankRates[3]! * 4) / 100
+      : null;
+  const avgPlace = numericValue(values, "avg_place");
+  const rankPoints = numericValue(values, "rank_points");
+  const rankPointsMax = numericValue(values, "rank_points_max");
+
+  return targetFields.map((field) => {
+    const value = values[field];
+    let confidence: OcrConfidenceLevel = extractedFields.has(field) ? "高" : "要確認";
+    let reason = extractedFields.has(field) ? "OCRで検出しました。" : "OCRで検出できませんでした。";
+    const numberValue = numericValue(values, field);
+
+    if (value.trim() === "") {
+      confidence = "要確認";
+      reason = "未入力です。";
+    } else if (rateFormFields.includes(field) && (numberValue == null || numberValue < 0 || numberValue > 100)) {
+      confidence = "要確認";
+      reason = "率の範囲外です。";
+    } else if (
+      ["first_rate", "second_rate", "third_rate", "fourth_rate"].includes(field) &&
+      rankRateSum != null &&
+      Math.abs(rankRateSum - 100) > 0.2
+    ) {
+      confidence = Math.abs(rankRateSum - 100) > 1 ? "要確認" : "中";
+      reason = `順位率の合計が${rankRateSum.toFixed(2)}%です。`;
+    } else if (
+      field === "avg_place" &&
+      calculatedPlace != null &&
+      avgPlace != null &&
+      Math.abs(calculatedPlace - avgPlace) > 0.03
+    ) {
+      confidence = Math.abs(calculatedPlace - avgPlace) > 0.15 ? "要確認" : "中";
+      reason = `順位率からの計算値は${calculatedPlace.toFixed(2)}です。`;
+    } else if (
+      (field === "rank_points" || field === "rank_points_max") &&
+      rankPoints != null &&
+      rankPointsMax != null &&
+      rankPoints > rankPointsMax
+    ) {
+      confidence = "要確認";
+      reason = "段位ポイントが上限を超えています。";
+    }
+
+    return {
+      field,
+      label: fieldLabels[field],
+      value: value.trim() === "" ? "-" : value,
+      confidence,
+      reason
+    };
+  });
+}
+
+function warningFieldsFor(warnings: ValidationWarning[]): Set<keyof SnapshotFormValues> {
+  const fields = new Set<keyof SnapshotFormValues>();
+
+  for (const warning of warnings) {
+    if (warning.code === "RANK_RATE_SUM_NOT_100") {
+      fields.add("first_rate");
+      fields.add("second_rate");
+      fields.add("third_rate");
+      fields.add("fourth_rate");
+    }
+    if (warning.code === "AVG_PLACE_MISMATCH") {
+      fields.add("avg_place");
+      fields.add("first_rate");
+      fields.add("second_rate");
+      fields.add("third_rate");
+      fields.add("fourth_rate");
+    }
+    if (warning.code === "RANK_POINTS_EXCEED_CAP") {
+      fields.add("rank_points");
+      fields.add("rank_points_max");
+    }
+    if (warning.code === "MATCHES_DECREASED") {
+      fields.add("matches");
+    }
+    if (warning.code === "RATE_DELTA_NEGATIVE" || warning.code === "PERIOD_DELTA_INCONSISTENT") {
+      fields.add("matches");
+      for (const field of rateFormFields) fields.add(field);
+    }
+  }
+
+  return fields;
+}
+
 export function SnapshotForm({
   initialSnapshot,
   submitLabel,
@@ -303,6 +493,7 @@ export function SnapshotForm({
   const [ocrProgress, setOcrProgress] = useState<string | null>(null);
   const [ocrText, setOcrText] = useState<string | null>(null);
   const [ocrFilledFields, setOcrFilledFields] = useState<string[]>([]);
+  const [ocrConfidenceItems, setOcrConfidenceItems] = useState<OcrConfidenceItem[]>([]);
   const [ocrMissingRequired, setOcrMissingRequired] = useState<string[]>([]);
   const [message, setMessage] = useState<string | null>(null);
   const [serverWarnings, setServerWarnings] = useState<ValidationWarning[]>([]);
@@ -310,6 +501,11 @@ export function SnapshotForm({
   const [ocrCalibration, setOcrCalibration] = useState<OcrCalibration>(() =>
     loadOcrCalibration()
   );
+  const [ocrPresets, setOcrPresets] = useState<OcrCalibrationPreset[]>(() =>
+    loadOcrCalibrationPresets()
+  );
+  const [selectedPresetId, setSelectedPresetId] = useState("");
+  const [presetName, setPresetName] = useState("");
 
   useEffect(() => {
     setValues(toValues(initialSnapshot));
@@ -342,6 +538,35 @@ export function SnapshotForm({
     }
   }, [existingSnapshots, initialSnapshot?.id, values]);
 
+  const warnings = [...localWarnings, ...serverWarnings];
+  const warningFields = useMemo(() => warningFieldsFor(warnings), [warnings]);
+
+  const duplicateCandidates = useMemo(() => {
+    if (!hasRequiredStats(values)) return [];
+    try {
+      return buildDuplicateSnapshotCandidates(buildInput(values), existingSnapshots, {
+        excludeId: initialSnapshot?.id
+      });
+    } catch {
+      return [];
+    }
+  }, [existingSnapshots, initialSnapshot?.id, values]);
+
+  const previousSnapshot = useMemo(() => {
+    const key = currentObservedKey(values);
+    return existingSnapshots
+      .filter((snapshot) => snapshot.id !== initialSnapshot?.id)
+      .filter((snapshot) => snapshot.game_mode === values.game_mode)
+      .filter((snapshot) => snapshotObservedKey(snapshot) < key)
+      .sort((a, b) => b.observed_at_utc.localeCompare(a.observed_at_utc))[0];
+  }, [existingSnapshots, initialSnapshot?.id, values.game_mode, values.observed_date, values.observed_time]);
+
+  const matchesDelta = useMemo(() => {
+    const matches = numericValue(values, "matches");
+    if (!previousSnapshot || matches == null) return null;
+    return matches - previousSnapshot.matches;
+  }, [previousSnapshot, values]);
+
   const setField =
     (field: keyof SnapshotFormValues) =>
     (event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
@@ -371,6 +596,43 @@ export function SnapshotForm({
       });
     };
 
+  function applyOcrPreset(presetId: string) {
+    setSelectedPresetId(presetId);
+    const preset = ocrPresets.find((item) => item.id === presetId);
+    if (!preset) return;
+    setOcrCalibration(preset.calibration);
+    saveOcrCalibration(preset.calibration);
+  }
+
+  function saveCurrentOcrPreset() {
+    const name = presetName.trim();
+    if (name === "") {
+      setMessage("プリセット名を入力してください。");
+      return;
+    }
+
+    const preset: OcrCalibrationPreset = {
+      id: `preset-${Date.now().toString(36)}`,
+      name,
+      calibration: ocrCalibration
+    };
+    const next = [...ocrPresets, preset];
+    setOcrPresets(next);
+    saveOcrCalibrationPresets(next);
+    setSelectedPresetId(preset.id);
+    setPresetName("");
+    setMessage("OCRプリセットを保存しました。");
+  }
+
+  function deleteSelectedOcrPreset() {
+    if (selectedPresetId === "") return;
+    const next = ocrPresets.filter((preset) => preset.id !== selectedPresetId);
+    setOcrPresets(next);
+    saveOcrCalibrationPresets(next);
+    setSelectedPresetId("");
+    setMessage("OCRプリセットを削除しました。");
+  }
+
   function resetOcrCalibration() {
     setOcrCalibration(DEFAULT_OCR_CALIBRATION);
     saveOcrCalibration(DEFAULT_OCR_CALIBRATION);
@@ -384,6 +646,7 @@ export function SnapshotForm({
     setOcrText(null);
     setOcrProgress(null);
     setOcrFilledFields([]);
+    setOcrConfidenceItems([]);
     setOcrMissingRequired([]);
     if (previewUrl) URL.revokeObjectURL(previewUrl);
     setPreviewUrl(URL.createObjectURL(file));
@@ -431,6 +694,7 @@ export function SnapshotForm({
       setOcrFilledFields(ocrFilledLabels(extracted));
       setValues((current) => {
         const next = withOcrFields(current, extracted);
+        setOcrConfidenceItems(buildOcrConfidenceItems(extracted, next));
         setOcrMissingRequired(missingRequiredLabels(next));
         return next;
       });
@@ -463,8 +727,6 @@ export function SnapshotForm({
       setBusy(false);
     }
   }
-
-  const warnings = [...localWarnings, ...serverWarnings];
 
   return (
     <form className="snapshot-form" onSubmit={handleSubmit}>
@@ -507,6 +769,64 @@ export function SnapshotForm({
         </div>
       </section>
 
+      {previousSnapshot || duplicateCandidates.length > 0 ? (
+        <section className="assist-panel">
+          {previousSnapshot ? (
+            <div>
+              <h2>手入力補助</h2>
+              <dl className="assist-grid">
+                <div>
+                  <dt>前回同モード</dt>
+                  <dd>
+                    {previousSnapshot.observed_date} {previousSnapshot.observed_time}
+                  </dd>
+                </div>
+                <div>
+                  <dt>前回対戦数</dt>
+                  <dd>{previousSnapshot.matches}戦</dd>
+                </div>
+                <div>
+                  <dt>今回差分</dt>
+                  <dd>
+                    {matchesDelta == null
+                      ? "-"
+                      : matchesDelta >= 0
+                        ? `+${matchesDelta}戦`
+                        : `${matchesDelta}戦`}
+                  </dd>
+                </div>
+                <div>
+                  <dt>前回平均順位</dt>
+                  <dd>{previousSnapshot.avg_place.toFixed(2)}</dd>
+                </div>
+                <div>
+                  <dt>前回和了率 / 放銃率</dt>
+                  <dd>
+                    {previousSnapshot.win_rate.toFixed(2)}% / {previousSnapshot.deal_in_rate.toFixed(2)}%
+                  </dd>
+                </div>
+              </dl>
+              <p>黄色の入力欄は、前回記録や累積率との整合性確認が必要です。</p>
+            </div>
+          ) : null}
+          {duplicateCandidates.length > 0 ? (
+            <div>
+              <h2>重複候補</h2>
+              <ul className="candidate-list">
+                {duplicateCandidates.slice(0, 5).map((candidate) => (
+                  <li key={`${candidate.snapshot_id}-${candidate.reason}`}>
+                    <strong>
+                      #{candidate.snapshot_id} {candidate.observed_date} {candidate.observed_time}
+                    </strong>
+                    <span>{candidate.message} 対戦数: {candidate.matches}戦</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+        </section>
+      ) : null}
+
       <section className="form-section">
         <h2>プレイヤー・段位</h2>
         <div className="form-grid">
@@ -536,11 +856,11 @@ export function SnapshotForm({
               ))}
             </select>
           </label>
-          <label>
+          <label className={warningFields.has("rank_points") ? "field-warning" : undefined}>
             <span>段位ポイント</span>
             <input type="number" min={0} value={values.rank_points} onChange={setField("rank_points")} />
           </label>
-          <label>
+          <label className={warningFields.has("rank_points_max") ? "field-warning" : undefined}>
             <span>ポイント上限</span>
             <input type="number" min={1} value={values.rank_points_max} onChange={setField("rank_points_max")} />
           </label>
@@ -550,11 +870,11 @@ export function SnapshotForm({
       <section className="form-section">
         <h2>対戦サマリー</h2>
         <div className="form-grid">
-          <label>
+          <label className={warningFields.has("matches") ? "field-warning" : undefined}>
             <span>対戦数</span>
             <input required type="number" min={0} value={values.matches} onChange={setField("matches")} />
           </label>
-          <label>
+          <label className={warningFields.has("avg_place") ? "field-warning" : undefined}>
             <span>平均順位</span>
             <input required type="number" min={1} max={4} step="0.01" value={values.avg_place} onChange={setField("avg_place")} />
           </label>
@@ -583,7 +903,10 @@ export function SnapshotForm({
             ["fourth_rate", "四位率"],
             ["bust_rate", "飛び率"]
           ].map(([field, label]) => (
-            <label key={field}>
+            <label
+              key={field}
+              className={warningFields.has(field as keyof SnapshotFormValues) ? "field-warning" : undefined}
+            >
               <span>{label}</span>
               <input
                 required={field !== "bust_rate"}
@@ -609,7 +932,10 @@ export function SnapshotForm({
             ["call_rate", "副露率"],
             ["riichi_rate", "立直率"]
           ].map(([field, label]) => (
-            <label key={field}>
+            <label
+              key={field}
+              className={warningFields.has(field as keyof SnapshotFormValues) ? "field-warning" : undefined}
+            >
               <span>{label}</span>
               <input
                 required={field !== "tsumo_rate"}
@@ -700,6 +1026,41 @@ export function SnapshotForm({
               初期値に戻す
             </button>
           </div>
+          <div className="preset-row">
+            <label>
+              <span>プリセット</span>
+              <select
+                value={selectedPresetId}
+                onChange={(event) => applyOcrPreset(event.target.value)}
+              >
+                <option value="">選択してください</option>
+                {ocrPresets.map((preset) => (
+                  <option key={preset.id} value={preset.id}>
+                    {preset.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              <span>保存名</span>
+              <input
+                value={presetName}
+                maxLength={40}
+                onChange={(event) => setPresetName(event.target.value)}
+              />
+            </label>
+            <button type="button" className="secondary-button" onClick={saveCurrentOcrPreset}>
+              現在値を保存
+            </button>
+            <button
+              type="button"
+              className="secondary-button"
+              disabled={selectedPresetId === ""}
+              onClick={deleteSelectedOcrPreset}
+            >
+              削除
+            </button>
+          </div>
         </details>
         {ocrProgress ? <p className="ocr-progress">{ocrProgress}</p> : null}
         {ocrFilledFields.length > 0 || ocrMissingRequired.length > 0 ? (
@@ -718,6 +1079,21 @@ export function SnapshotForm({
                 <strong>未入力の必須項目:</strong> なし
               </p>
             )}
+          </div>
+        ) : null}
+        {ocrConfidenceItems.length > 0 ? (
+          <div className="ocr-confidence">
+            <h3>OCR信頼度</h3>
+            <div className="confidence-grid">
+              {ocrConfidenceItems.map((item) => (
+                <div key={item.field} className={`confidence-item ${confidenceClass(item.confidence)}`}>
+                  <span>{item.label}</span>
+                  <strong>{item.value}</strong>
+                  <em>{item.confidence}</em>
+                  <small>{item.reason}</small>
+                </div>
+              ))}
+            </div>
           </div>
         ) : null}
         {ocrText ? (
