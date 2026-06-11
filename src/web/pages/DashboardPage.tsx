@@ -1,10 +1,17 @@
 import { useEffect, useMemo, useState } from "react";
-import { Activity, Gauge, ShieldAlert } from "lucide-react";
+import { Activity, Flag, Gauge, ShieldAlert } from "lucide-react";
 import type { EstimatedDelta, Snapshot } from "../../shared/types";
-import { GAME_MODE_LABELS } from "../../shared/constants";
+import {
+  GAME_MODE_LABELS,
+  RANK_LEVEL_LABELS,
+  RANK_LEVELS,
+  RANK_NAME_LABELS,
+  RANK_POINT_MAX_BY_RANK_AND_LEVEL
+} from "../../shared/constants";
 import {
   buildImprovementPriorities,
-  buildPeriodAnalyses
+  buildPeriodAnalyses,
+  buildRankPointAnalysis
 } from "../../shared/metrics";
 import { listDeltas, listSnapshots } from "../lib/api";
 import { formatDateTime, formatDecimal, formatNumber, formatRate } from "../lib/format";
@@ -25,23 +32,61 @@ type ChartPoint = {
   top_two_rate: number;
   bottom_two_rate: number;
   rank_points: number | null;
+  rank_point_progress: number | null;
 };
 
 function toChartPoints(snapshots: Snapshot[]): ChartPoint[] {
   return [...snapshots]
     .sort((a, b) => a.observed_at_utc.localeCompare(b.observed_at_utc))
-    .map((snapshot) => ({
-      label: `${snapshot.observed_date} ${snapshot.observed_time}`,
-      avg_place: snapshot.avg_place,
-      win_rate: snapshot.win_rate,
-      deal_in_rate: snapshot.deal_in_rate,
-      attack_defense_gap: Number((snapshot.win_rate - snapshot.deal_in_rate).toFixed(2)),
-      call_rate: snapshot.call_rate,
-      riichi_rate: snapshot.riichi_rate,
-      top_two_rate: Number((snapshot.first_rate + snapshot.second_rate).toFixed(2)),
-      bottom_two_rate: Number((snapshot.third_rate + snapshot.fourth_rate).toFixed(2)),
-      rank_points: snapshot.rank_points
-    }));
+    .map((snapshot) => {
+      const rankPointsMax = rankPointMaxForSnapshot(snapshot);
+
+      return {
+        label: `${snapshot.observed_date} ${snapshot.observed_time}`,
+        avg_place: snapshot.avg_place,
+        win_rate: snapshot.win_rate,
+        deal_in_rate: snapshot.deal_in_rate,
+        attack_defense_gap: Number((snapshot.win_rate - snapshot.deal_in_rate).toFixed(2)),
+        call_rate: snapshot.call_rate,
+        riichi_rate: snapshot.riichi_rate,
+        top_two_rate: Number((snapshot.first_rate + snapshot.second_rate).toFixed(2)),
+        bottom_two_rate: Number((snapshot.third_rate + snapshot.fourth_rate).toFixed(2)),
+        rank_points: snapshot.rank_points,
+        rank_point_progress:
+          snapshot.rank_points != null && rankPointsMax != null
+            ? Number(((snapshot.rank_points / rankPointsMax) * 100).toFixed(2))
+            : null
+      };
+    });
+}
+
+function formatSignedNumber(value: number | null | undefined): string {
+  if (value == null) return "-";
+  return value > 0 ? `+${value}` : String(value);
+}
+
+function rankLabel(snapshot: Snapshot | undefined): string {
+  if (!snapshot?.rank_name) return "-";
+  const level = snapshot.rank_level;
+  const levelLabel =
+    level != null && RANK_LEVELS.includes(level as (typeof RANK_LEVELS)[number])
+      ? ` ${RANK_LEVEL_LABELS[level as (typeof RANK_LEVELS)[number]]}`
+      : "";
+
+  return `${RANK_NAME_LABELS[snapshot.rank_name as keyof typeof RANK_NAME_LABELS] ?? snapshot.rank_name}${levelLabel}`;
+}
+
+function rankPointMaxForSnapshot(snapshot: Snapshot): number | null {
+  if (snapshot.rank_points_max != null) return snapshot.rank_points_max;
+  const level = snapshot.rank_level;
+  if (snapshot.rank_name == null || level == null) return null;
+  if (!RANK_LEVELS.includes(level as (typeof RANK_LEVELS)[number])) return null;
+
+  return (
+    RANK_POINT_MAX_BY_RANK_AND_LEVEL[
+      snapshot.rank_name as keyof typeof RANK_POINT_MAX_BY_RANK_AND_LEVEL
+    ]?.[level as (typeof RANK_LEVELS)[number]] ?? null
+  );
 }
 
 export function DashboardPage({ navigate }: DashboardPageProps) {
@@ -75,6 +120,10 @@ export function DashboardPage({ navigate }: DashboardPageProps) {
   );
   const improvementPriorities = useMemo(
     () => buildImprovementPriorities(modeSnapshots),
+    [modeSnapshots]
+  );
+  const rankPointAnalysis = useMemo(
+    () => buildRankPointAnalysis(modeSnapshots),
     [modeSnapshots]
   );
   const latestDelta = deltas[deltas.length - 1];
@@ -113,6 +162,109 @@ export function DashboardPage({ navigate }: DashboardPageProps) {
           <span>最新の対戦数差分</span>
           <strong>{latestDelta ? formatNumber(latestDelta.matches_delta) : "-"}</strong>
         </div>
+        <div className="summary-tile">
+          <Flag size={20} aria-hidden="true" />
+          <span>段位 / 昇格まで</span>
+          <strong>
+            {rankPointAnalysis?.remaining_points == null
+              ? rankLabel(latest)
+              : `${rankLabel(latest)} / ${formatNumber(rankPointAnalysis.remaining_points)}pt`}
+          </strong>
+        </div>
+      </section>
+
+      <section className="analysis-section rank-point-section">
+        <div className="section-heading">
+          <h2>段位ポイント分析</h2>
+          <p>{latest ? GAME_MODE_LABELS[latest.game_mode] : "-"}</p>
+        </div>
+        {!rankPointAnalysis ? (
+          <p className="empty-state">まだ段位ポイント分析はありません。</p>
+        ) : (
+          <div className="rank-point-grid">
+            <div className="rank-point-panel rank-point-main">
+              <div className="rank-point-title">
+                <span>現在</span>
+                <strong>{rankLabel(latest)}</strong>
+              </div>
+              <div className="rank-progress-bar" aria-label="段位ポイント進捗">
+                <span
+                  style={{
+                    width: `${Math.min(100, Math.max(0, rankPointAnalysis.progress_rate ?? 0))}%`
+                  }}
+                />
+              </div>
+              <dl className="rank-point-metrics">
+                <div>
+                  <dt>ポイント</dt>
+                  <dd>
+                    {rankPointAnalysis.current_points == null
+                      ? "-"
+                      : `${formatNumber(rankPointAnalysis.current_points)} / ${formatNumber(rankPointAnalysis.point_max)}`}
+                  </dd>
+                </div>
+                <div>
+                  <dt>進捗</dt>
+                  <dd>{formatRate(rankPointAnalysis.progress_rate)}</dd>
+                </div>
+                <div>
+                  <dt>昇格まで</dt>
+                  <dd>
+                    {rankPointAnalysis.remaining_points == null
+                      ? "-"
+                      : `${formatNumber(rankPointAnalysis.remaining_points)}pt`}
+                  </dd>
+                </div>
+                <div>
+                  <dt>概算必要対戦数</dt>
+                  <dd>
+                    {rankPointAnalysis.projected_matches_to_promotion == null
+                      ? "-"
+                      : `${formatNumber(rankPointAnalysis.projected_matches_to_promotion)}戦`}
+                  </dd>
+                </div>
+              </dl>
+            </div>
+            <div className="rank-point-panel">
+              <div className="rank-point-title">
+                <span>前回から</span>
+                <strong>{formatSignedNumber(rankPointAnalysis.point_delta)}pt</strong>
+              </div>
+              <dl className="rank-point-metrics compact">
+                <div>
+                  <dt>比較対象</dt>
+                  <dd>
+                    {rankPointAnalysis.rank_changed_since_previous
+                      ? "段位変更後のため未比較"
+                      : `${formatNumber(rankPointAnalysis.previous_points)}pt`}
+                  </dd>
+                </div>
+                <div>
+                  <dt>対戦数差分</dt>
+                  <dd>
+                    {rankPointAnalysis.matches_delta == null
+                      ? "-"
+                      : `${formatNumber(rankPointAnalysis.matches_delta)}戦`}
+                  </dd>
+                </div>
+                <div>
+                  <dt>pt / 戦</dt>
+                  <dd>{formatDecimal(rankPointAnalysis.points_per_match)}</dd>
+                </div>
+                <div>
+                  <dt>状態</dt>
+                  <dd>
+                    {rankPointAnalysis.status === "ready"
+                      ? "分析可能"
+                      : rankPointAnalysis.status === "missing_cap"
+                        ? "上限未設定"
+                        : "ポイント未入力"}
+                  </dd>
+                </div>
+              </dl>
+            </div>
+          </div>
+        )}
       </section>
 
       <section className="analysis-section">
@@ -235,9 +387,11 @@ export function DashboardPage({ navigate }: DashboardPageProps) {
           ]}
         />
         <TrendChart
-          title="段位ポイント"
-          data={chartData.filter((point) => point.rank_points != null)}
-          lines={[{ dataKey: "rank_points", label: "段位ポイント", color: "#3d5a80" }]}
+          title="段位ポイント進捗"
+          data={chartData.filter((point) => point.rank_point_progress != null)}
+          lines={[
+            { dataKey: "rank_point_progress", label: "進捗率", color: "#3d5a80" }
+          ]}
         />
       </div>
 

@@ -1,6 +1,15 @@
 import { useEffect, useMemo, useState } from "react";
 import { AlertTriangle, ImagePlus, LoaderCircle, Save, ScanText } from "lucide-react";
-import { DEFAULT_TIMEZONE, GAME_MODE_LABELS, GAME_MODES, RANK_NAMES, RANK_NAME_LABELS } from "../../shared/constants";
+import {
+  DEFAULT_TIMEZONE,
+  GAME_MODE_LABELS,
+  GAME_MODES,
+  RANK_LEVEL_LABELS,
+  RANK_LEVELS,
+  RANK_NAMES,
+  RANK_NAME_LABELS,
+  RANK_POINT_MAX_BY_RANK_AND_LEVEL
+} from "../../shared/constants";
 import type { Snapshot, SnapshotCreateInput, ValidationWarning } from "../../shared/types";
 import { getConsistencyWarnings } from "../../shared/schema";
 import {
@@ -161,6 +170,18 @@ function requiredNumber(value: string): number {
   return Number(value);
 }
 
+function getRankPointsMax(rankName: string, rankLevel: string): string | null {
+  const level = Number(rankLevel);
+  if (!RANK_LEVELS.includes(level as (typeof RANK_LEVELS)[number])) return null;
+
+  const pointMax =
+    RANK_POINT_MAX_BY_RANK_AND_LEVEL[
+      rankName as keyof typeof RANK_POINT_MAX_BY_RANK_AND_LEVEL
+    ]?.[level as (typeof RANK_LEVELS)[number]];
+
+  return pointMax == null ? null : String(pointMax);
+}
+
 function hasRequiredStats(values: SnapshotFormValues): boolean {
   return [
     values.observed_date,
@@ -285,6 +306,17 @@ export function SnapshotForm({
     (field: keyof SnapshotFormValues) =>
     (event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
       setValues((current) => ({ ...current, [field]: event.target.value }));
+    };
+
+  const setRankField =
+    (field: "rank_name" | "rank_level") =>
+    (event: React.ChangeEvent<HTMLSelectElement>) => {
+      const selectedValue = event.target.value;
+      setValues((current) => {
+        const next = { ...current, [field]: selectedValue };
+        const pointMax = getRankPointsMax(next.rank_name, next.rank_level);
+        return pointMax == null ? next : { ...next, rank_points_max: pointMax };
+      });
     };
 
   async function handleFileChange(event: React.ChangeEvent<HTMLInputElement>) {
@@ -423,7 +455,7 @@ export function SnapshotForm({
           </label>
           <label>
             <span>段位名</span>
-            <select value={values.rank_name} onChange={setField("rank_name")}>
+            <select value={values.rank_name} onChange={setRankField("rank_name")}>
               <option value="">選択してください</option>
               {RANK_NAMES.map((rank) => (
                 <option key={rank} value={rank}>
@@ -434,7 +466,14 @@ export function SnapshotForm({
           </label>
           <label>
             <span>段位レベル</span>
-            <input type="number" min={0} max={20} value={values.rank_level} onChange={setField("rank_level")} />
+            <select value={values.rank_level} onChange={setRankField("rank_level")}>
+              <option value="">選択してください</option>
+              {RANK_LEVELS.map((level) => (
+                <option key={level} value={level}>
+                  {RANK_LEVEL_LABELS[level]}
+                </option>
+              ))}
+            </select>
           </label>
           <label>
             <span>段位ポイント</span>

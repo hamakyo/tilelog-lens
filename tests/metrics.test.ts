@@ -3,7 +3,8 @@ import {
   buildDerivedMetrics,
   buildEstimatedDeltas,
   buildImprovementPriorities,
-  buildPeriodAnalyses
+  buildPeriodAnalyses,
+  buildRankPointAnalysis
 } from "../src/shared/metrics";
 import { makeSnapshot } from "./fixtures";
 
@@ -155,5 +156,39 @@ describe("metrics", () => {
     expect(priorities.map((priority) => priority.id)).toContain("deal-in-rate");
     expect(priorities.map((priority) => priority.id)).toContain("win-rate");
     expect(priorities[0].score).toBeGreaterThanOrEqual(priorities[1].score);
+  });
+
+  it("builds rank point analysis from the Mahjong Soul cap table", () => {
+    const analysis = buildRankPointAnalysis([
+      makeSnapshot({
+        id: 1,
+        observed_at_utc: "2026-06-01T00:00:00.000Z",
+        rank_name: "雀士",
+        rank_level: 2,
+        rank_points: 400,
+        rank_points_max: null,
+        matches: 100
+      }),
+      makeSnapshot({
+        id: 2,
+        observed_at_utc: "2026-06-02T00:00:00.000Z",
+        rank_name: "雀士",
+        rank_level: 2,
+        rank_points: 520,
+        rank_points_max: null,
+        matches: 120
+      })
+    ]);
+
+    expect(analysis).toMatchObject({
+      point_max: 800,
+      progress_rate: 65,
+      remaining_points: 280,
+      point_delta: 120,
+      matches_delta: 20,
+      points_per_match: 6,
+      projected_matches_to_promotion: 47,
+      status: "ready"
+    });
   });
 });

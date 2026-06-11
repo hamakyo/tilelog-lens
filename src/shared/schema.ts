@@ -49,7 +49,7 @@ export const snapshotCreateSchema = z
     player_name: optionalString(80),
     player_id: optionalString(80),
     rank_name: z.preprocess(emptyToNull, z.enum(RANK_NAMES).nullable().optional()),
-    rank_level: optionalInt(z.number().min(0).max(20)),
+    rank_level: optionalInt(z.number().min(1).max(3)),
     rank_points: optionalInt(z.number().min(0)),
     rank_points_max: optionalInt(z.number().positive()),
     matches: z.number().int().min(0),

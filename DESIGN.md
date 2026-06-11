@@ -302,7 +302,7 @@ export const snapshotCreateSchema = z.object({
   player_name: z.string().max(80).nullable().optional(),
   player_id: z.string().max(80).nullable().optional(),
   rank_name: z.string().max(40).nullable().optional(),
-  rank_level: z.number().int().min(0).max(20).nullable().optional(),
+  rank_level: z.number().int().min(1).max(3).nullable().optional(),
   rank_points: z.number().int().min(0).nullable().optional(),
   rank_points_max: z.number().int().positive().nullable().optional(),
   matches: z.number().int().min(0),

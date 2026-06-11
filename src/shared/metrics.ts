@@ -3,8 +3,10 @@ import type {
   EstimatedDelta,
   ImprovementPriority,
   PeriodAnalysis,
+  RankPointAnalysis,
   Snapshot
 } from "./types";
+import { RANK_LEVELS, RANK_POINT_MAX_BY_RANK_AND_LEVEL } from "./constants";
 
 function round2(value: number): number {
   return Math.round(value * 100) / 100;
@@ -52,6 +54,19 @@ function priority(
     current_value: round2(currentValue),
     target_value: targetValue
   };
+}
+
+function rankPointMaxFor(snapshot: Snapshot): number | null {
+  if (snapshot.rank_points_max != null) return snapshot.rank_points_max;
+  const level = snapshot.rank_level;
+  if (snapshot.rank_name == null || level == null) return null;
+  if (!RANK_LEVELS.includes(level as (typeof RANK_LEVELS)[number])) return null;
+
+  return (
+    RANK_POINT_MAX_BY_RANK_AND_LEVEL[
+      snapshot.rank_name as keyof typeof RANK_POINT_MAX_BY_RANK_AND_LEVEL
+    ]?.[level as (typeof RANK_LEVELS)[number]] ?? null
+  );
 }
 
 export function calculatedAvgPlace(snapshot: Pick<Snapshot, "first_rate" | "second_rate" | "third_rate" | "fourth_rate">): number {
@@ -383,4 +398,66 @@ export function buildImprovementPriorities(
   return priorities
     .sort((a, b) => b.score - a.score)
     .slice(0, 3);
+}
+
+export function buildRankPointAnalysis(snapshots: Snapshot[]): RankPointAnalysis | null {
+  const ordered = [...snapshots].sort(byObservedAsc);
+  const latest = ordered.at(-1);
+  if (!latest) return null;
+
+  const pointMax = rankPointMaxFor(latest);
+  const currentPoints = latest.rank_points;
+  const previous = [...ordered]
+    .slice(0, -1)
+    .reverse()
+    .find((snapshot) => snapshot.rank_points != null);
+  const rankChangedSincePrevious =
+    previous != null &&
+    (previous.rank_name !== latest.rank_name || previous.rank_level !== latest.rank_level);
+  const canComparePrevious =
+    previous != null && !rankChangedSincePrevious && currentPoints != null;
+  const pointDelta =
+    canComparePrevious && previous.rank_points != null
+      ? currentPoints - previous.rank_points
+      : null;
+  const matchesDelta =
+    canComparePrevious && latest.matches > previous.matches
+      ? latest.matches - previous.matches
+      : null;
+  const pointsPerMatch =
+    pointDelta != null && matchesDelta != null && matchesDelta > 0
+      ? round2(pointDelta / matchesDelta)
+      : null;
+  const remainingPoints =
+    currentPoints != null && pointMax != null
+      ? Math.max(0, pointMax - currentPoints)
+      : null;
+  const projectedMatchesToPromotion =
+    remainingPoints != null && remainingPoints > 0 && pointsPerMatch != null && pointsPerMatch > 0
+      ? Math.ceil(remainingPoints / pointsPerMatch)
+      : null;
+
+  return {
+    rank_name: latest.rank_name,
+    rank_level: latest.rank_level,
+    current_points: currentPoints,
+    point_max: pointMax,
+    progress_rate:
+      currentPoints != null && pointMax != null
+        ? round2((currentPoints / pointMax) * 100)
+        : null,
+    remaining_points: remainingPoints,
+    previous_points: previous?.rank_points ?? null,
+    point_delta: pointDelta,
+    matches_delta: matchesDelta,
+    points_per_match: pointsPerMatch,
+    projected_matches_to_promotion: projectedMatchesToPromotion,
+    rank_changed_since_previous: rankChangedSincePrevious,
+    status:
+      currentPoints == null
+        ? "missing_points"
+        : pointMax == null
+          ? "missing_cap"
+          : "ready"
+  };
 }

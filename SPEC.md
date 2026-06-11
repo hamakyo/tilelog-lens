@@ -265,6 +265,7 @@ not part of the initial migration.
 - rates: 0 to 100 inclusive.
 - `matches`: integer >= 0.
 - `avg_place`: 1.00 to 4.00.
+- `rank_level`: integer 1 to 3 when present.
 - `rank_points`: integer >= 0 when present.
 - `rank_points_max`: integer > 0 when present.
 - `rank_points <= rank_points_max` when both exist.

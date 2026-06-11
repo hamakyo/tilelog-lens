@@ -162,6 +162,22 @@ export type ImprovementPriority = {
   target_value: number;
 };
 
+export type RankPointAnalysis = {
+  rank_name: string | null;
+  rank_level: number | null;
+  current_points: number | null;
+  point_max: number | null;
+  progress_rate: number | null;
+  remaining_points: number | null;
+  previous_points: number | null;
+  point_delta: number | null;
+  matches_delta: number | null;
+  points_per_match: number | null;
+  projected_matches_to_promotion: number | null;
+  rank_changed_since_previous: boolean;
+  status: "ready" | "missing_points" | "missing_cap";
+};
+
 export type AiContext = {
   schema_version: "1.0";
   app: string;

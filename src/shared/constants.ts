@@ -29,5 +29,43 @@ export const RANK_NAME_LABELS: Record<(typeof RANK_NAMES)[number], string> = {
   "魂天": "魂天"
 };
 
+export const RANK_LEVELS = [1, 2, 3] as const;
+
+export const RANK_LEVEL_LABELS: Record<(typeof RANK_LEVELS)[number], string> = {
+  1: "★☆☆",
+  2: "★★☆",
+  3: "★★★"
+};
+
+export const RANK_POINT_MAX_BY_RANK_AND_LEVEL: Partial<
+  Record<(typeof RANK_NAMES)[number], Record<(typeof RANK_LEVELS)[number], number>>
+> = {
+  初心: {
+    1: 20,
+    2: 80,
+    3: 200
+  },
+  雀士: {
+    1: 600,
+    2: 800,
+    3: 1000
+  },
+  雀傑: {
+    1: 1200,
+    2: 1400,
+    3: 2000
+  },
+  雀豪: {
+    1: 2800,
+    2: 3200,
+    3: 3600
+  },
+  雀聖: {
+    1: 4000,
+    2: 6000,
+    3: 9000
+  }
+};
+
 export const PRIVACY_DISCLAIMER =
   "TileLog Lens は雀魂 / Mahjong Soul の非公式な個人用成績記録ツールです。Yostarおよび雀魂とは関係ありません。対局後の個人記録のみを目的としており、リアルタイムの対局支援は行いません。";
