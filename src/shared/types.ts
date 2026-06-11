@@ -77,6 +77,10 @@ export type SnapshotCreateInput = {
   image_width?: number | null;
   image_height?: number | null;
   parser_version?: string | null;
+  import_metadata?: {
+    extracted_field_count?: number | null;
+    status_message?: string | null;
+  } | null;
 };
 
 export type SnapshotUpdateInput = SnapshotCreateInput;
@@ -203,6 +207,38 @@ export type AnalysisGoalStatus = AnalysisGoal & {
   delta_to_target: number | null;
 };
 
+export type SnapshotRevision = {
+  id: number;
+  snapshot_id: number;
+  changed_fields: Array<{
+    field: keyof Snapshot;
+    before: string | number | null;
+    after: string | number | null;
+  }>;
+  created_at: string;
+};
+
+export type ImportEvent = {
+  id: number;
+  snapshot_id: number | null;
+  status: "saved" | "failed";
+  source_image_sha256: string | null;
+  file_name: string | null;
+  image_width: number | null;
+  image_height: number | null;
+  parser_version: string | null;
+  extracted_field_count: number | null;
+  message: string | null;
+  created_at: string;
+};
+
+export type AnalysisComment = {
+  id: string;
+  severity: "good" | "watch" | "risk";
+  title: string;
+  message: string;
+};
+
 export type SnapshotComparisonMetric = {
   key: string;
   label: string;
@@ -270,6 +306,7 @@ export type AiContext = {
   estimated_deltas: EstimatedDelta[];
   period_analyses: PeriodAnalysis[];
   period_comparisons: PeriodComparison[];
+  analysis_comments: AnalysisComment[];
   improvement_priorities: ImprovementPriority[];
   rank_point_analysis: RankPointAnalysis | null;
   data_quality_warnings: ValidationWarning[];

@@ -4,6 +4,7 @@ import { accessAuth } from "./middleware/accessAuth";
 import { analyticsRoutes } from "./routes/analytics";
 import { exportCsvRoutes } from "./routes/exportCsv";
 import { exportJsonRoutes } from "./routes/exportJson";
+import { importEventRoutes } from "./routes/importEvents";
 import { logWorkerError } from "./lib/logger";
 import { snapshotRoutes } from "./routes/snapshots";
 
@@ -25,6 +26,7 @@ app.get("/api/auth/me", (c) =>
 
 app.route("/api/snapshots", snapshotRoutes);
 app.route("/api/analytics", analyticsRoutes);
+app.route("/api/import-events", importEventRoutes);
 app.route("/api/export", exportCsvRoutes);
 app.route("/api/export", exportJsonRoutes);
 

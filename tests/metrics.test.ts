@@ -3,6 +3,7 @@ import {
   buildDerivedMetrics,
   buildDataQualityWarnings,
   buildDataQualityReport,
+  buildAnalysisComments,
   buildDuplicateSnapshotCandidates,
   buildEstimatedDeltas,
   buildImprovementPriorities,
@@ -161,6 +162,30 @@ describe("metrics", () => {
     expect(priorities.map((priority) => priority.id)).toContain("deal-in-rate");
     expect(priorities.map((priority) => priority.id)).toContain("win-rate");
     expect(priorities[0].score).toBeGreaterThanOrEqual(priorities[1].score);
+  });
+
+  it("builds automatic analysis comments", () => {
+    const comments = buildAnalysisComments([
+      makeSnapshot({
+        id: 1,
+        observed_at_utc: "2026-06-01T00:00:00.000Z",
+        matches: 100,
+        win_rate: 23,
+        deal_in_rate: 10
+      }),
+      makeSnapshot({
+        id: 2,
+        observed_at_utc: "2026-06-02T00:00:00.000Z",
+        matches: 120,
+        win_rate: 19,
+        deal_in_rate: 14,
+        avg_place: 2.6
+      })
+    ]);
+
+    expect(comments.length).toBeGreaterThan(0);
+    expect(comments.map((comment) => comment.id)).toContain("deal-in-risk");
+    expect(comments.map((comment) => comment.id)).toContain("latest-summary");
   });
 
   it("builds rank point analysis from the Mahjong Soul cap table", () => {

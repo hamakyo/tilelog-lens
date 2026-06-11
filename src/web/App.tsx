@@ -4,6 +4,7 @@ import {
   Download,
   FilePlus2,
   GitCompareArrows,
+  History,
   LayoutDashboard,
   List,
   Settings,
@@ -13,6 +14,7 @@ import { PRIVACY_DISCLAIMER } from "../shared/constants";
 import { DashboardPage } from "./pages/DashboardPage";
 import { ExportPage } from "./pages/ExportPage";
 import { ImportPage } from "./pages/ImportPage";
+import { ImportHistoryPage } from "./pages/ImportHistoryPage";
 import { ComparePage } from "./pages/ComparePage";
 import { QualityPage } from "./pages/QualityPage";
 import { SettingsPage } from "./pages/SettingsPage";
@@ -28,6 +30,7 @@ type NavItem = {
 const navItems: NavItem[] = [
   { path: "/", label: "ダッシュボード", icon: LayoutDashboard },
   { path: "/import", label: "インポート", icon: FilePlus2 },
+  { path: "/import-history", label: "取込履歴", icon: History },
   { path: "/snapshots", label: "記録一覧", icon: List },
   { path: "/compare", label: "比較", icon: GitCompareArrows },
   { path: "/quality", label: "品質", icon: ShieldCheck },
@@ -56,6 +59,7 @@ export function App() {
   const content = useMemo(() => {
     if (path === "/") return <DashboardPage navigate={navigate} />;
     if (path === "/import") return <ImportPage />;
+    if (path === "/import-history") return <ImportHistoryPage />;
     if (path === "/snapshots") return <SnapshotListPage navigate={navigate} />;
     if (path === "/compare") return <ComparePage />;
     if (path === "/quality") return <QualityPage navigate={navigate} />;

@@ -29,7 +29,7 @@ import {
   type OcrCalibration,
   type OcrExtractedFields
 } from "../lib/ocr";
-import { listSnapshots } from "../lib/api";
+import { createImportEvent, listSnapshots } from "../lib/api";
 
 type SnapshotFormValues = {
   observed_date: string;
@@ -247,7 +247,10 @@ function hasRequiredStats(values: SnapshotFormValues): boolean {
   ].every((value) => value.trim() !== "");
 }
 
-function buildInput(values: SnapshotFormValues): SnapshotCreateInput {
+function buildInput(
+  values: SnapshotFormValues,
+  importMetadata?: SnapshotCreateInput["import_metadata"]
+): SnapshotCreateInput {
   return {
     observed_date: values.observed_date,
     observed_time: values.observed_time,
@@ -281,7 +284,8 @@ function buildInput(values: SnapshotFormValues): SnapshotCreateInput {
     exif_taken_at: nullableText(values.exif_taken_at),
     image_width: nullableNumber(values.image_width),
     image_height: nullableNumber(values.image_height),
-    parser_version: nullableText(values.parser_version)
+    parser_version: nullableText(values.parser_version),
+    import_metadata: importMetadata
   };
 }
 
@@ -770,10 +774,34 @@ export function SnapshotForm({
     setServerWarnings([]);
 
     try {
-      const warnings = await onSubmit(buildInput(values));
+      const warnings = await onSubmit(
+        buildInput(values, {
+          extracted_field_count:
+            ocrFilledFields.length > 0 ? ocrFilledFields.length : null,
+          status_message:
+            ocrFilledFields.length > 0 ? "ocr_snapshot_saved" : "manual_snapshot_saved"
+        })
+      );
       setServerWarnings(warnings);
       setMessage("記録を保存しました。");
     } catch (error) {
+      if (values.file_name || values.source_image_sha256 || values.parser_version) {
+        void createImportEvent({
+          snapshot_id: null,
+          status: "failed",
+          source_image_sha256: nullableText(values.source_image_sha256),
+          file_name: nullableText(values.file_name),
+          image_width: nullableNumber(values.image_width),
+          image_height: nullableNumber(values.image_height),
+          parser_version: nullableText(values.parser_version),
+          extracted_field_count:
+            ocrFilledFields.length > 0 ? ocrFilledFields.length : null,
+          message:
+            error instanceof Error
+              ? error.message.slice(0, 200)
+              : "snapshot_save_failed"
+        }).catch(() => undefined);
+      }
       setMessage(error instanceof Error ? error.message : "記録の保存に失敗しました。");
     } finally {
       setBusy(false);

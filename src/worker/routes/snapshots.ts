@@ -8,7 +8,11 @@ import {
   hasDuplicateImageHash,
   hasDuplicateObservedAt,
   insertSnapshot,
+  changedSnapshotFields,
+  insertImportEvent,
+  insertSnapshotRevision,
   latestSnapshotBefore,
+  listSnapshotRevisions,
   listSnapshots,
   updateSnapshot
 } from "../lib/d1";
@@ -124,6 +128,21 @@ snapshotRoutes.post("/", async (c) => {
 
   try {
     const item = await insertSnapshot(c.env.DB, input, observedAt, nowIso());
+    await insertImportEvent(
+      c.env.DB,
+      {
+        snapshotId: item.id,
+        status: "saved",
+        sourceImageSha256: input.source_image_sha256 ?? null,
+        fileName: input.file_name ?? null,
+        imageWidth: input.image_width ?? null,
+        imageHeight: input.image_height ?? null,
+        parserVersion: input.parser_version ?? null,
+        extractedFieldCount: input.import_metadata?.extracted_field_count ?? null,
+        message: input.import_metadata?.status_message ?? "snapshot_saved"
+      },
+      nowIso()
+    );
     return c.json({ item, warnings }, 201);
   } catch (error) {
     const message = error instanceof Error ? error.message : "unknown_error";
@@ -144,6 +163,16 @@ snapshotRoutes.get("/:id", async (c) => {
   return c.json({ item });
 });
 
+snapshotRoutes.get("/:id/revisions", async (c) => {
+  const id = parseId(c.req.param("id"));
+  if (id == null) return c.json({ error: "invalid_snapshot_id" }, 400);
+
+  const item = await getSnapshotById(c.env.DB, id);
+  if (!item) return c.json({ error: "not_found" }, 404);
+
+  return c.json({ items: await listSnapshotRevisions(c.env.DB, id) });
+});
+
 snapshotRoutes.put("/:id", async (c) => {
   const id = parseId(c.req.param("id"));
   if (id == null) return c.json({ error: "invalid_snapshot_id" }, 400);
@@ -157,6 +186,9 @@ snapshotRoutes.put("/:id", async (c) => {
   if (!parsed.success) {
     return c.json({ error: "validation_failed", details: parsed.error.format() }, 400);
   }
+
+  const previous = await getSnapshotById(c.env.DB, id);
+  if (!previous) return c.json({ error: "not_found" }, 404);
 
   const input = parsed.data;
   const observedAt = observedAtUtc(
@@ -180,6 +212,12 @@ snapshotRoutes.put("/:id", async (c) => {
   try {
     const item = await updateSnapshot(c.env.DB, id, input, observedAt, nowIso());
     if (!item) return c.json({ error: "not_found" }, 404);
+    await insertSnapshotRevision(
+      c.env.DB,
+      id,
+      changedSnapshotFields(previous, item),
+      nowIso()
+    );
     return c.json({ item, warnings });
   } catch (error) {
     const message = error instanceof Error ? error.message : "unknown_error";

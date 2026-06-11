@@ -436,6 +436,17 @@ h2 {
   padding: 14px;
 }
 
+.comment-item {
+  display: grid;
+  grid-template-columns: 50px minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
+  border: 1px solid #d9dee3;
+  border-radius: 8px;
+  background: #fff;
+  padding: 14px;
+}
+
 .priority-score {
   display: grid;
   align-content: start;
@@ -461,6 +472,21 @@ h2 {
 .severity-low {
   background: #e7f5ef;
   color: #126247;
+}
+
+.severity-good {
+  background: #e7f5ef;
+  color: #126247;
+}
+
+.severity-watch {
+  background: #fff5d8;
+  color: #6f5300;
+}
+
+.severity-risk {
+  background: #ffe9e5;
+  color: #973228;
 }
 
 .priority-body {
@@ -1213,7 +1239,8 @@ footer {
     flex-basis: 112px;
   }
 
-  .priority-item {
+  .priority-item,
+  .comment-item {
     grid-template-columns: 1fr;
   }
 

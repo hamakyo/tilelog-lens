@@ -12,6 +12,7 @@ import {
 import {
   buildEstimatedDeltas,
   buildImprovementPriorities,
+  buildAnalysisComments,
   buildPeriodComparisons,
   buildPeriodAnalyses,
   buildRankPointAnalysis
@@ -176,6 +177,10 @@ export function DashboardPage({ navigate }: DashboardPageProps) {
   );
   const improvementPriorities = useMemo(
     () => buildImprovementPriorities(modeSnapshots),
+    [modeSnapshots]
+  );
+  const analysisComments = useMemo(
+    () => buildAnalysisComments(modeSnapshots),
     [modeSnapshots]
   );
   const rankPointAnalysis = useMemo(
@@ -524,6 +529,34 @@ export function DashboardPage({ navigate }: DashboardPageProps) {
                   <h3>{priority.title}</h3>
                   <p>{priority.reason}</p>
                   <p>{priority.action}</p>
+                </div>
+              </article>
+            ))}
+          </div>
+        )}
+      </section>
+
+      <section className="analysis-section">
+        <div className="section-heading">
+          <h2>分析コメント</h2>
+          <p>最新値と直近期から自動生成します。</p>
+        </div>
+        {analysisComments.length === 0 ? (
+          <p className="empty-state">分析コメントはまだありません。</p>
+        ) : (
+          <div className="priority-list">
+            {analysisComments.map((comment) => (
+              <article className="comment-item" key={comment.id}>
+                <span className={`severity-pill severity-${comment.severity}`}>
+                  {comment.severity === "good"
+                    ? "良"
+                    : comment.severity === "watch"
+                      ? "注"
+                      : "危"}
+                </span>
+                <div className="priority-body">
+                  <h3>{comment.title}</h3>
+                  <p>{comment.message}</p>
                 </div>
               </article>
             ))}

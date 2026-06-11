@@ -1,4 +1,10 @@
-import type { GameMode, Snapshot, SnapshotCreateInput } from "../../shared/types";
+import type {
+  GameMode,
+  ImportEvent,
+  Snapshot,
+  SnapshotCreateInput,
+  SnapshotRevision
+} from "../../shared/types";
 
 export type SnapshotOrder = "asc" | "desc";
 
@@ -83,6 +89,7 @@ const mutableColumns = [
 ] as const;
 
 type MutableColumn = (typeof mutableColumns)[number];
+type RevisionValue = string | number | null;
 
 function stringValue(row: SnapshotRow, key: string): string {
   return String(row[key]);
@@ -333,4 +340,149 @@ export async function latestSnapshotBefore(
     .first<SnapshotRow>();
 
   return row ? rowToSnapshot(row) : null;
+}
+
+function nullableRowNumber(row: Record<string, string | number | null>, key: string): number | null {
+  const value = row[key];
+  return value == null ? null : Number(value);
+}
+
+function nullableRowString(row: Record<string, string | number | null>, key: string): string | null {
+  const value = row[key];
+  return value == null ? null : String(value);
+}
+
+export function changedSnapshotFields(
+  before: Snapshot,
+  after: Snapshot
+): SnapshotRevision["changed_fields"] {
+  return mutableColumns
+    .filter((column) => column !== "observed_at_utc")
+    .map((column) => ({
+      field: column as keyof Snapshot,
+      before: before[column] as RevisionValue,
+      after: after[column] as RevisionValue
+    }))
+    .filter((change) => change.before !== change.after);
+}
+
+export async function insertSnapshotRevision(
+  db: D1Database,
+  snapshotId: number,
+  changedFields: SnapshotRevision["changed_fields"],
+  timestamp: string
+): Promise<void> {
+  if (changedFields.length === 0) return;
+
+  await db
+    .prepare(
+      `INSERT INTO snapshot_revisions (snapshot_id, changed_fields, created_at)
+       VALUES (?, ?, ?)`
+    )
+    .bind(snapshotId, JSON.stringify(changedFields), timestamp)
+    .run();
+}
+
+export async function listSnapshotRevisions(
+  db: D1Database,
+  snapshotId: number
+): Promise<SnapshotRevision[]> {
+  const result = await db
+    .prepare(
+      `SELECT id, snapshot_id, changed_fields, created_at
+       FROM snapshot_revisions
+       WHERE snapshot_id = ?
+       ORDER BY created_at DESC
+       LIMIT 100`
+    )
+    .bind(snapshotId)
+    .all<Record<string, string | number | null>>();
+
+  return (result.results ?? []).map((row) => ({
+    id: numberValue(row, "id"),
+    snapshot_id: numberValue(row, "snapshot_id"),
+    changed_fields: JSON.parse(stringValue(row, "changed_fields")) as SnapshotRevision["changed_fields"],
+    created_at: stringValue(row, "created_at")
+  }));
+}
+
+export async function insertImportEvent(
+  db: D1Database,
+  event: {
+    snapshotId?: number | null;
+    status: ImportEvent["status"];
+    sourceImageSha256?: string | null;
+    fileName?: string | null;
+    imageWidth?: number | null;
+    imageHeight?: number | null;
+    parserVersion?: string | null;
+    extractedFieldCount?: number | null;
+    message?: string | null;
+  },
+  timestamp: string
+): Promise<void> {
+  await db
+    .prepare(
+      `INSERT INTO import_events (
+        snapshot_id,
+        status,
+        source_image_sha256,
+        file_name,
+        image_width,
+        image_height,
+        parser_version,
+        extracted_field_count,
+        message,
+        created_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    )
+    .bind(
+      event.snapshotId ?? null,
+      event.status,
+      event.sourceImageSha256 ?? null,
+      event.fileName ?? null,
+      event.imageWidth ?? null,
+      event.imageHeight ?? null,
+      event.parserVersion ?? null,
+      event.extractedFieldCount ?? null,
+      event.message ?? null,
+      timestamp
+    )
+    .run();
+}
+
+export async function listImportEvents(db: D1Database): Promise<ImportEvent[]> {
+  const result = await db
+    .prepare(
+      `SELECT
+        id,
+        snapshot_id,
+        status,
+        source_image_sha256,
+        file_name,
+        image_width,
+        image_height,
+        parser_version,
+        extracted_field_count,
+        message,
+        created_at
+       FROM import_events
+       ORDER BY created_at DESC
+       LIMIT 200`
+    )
+    .all<Record<string, string | number | null>>();
+
+  return (result.results ?? []).map((row) => ({
+    id: numberValue(row, "id"),
+    snapshot_id: nullableRowNumber(row, "snapshot_id"),
+    status: stringValue(row, "status") as ImportEvent["status"],
+    source_image_sha256: nullableRowString(row, "source_image_sha256"),
+    file_name: nullableRowString(row, "file_name"),
+    image_width: nullableRowNumber(row, "image_width"),
+    image_height: nullableRowNumber(row, "image_height"),
+    parser_version: nullableRowString(row, "parser_version"),
+    extracted_field_count: nullableRowNumber(row, "extracted_field_count"),
+    message: nullableRowString(row, "message"),
+    created_at: stringValue(row, "created_at")
+  }));
 }

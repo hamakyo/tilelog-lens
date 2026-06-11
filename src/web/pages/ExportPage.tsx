@@ -1,5 +1,7 @@
 import { useState } from "react";
-import { Download, Eye, LoaderCircle } from "lucide-react";
+import { Download, Eye, LoaderCircle, Upload } from "lucide-react";
+import type { Snapshot, SnapshotCreateInput } from "../../shared/types";
+import { createSnapshot } from "../lib/api";
 
 type PreviewKind = "snapshots" | "deltas" | "ai";
 
@@ -22,6 +24,9 @@ export function ExportPage() {
   const [preview, setPreview] = useState<ExportPreview | null>(null);
   const [previewBusy, setPreviewBusy] = useState<PreviewKind | null>(null);
   const [previewError, setPreviewError] = useState<string | null>(null);
+  const [restoreItems, setRestoreItems] = useState<SnapshotCreateInput[]>([]);
+  const [restoreBusy, setRestoreBusy] = useState(false);
+  const [restoreMessage, setRestoreMessage] = useState<string | null>(null);
 
   function exportPath(kind: PreviewKind): string {
     if (kind === "snapshots") return "/api/export/snapshots.csv";
@@ -89,6 +94,88 @@ export function ExportPage() {
     }
   }
 
+  function snapshotToInput(snapshot: Snapshot): SnapshotCreateInput {
+    return {
+      observed_date: snapshot.observed_date,
+      observed_time: snapshot.observed_time,
+      timezone: snapshot.timezone,
+      game_mode: snapshot.game_mode,
+      player_name: snapshot.player_name,
+      player_id: snapshot.player_id,
+      rank_name: snapshot.rank_name,
+      rank_level: snapshot.rank_level,
+      rank_points: snapshot.rank_points,
+      rank_points_max: snapshot.rank_points_max,
+      matches: snapshot.matches,
+      avg_win_score: snapshot.avg_win_score,
+      avg_place: snapshot.avg_place,
+      max_renchan: snapshot.max_renchan,
+      avg_win_turn: snapshot.avg_win_turn,
+      first_rate: snapshot.first_rate,
+      second_rate: snapshot.second_rate,
+      third_rate: snapshot.third_rate,
+      fourth_rate: snapshot.fourth_rate,
+      bust_rate: snapshot.bust_rate,
+      win_rate: snapshot.win_rate,
+      tsumo_rate: snapshot.tsumo_rate,
+      deal_in_rate: snapshot.deal_in_rate,
+      call_rate: snapshot.call_rate,
+      riichi_rate: snapshot.riichi_rate,
+      note: snapshot.note,
+      source_image_sha256: snapshot.source_image_sha256,
+      file_name: snapshot.file_name,
+      file_last_modified: snapshot.file_last_modified,
+      exif_taken_at: snapshot.exif_taken_at,
+      image_width: snapshot.image_width,
+      image_height: snapshot.image_height,
+      parser_version: snapshot.parser_version,
+      import_metadata: {
+        extracted_field_count: null,
+        status_message: "json_restore"
+      }
+    };
+  }
+
+  async function handleRestoreFile(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    try {
+      const text = await file.text();
+      const data = JSON.parse(text) as { snapshots?: Snapshot[] };
+      const items = Array.isArray(data.snapshots)
+        ? data.snapshots.map(snapshotToInput)
+        : [];
+      setRestoreItems(items);
+      setRestoreMessage(`${items.length}件の復元候補を読み込みました。`);
+    } catch (error) {
+      setRestoreItems([]);
+      setRestoreMessage(error instanceof Error ? error.message : "JSONの読み込みに失敗しました。");
+    }
+  }
+
+  async function handleRestoreImport() {
+    if (restoreItems.length === 0) return;
+
+    setRestoreBusy(true);
+    let saved = 0;
+    let skipped = 0;
+
+    try {
+      for (const item of restoreItems) {
+        try {
+          await createSnapshot(item);
+          saved += 1;
+        } catch {
+          skipped += 1;
+        }
+      }
+      setRestoreMessage(`復元インポート完了: 保存 ${saved}件 / スキップ ${skipped}件`);
+    } finally {
+      setRestoreBusy(false);
+    }
+  }
+
   return (
     <main className="page-stack">
       <div className="page-header">
@@ -144,6 +231,34 @@ export function ExportPage() {
         <p>
           外部AIツールへアップロードする前に、メモの内容を確認してください。スクリーンショットはダウンロードに含まれず、アプリにも保存されません。
         </p>
+      </section>
+
+      <section className="settings-panel">
+        <div className="section-heading inline-heading">
+          <h2>JSON復元</h2>
+          <p>AI用JSON内の数値スナップショットを再インポートします。</p>
+        </div>
+        <div className="image-row">
+          <label className="file-button">
+            <Upload size={18} aria-hidden="true" />
+            <span>JSONを選択</span>
+            <input type="file" accept="application/json,.json" onChange={handleRestoreFile} />
+          </label>
+          <button
+            type="button"
+            className="secondary-button"
+            disabled={restoreBusy || restoreItems.length === 0}
+            onClick={() => void handleRestoreImport()}
+          >
+            {restoreBusy ? (
+              <LoaderCircle className="spin-icon" size={18} aria-hidden="true" />
+            ) : (
+              <Upload size={18} aria-hidden="true" />
+            )}
+            <span>復元インポート</span>
+          </button>
+        </div>
+        {restoreMessage ? <p className="form-message">{restoreMessage}</p> : null}
       </section>
 
       {previewError ? <p className="error-banner">{previewError}</p> : null}

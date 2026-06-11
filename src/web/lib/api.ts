@@ -1,7 +1,9 @@
 import type {
   EstimatedDelta,
+  ImportEvent,
   Snapshot,
   SnapshotCreateInput,
+  SnapshotRevision,
   ValidationWarning
 } from "../../shared/types";
 
@@ -45,6 +47,12 @@ export function getSnapshot(id: number): Promise<{ item: Snapshot }> {
   return apiJson<{ item: Snapshot }>(`/api/snapshots/${id}`);
 }
 
+export function listSnapshotRevisions(
+  id: number
+): Promise<{ items: SnapshotRevision[] }> {
+  return apiJson<{ items: SnapshotRevision[] }>(`/api/snapshots/${id}/revisions`);
+}
+
 export function createSnapshot(
   input: SnapshotCreateInput
 ): Promise<SnapshotResponse> {
@@ -78,4 +86,20 @@ export function deleteSnapshot(id: number): Promise<{ ok: true }> {
 
 export function listDeltas(): Promise<{ items: EstimatedDelta[] }> {
   return apiJson<{ items: EstimatedDelta[] }>("/api/analytics/deltas");
+}
+
+export function listImportEvents(): Promise<{ items: ImportEvent[] }> {
+  return apiJson<{ items: ImportEvent[] }>("/api/import-events");
+}
+
+export function createImportEvent(
+  input: Omit<ImportEvent, "id" | "created_at">
+): Promise<{ ok: true }> {
+  return apiJson<{ ok: true }>("/api/import-events", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify(input)
+  });
 }

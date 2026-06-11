@@ -2,6 +2,7 @@ import { APP_NAME, GAME_NAME } from "./constants";
 import {
   buildDataQualityWarnings,
   buildDataQualityReport,
+  buildAnalysisComments,
   buildDerivedMetrics,
   buildEstimatedDeltas,
   buildImprovementPriorities,
@@ -58,6 +59,7 @@ export function buildAiContext(
     estimated_deltas: buildEstimatedDeltas(sanitizedSnapshots),
     period_analyses: buildPeriodAnalyses(latestModeSnapshots),
     period_comparisons: buildPeriodComparisons(latestModeSnapshots),
+    analysis_comments: buildAnalysisComments(latestModeSnapshots),
     improvement_priorities: buildImprovementPriorities(latestModeSnapshots),
     rank_point_analysis: buildRankPointAnalysis(latestModeSnapshots),
     data_quality_warnings: latest

@@ -77,7 +77,14 @@ export const snapshotCreateSchema = z
     exif_taken_at: optionalString(80),
     image_width: optionalInt(z.number().positive()),
     image_height: optionalInt(z.number().positive()),
-    parser_version: optionalString(40)
+    parser_version: optionalString(40),
+    import_metadata: z
+      .object({
+        extracted_field_count: optionalInt(z.number().min(0)),
+        status_message: optionalString(200)
+      })
+      .nullable()
+      .optional()
   })
   .refine(
     (value) =>

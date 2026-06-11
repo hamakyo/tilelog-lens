@@ -1,4 +1,5 @@
 import type {
+  AnalysisComment,
   DataQualityIssue,
   DerivedMetric,
   DuplicateSnapshotCandidate,
@@ -472,6 +473,62 @@ export function buildImprovementPriorities(
   return priorities
     .sort((a, b) => b.score - a.score)
     .slice(0, 3);
+}
+
+export function buildAnalysisComments(snapshots: Snapshot[]): AnalysisComment[] {
+  const ordered = [...snapshots].sort(byObservedAsc);
+  const latest = ordered.at(-1);
+  if (!latest) return [];
+
+  const comments: AnalysisComment[] = [];
+  const recent = buildPeriodAnalyses(ordered, [10, 50]).find(
+    (period) => period.quality !== "insufficient_data"
+  );
+  const attackDefenseGap = round2(latest.win_rate - latest.deal_in_rate);
+
+  if (recent?.period_win_rate != null && recent.period_deal_in_rate != null) {
+    const recentGap = round2(recent.period_win_rate - recent.period_deal_in_rate);
+    comments.push({
+      id: "recent-attack-defense",
+      severity: recentGap >= 8 ? "good" : recentGap >= 4 ? "watch" : "risk",
+      title: `${recent.label}の攻守差`,
+      message: `和了率${recent.period_win_rate.toFixed(2)}%、放銃率${recent.period_deal_in_rate.toFixed(2)}%、攻守差${recentGap.toFixed(2)}ptです。`
+    });
+  }
+
+  if (latest.deal_in_rate > 13) {
+    comments.push({
+      id: "deal-in-risk",
+      severity: "risk",
+      title: "放銃率が高め",
+      message: `最新の放銃率は${latest.deal_in_rate.toFixed(2)}%です。終盤の押し返しと副露後の守備を優先して確認してください。`
+    });
+  } else if (latest.deal_in_rate <= 11.5) {
+    comments.push({
+      id: "deal-in-good",
+      severity: "good",
+      title: "放銃率は良好",
+      message: `最新の放銃率は${latest.deal_in_rate.toFixed(2)}%で、守備面は安定しています。`
+    });
+  }
+
+  if (latest.win_rate < 20) {
+    comments.push({
+      id: "win-rate-watch",
+      severity: "watch",
+      title: "和了率の低下に注意",
+      message: `最新の和了率は${latest.win_rate.toFixed(2)}%です。配牌降り気味の局面と鳴き判断を見直す余地があります。`
+    });
+  }
+
+  comments.push({
+    id: "latest-summary",
+    severity: attackDefenseGap >= 8 ? "good" : "watch",
+    title: "最新累積の概要",
+    message: `平均順位${latest.avg_place.toFixed(2)}、和了率${latest.win_rate.toFixed(2)}%、放銃率${latest.deal_in_rate.toFixed(2)}%、攻守差${attackDefenseGap.toFixed(2)}ptです。`
+  });
+
+  return comments.slice(0, 4);
 }
 
 export function buildRankPointAnalysis(snapshots: Snapshot[]): RankPointAnalysis | null {
