@@ -3,12 +3,14 @@ import { Activity, Flag, Gauge, ShieldAlert } from "lucide-react";
 import type { EstimatedDelta, Snapshot } from "../../shared/types";
 import {
   GAME_MODE_LABELS,
+  GAME_MODES,
   RANK_LEVEL_LABELS,
   RANK_LEVELS,
   RANK_NAME_LABELS,
   RANK_POINT_MAX_BY_RANK_AND_LEVEL
 } from "../../shared/constants";
 import {
+  buildEstimatedDeltas,
   buildImprovementPriorities,
   buildPeriodAnalyses,
   buildRankPointAnalysis
@@ -94,6 +96,7 @@ export function DashboardPage({ navigate }: DashboardPageProps) {
   const [deltas, setDeltas] = useState<EstimatedDelta[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [selectedMode, setSelectedMode] = useState<Snapshot["game_mode"] | "all">("all");
 
   useEffect(() => {
     Promise.all([listSnapshots(), listDeltas()])
@@ -105,15 +108,27 @@ export function DashboardPage({ navigate }: DashboardPageProps) {
       .finally(() => setLoading(false));
   }, []);
 
-  const latest = snapshots[0];
+  const availableModes = useMemo(
+    () => GAME_MODES.filter((mode) => snapshots.some((snapshot) => snapshot.game_mode === mode)),
+    [snapshots]
+  );
+  const displaySnapshots = useMemo(
+    () =>
+      selectedMode === "all"
+        ? snapshots
+        : snapshots.filter((snapshot) => snapshot.game_mode === selectedMode),
+    [selectedMode, snapshots]
+  );
+  const latest = displaySnapshots[0];
+  const latestMode = latest?.game_mode ?? (selectedMode === "all" ? null : selectedMode);
   const modeSnapshots = useMemo(
     () =>
-      latest
-        ? snapshots.filter((snapshot) => snapshot.game_mode === latest.game_mode)
-        : [],
-    [latest, snapshots]
+      latestMode
+        ? snapshots.filter((snapshot) => snapshot.game_mode === latestMode)
+        : displaySnapshots,
+    [displaySnapshots, latestMode, snapshots]
   );
-  const chartData = useMemo(() => toChartPoints(snapshots), [snapshots]);
+  const chartData = useMemo(() => toChartPoints(displaySnapshots), [displaySnapshots]);
   const periodAnalyses = useMemo(
     () => buildPeriodAnalyses(modeSnapshots),
     [modeSnapshots]
@@ -126,7 +141,14 @@ export function DashboardPage({ navigate }: DashboardPageProps) {
     () => buildRankPointAnalysis(modeSnapshots),
     [modeSnapshots]
   );
-  const latestDelta = deltas[deltas.length - 1];
+  const displayDeltas = useMemo(
+    () =>
+      selectedMode === "all"
+        ? deltas
+        : buildEstimatedDeltas(displaySnapshots),
+    [deltas, displaySnapshots, selectedMode]
+  );
+  const latestDelta = displayDeltas[displayDeltas.length - 1];
 
   return (
     <main className="page-stack">
@@ -143,6 +165,26 @@ export function DashboardPage({ navigate }: DashboardPageProps) {
 
       {error ? <p className="error-banner">{error}</p> : null}
       {loading ? <p className="empty-state">成績を読み込んでいます...</p> : null}
+
+      <section className="filter-bar" aria-label="ゲームモード切替">
+        <button
+          type="button"
+          className={selectedMode === "all" ? "active" : ""}
+          onClick={() => setSelectedMode("all")}
+        >
+          すべて
+        </button>
+        {availableModes.map((mode) => (
+          <button
+            key={mode}
+            type="button"
+            className={selectedMode === mode ? "active" : ""}
+            onClick={() => setSelectedMode(mode)}
+          >
+            {GAME_MODE_LABELS[mode]}
+          </button>
+        ))}
+      </section>
 
       <section className="summary-grid">
         <div className="summary-tile">
@@ -176,7 +218,7 @@ export function DashboardPage({ navigate }: DashboardPageProps) {
       <section className="analysis-section rank-point-section">
         <div className="section-heading">
           <h2>段位ポイント分析</h2>
-          <p>{latest ? GAME_MODE_LABELS[latest.game_mode] : "-"}</p>
+          <p>{latestMode ? GAME_MODE_LABELS[latestMode] : "すべて"}</p>
         </div>
         {!rankPointAnalysis ? (
           <p className="empty-state">まだ段位ポイント分析はありません。</p>
@@ -270,7 +312,7 @@ export function DashboardPage({ navigate }: DashboardPageProps) {
       <section className="analysis-section">
         <div className="section-heading">
           <h2>直近期間</h2>
-          <p>{latest ? GAME_MODE_LABELS[latest.game_mode] : "-"}</p>
+          <p>{latestMode ? GAME_MODE_LABELS[latestMode] : "すべて"}</p>
         </div>
         <div className="period-grid">
           {periodAnalyses.length === 0 ? (
@@ -415,12 +457,12 @@ export function DashboardPage({ navigate }: DashboardPageProps) {
               </tr>
             </thead>
             <tbody>
-              {deltas.length === 0 ? (
+              {displayDeltas.length === 0 ? (
                 <tr>
                   <td colSpan={8}>まだ差分はありません。</td>
                 </tr>
               ) : (
-                deltas.map((delta) => (
+                displayDeltas.map((delta) => (
                   <tr key={`${delta.from_snapshot_id}-${delta.to_snapshot_id}`}>
                     <td>{formatDateTime(delta.from_observed_at_utc)}</td>
                     <td>{formatDateTime(delta.to_observed_at_utc)}</td>

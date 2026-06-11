@@ -12,17 +12,21 @@ import {
 } from "../../shared/constants";
 import type { Snapshot, SnapshotCreateInput, ValidationWarning } from "../../shared/types";
 import { getConsistencyWarnings } from "../../shared/schema";
+import { buildDataQualityWarnings } from "../../shared/metrics";
 import {
   fileLastModifiedIso,
   getImageDimensions,
   sha256File
 } from "../lib/imageLocal";
 import {
+  DEFAULT_OCR_CALIBRATION,
   countExtractedFields,
   parseMahjongStatsOcr,
   recognizeSnapshotText,
+  type OcrCalibration,
   type OcrExtractedFields
 } from "../lib/ocr";
+import { listSnapshots } from "../lib/api";
 
 type SnapshotFormValues = {
   observed_date: string;
@@ -67,6 +71,7 @@ type SnapshotFormProps = {
 };
 
 const today = new Date().toISOString().slice(0, 10);
+const ocrCalibrationStorageKey = "tilelog-lens:ocr-calibration";
 
 const fieldLabels: Record<keyof SnapshotFormValues, string> = {
   observed_date: "日付",
@@ -264,6 +269,25 @@ function missingRequiredLabels(values: SnapshotFormValues): string[] {
     .map((field) => fieldLabels[field]);
 }
 
+function loadOcrCalibration(): OcrCalibration {
+  try {
+    const parsed = JSON.parse(
+      window.localStorage.getItem(ocrCalibrationStorageKey) ?? "null"
+    ) as Partial<OcrCalibration> | null;
+    return {
+      offsetX: Number(parsed?.offsetX ?? DEFAULT_OCR_CALIBRATION.offsetX),
+      offsetY: Number(parsed?.offsetY ?? DEFAULT_OCR_CALIBRATION.offsetY),
+      scale: Number(parsed?.scale ?? DEFAULT_OCR_CALIBRATION.scale)
+    };
+  } catch {
+    return DEFAULT_OCR_CALIBRATION;
+  }
+}
+
+function saveOcrCalibration(calibration: OcrCalibration): void {
+  window.localStorage.setItem(ocrCalibrationStorageKey, JSON.stringify(calibration));
+}
+
 export function SnapshotForm({
   initialSnapshot,
   submitLabel,
@@ -282,10 +306,20 @@ export function SnapshotForm({
   const [ocrMissingRequired, setOcrMissingRequired] = useState<string[]>([]);
   const [message, setMessage] = useState<string | null>(null);
   const [serverWarnings, setServerWarnings] = useState<ValidationWarning[]>([]);
+  const [existingSnapshots, setExistingSnapshots] = useState<Snapshot[]>([]);
+  const [ocrCalibration, setOcrCalibration] = useState<OcrCalibration>(() =>
+    loadOcrCalibration()
+  );
 
   useEffect(() => {
     setValues(toValues(initialSnapshot));
   }, [initialSnapshot]);
+
+  useEffect(() => {
+    listSnapshots()
+      .then((result) => setExistingSnapshots(result.items))
+      .catch(() => setExistingSnapshots([]));
+  }, []);
 
   useEffect(() => {
     return () => {
@@ -296,11 +330,17 @@ export function SnapshotForm({
   const localWarnings = useMemo(() => {
     if (!hasRequiredStats(values)) return [];
     try {
-      return getConsistencyWarnings(buildInput(values));
+      const input = buildInput(values);
+      return [
+        ...getConsistencyWarnings(input),
+        ...buildDataQualityWarnings(input, existingSnapshots, {
+          excludeId: initialSnapshot?.id
+        })
+      ];
     } catch {
       return [];
     }
-  }, [values]);
+  }, [existingSnapshots, initialSnapshot?.id, values]);
 
   const setField =
     (field: keyof SnapshotFormValues) =>
@@ -318,6 +358,23 @@ export function SnapshotForm({
         return pointMax == null ? next : { ...next, rank_points_max: pointMax };
       });
     };
+
+  const setOcrCalibrationField =
+    (field: keyof OcrCalibration) =>
+    (event: React.ChangeEvent<HTMLInputElement>) => {
+      const raw = Number(event.target.value);
+      const value = field === "scale" ? Math.max(0.85, Math.min(1.2, raw)) : raw;
+      setOcrCalibration((current) => {
+        const next = { ...current, [field]: value };
+        saveOcrCalibration(next);
+        return next;
+      });
+    };
+
+  function resetOcrCalibration() {
+    setOcrCalibration(DEFAULT_OCR_CALIBRATION);
+    saveOcrCalibration(DEFAULT_OCR_CALIBRATION);
+  }
 
   async function handleFileChange(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
@@ -361,9 +418,13 @@ export function SnapshotForm({
     setMessage(null);
 
     try {
-      const text = await recognizeSnapshotText(selectedFile, (progress) => {
-        setOcrProgress(`${progress.status} ${progress.progress}%`);
-      });
+      const text = await recognizeSnapshotText(
+        selectedFile,
+        (progress) => {
+          setOcrProgress(`${progress.status} ${progress.progress}%`);
+        },
+        ocrCalibration
+      );
       const extracted = parseMahjongStatsOcr(text);
       const count = countExtractedFields(extracted);
       setOcrText(text);
@@ -596,6 +657,50 @@ export function SnapshotForm({
           </button>
           {previewUrl ? <img className="local-preview" src={previewUrl} alt="" /> : null}
         </div>
+        <details className="ocr-calibration">
+          <summary>OCR読み取り位置を調整</summary>
+          <div className="calibration-grid">
+            <label>
+              <span>横位置</span>
+              <input
+                type="range"
+                min={-80}
+                max={80}
+                step={2}
+                value={ocrCalibration.offsetX}
+                onChange={setOcrCalibrationField("offsetX")}
+              />
+              <output>{ocrCalibration.offsetX}px</output>
+            </label>
+            <label>
+              <span>縦位置</span>
+              <input
+                type="range"
+                min={-80}
+                max={80}
+                step={2}
+                value={ocrCalibration.offsetY}
+                onChange={setOcrCalibrationField("offsetY")}
+              />
+              <output>{ocrCalibration.offsetY}px</output>
+            </label>
+            <label>
+              <span>領域サイズ</span>
+              <input
+                type="range"
+                min={0.85}
+                max={1.2}
+                step={0.01}
+                value={ocrCalibration.scale}
+                onChange={setOcrCalibrationField("scale")}
+              />
+              <output>{Math.round(ocrCalibration.scale * 100)}%</output>
+            </label>
+            <button type="button" className="secondary-button" onClick={resetOcrCalibration}>
+              初期値に戻す
+            </button>
+          </div>
+        </details>
         {ocrProgress ? <p className="ocr-progress">{ocrProgress}</p> : null}
         {ocrFilledFields.length > 0 || ocrMissingRequired.length > 0 ? (
           <div className="ocr-summary" role="status">

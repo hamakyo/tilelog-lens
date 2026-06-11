@@ -1,10 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
   buildDerivedMetrics,
+  buildDataQualityWarnings,
   buildEstimatedDeltas,
   buildImprovementPriorities,
   buildPeriodAnalyses,
-  buildRankPointAnalysis
+  buildRankPointAnalysis,
+  buildSnapshotComparison
 } from "../src/shared/metrics";
 import { makeSnapshot } from "./fixtures";
 
@@ -190,5 +192,85 @@ describe("metrics", () => {
       projected_matches_to_promotion: 47,
       status: "ready"
     });
+  });
+
+  it("builds snapshot comparison metrics", () => {
+    const comparison = buildSnapshotComparison(
+      makeSnapshot({
+        id: 1,
+        observed_at_utc: "2026-06-01T00:00:00.000Z",
+        matches: 100,
+        avg_place: 2.6,
+        win_rate: 18,
+        deal_in_rate: 14,
+        rank_points: 400
+      }),
+      makeSnapshot({
+        id: 2,
+        observed_at_utc: "2026-06-02T00:00:00.000Z",
+        matches: 125,
+        avg_place: 2.45,
+        win_rate: 22,
+        deal_in_rate: 12,
+        rank_points: 460
+      })
+    );
+
+    expect(comparison.matches_delta).toBe(25);
+    expect(comparison.quality).toBe("ok");
+    expect(comparison.metrics.find((metric) => metric.key === "avg_place")).toMatchObject({
+      delta: -0.15,
+      better_direction: "down"
+    });
+    expect(comparison.metrics.find((metric) => metric.key === "attack_defense_gap")).toMatchObject({
+      from_value: 4,
+      to_value: 10,
+      delta: 6
+    });
+  });
+
+  it("warns about impossible cumulative deltas before save", () => {
+    const warnings = buildDataQualityWarnings(
+      {
+        observed_date: "2026-06-02",
+        observed_time: "12:00",
+        timezone: "Asia/Tokyo",
+        game_mode: "east",
+        matches: 110,
+        avg_place: 2.5,
+        first_rate: 10,
+        second_rate: 20,
+        third_rate: 30,
+        fourth_rate: 20,
+        win_rate: 15,
+        deal_in_rate: 20,
+        call_rate: 25,
+        riichi_rate: 30,
+        rank_points: 900,
+        rank_points_max: 800
+      },
+      [
+        makeSnapshot({
+          id: 1,
+          observed_date: "2026-06-01",
+          observed_time: "12:00",
+          observed_at_utc: "2026-06-01T03:00:00.000Z",
+          game_mode: "east",
+          matches: 100,
+          first_rate: 30,
+          second_rate: 25,
+          third_rate: 25,
+          fourth_rate: 20,
+          win_rate: 25,
+          deal_in_rate: 10,
+          call_rate: 30,
+          riichi_rate: 20
+        })
+      ]
+    );
+
+    expect(warnings.map((warning) => warning.code)).toContain("RANK_POINTS_EXCEED_CAP");
+    expect(warnings.map((warning) => warning.code)).toContain("RATE_DELTA_NEGATIVE");
+    expect(warnings.map((warning) => warning.code)).toContain("PERIOD_DELTA_INCONSISTENT");
   });
 });

@@ -4,7 +4,11 @@ import type {
   ImprovementPriority,
   PeriodAnalysis,
   RankPointAnalysis,
-  Snapshot
+  Snapshot,
+  SnapshotComparison,
+  SnapshotComparisonMetric,
+  SnapshotCreateInput,
+  ValidationWarning
 } from "./types";
 import { RANK_LEVELS, RANK_POINT_MAX_BY_RANK_AND_LEVEL } from "./constants";
 
@@ -26,10 +30,40 @@ function byObservedAsc(a: Snapshot, b: Snapshot): number {
   return a.observed_at_utc.localeCompare(b.observed_at_utc);
 }
 
+function inputObservedKey(input: Pick<SnapshotCreateInput, "observed_date" | "observed_time">): string {
+  return `${input.observed_date}T${input.observed_time}`;
+}
+
+function snapshotObservedKey(snapshot: Pick<Snapshot, "observed_date" | "observed_time">): string {
+  return `${snapshot.observed_date}T${snapshot.observed_time}`;
+}
+
 function severityForScore(score: number): ImprovementPriority["severity"] {
   if (score >= 70) return "high";
   if (score >= 35) return "medium";
   return "low";
+}
+
+function comparisonMetric(
+  key: string,
+  label: string,
+  fromValue: number | null,
+  toValue: number | null,
+  unit: SnapshotComparisonMetric["unit"],
+  betterDirection: SnapshotComparisonMetric["better_direction"]
+): SnapshotComparisonMetric {
+  return {
+    key,
+    label,
+    from_value: fromValue,
+    to_value: toValue,
+    delta:
+      fromValue == null || toValue == null
+        ? null
+        : round2(toValue - fromValue),
+    unit,
+    better_direction: betterDirection
+  };
 }
 
 function priority(
@@ -460,4 +494,119 @@ export function buildRankPointAnalysis(snapshots: Snapshot[]): RankPointAnalysis
           ? "missing_cap"
           : "ready"
   };
+}
+
+export function buildSnapshotComparison(
+  fromSnapshot: Snapshot,
+  toSnapshot: Snapshot
+): SnapshotComparison {
+  const matchesDelta = toSnapshot.matches - fromSnapshot.matches;
+  const differentMode = fromSnapshot.game_mode !== toSnapshot.game_mode;
+
+  return {
+    from_snapshot_id: fromSnapshot.id,
+    to_snapshot_id: toSnapshot.id,
+    from_observed_at_utc: fromSnapshot.observed_at_utc,
+    to_observed_at_utc: toSnapshot.observed_at_utc,
+    matches_delta: matchesDelta,
+    quality: differentMode
+      ? "different_mode"
+      : matchesDelta > 0
+        ? "ok"
+        : matchesDelta === 0
+          ? "same_matches"
+          : "negative_matches",
+    metrics: [
+      comparisonMetric("matches", "対戦数", fromSnapshot.matches, toSnapshot.matches, "number", "up"),
+      comparisonMetric("avg_place", "平均順位", fromSnapshot.avg_place, toSnapshot.avg_place, "place", "down"),
+      comparisonMetric("first_rate", "一位率", fromSnapshot.first_rate, toSnapshot.first_rate, "rate", "up"),
+      comparisonMetric("second_rate", "二位率", fromSnapshot.second_rate, toSnapshot.second_rate, "rate", "neutral"),
+      comparisonMetric("third_rate", "三位率", fromSnapshot.third_rate, toSnapshot.third_rate, "rate", "down"),
+      comparisonMetric("fourth_rate", "四位率", fromSnapshot.fourth_rate, toSnapshot.fourth_rate, "rate", "down"),
+      comparisonMetric("win_rate", "和了率", fromSnapshot.win_rate, toSnapshot.win_rate, "rate", "up"),
+      comparisonMetric("deal_in_rate", "放銃率", fromSnapshot.deal_in_rate, toSnapshot.deal_in_rate, "rate", "down"),
+      comparisonMetric("call_rate", "副露率", fromSnapshot.call_rate, toSnapshot.call_rate, "rate", "neutral"),
+      comparisonMetric("riichi_rate", "立直率", fromSnapshot.riichi_rate, toSnapshot.riichi_rate, "rate", "neutral"),
+      comparisonMetric(
+        "attack_defense_gap",
+        "攻守差",
+        round2(fromSnapshot.win_rate - fromSnapshot.deal_in_rate),
+        round2(toSnapshot.win_rate - toSnapshot.deal_in_rate),
+        "number",
+        "up"
+      ),
+      comparisonMetric("rank_points", "段位ポイント", fromSnapshot.rank_points, toSnapshot.rank_points, "rank_point", "up")
+    ]
+  };
+}
+
+export function buildDataQualityWarnings(
+  input: SnapshotCreateInput,
+  snapshots: Snapshot[],
+  options: { excludeId?: number } = {}
+): ValidationWarning[] {
+  const warnings: ValidationWarning[] = [];
+  const currentKey = inputObservedKey(input);
+  const sameModeSnapshots = snapshots
+    .filter((snapshot) => snapshot.id !== options.excludeId)
+    .filter((snapshot) => snapshot.game_mode === input.game_mode)
+    .sort(byObservedAsc);
+  const previous = [...sameModeSnapshots]
+    .reverse()
+    .find((snapshot) => snapshotObservedKey(snapshot) < currentKey);
+
+  if (input.rank_points != null && input.rank_points_max != null && input.rank_points > input.rank_points_max) {
+    warnings.push({
+      code: "RANK_POINTS_EXCEED_CAP",
+      message: "段位ポイントがポイント上限を超えています。",
+      severity: "warning"
+    });
+  }
+
+  if (!previous) return warnings;
+
+  const matchesDelta = input.matches - previous.matches;
+  if (matchesDelta < 0) {
+    warnings.push({
+      code: "MATCHES_DECREASED",
+      message: "同じモードの前回記録より対戦数が減っています。",
+      severity: "warning"
+    });
+    return warnings;
+  }
+
+  if (matchesDelta === 0) return warnings;
+
+  const rankDeltas = [
+    estimatedCount(input.matches, input.first_rate)! - estimatedCount(previous.matches, previous.first_rate)!,
+    estimatedCount(input.matches, input.second_rate)! - estimatedCount(previous.matches, previous.second_rate)!,
+    estimatedCount(input.matches, input.third_rate)! - estimatedCount(previous.matches, previous.third_rate)!,
+    estimatedCount(input.matches, input.fourth_rate)! - estimatedCount(previous.matches, previous.fourth_rate)!
+  ];
+  const rateDeltas = [
+    ...rankDeltas,
+    estimatedCount(input.matches, input.win_rate)! - estimatedCount(previous.matches, previous.win_rate)!,
+    estimatedCount(input.matches, input.deal_in_rate)! - estimatedCount(previous.matches, previous.deal_in_rate)!,
+    estimatedCount(input.matches, input.call_rate)! - estimatedCount(previous.matches, previous.call_rate)!,
+    estimatedCount(input.matches, input.riichi_rate)! - estimatedCount(previous.matches, previous.riichi_rate)!
+  ];
+
+  if (rateDeltas.some((delta) => delta < 0)) {
+    warnings.push({
+      code: "RATE_DELTA_NEGATIVE",
+      message: "累積率から推定した期間内回数にマイナス値があります。前回記録または今回の入力を確認してください。",
+      severity: "warning"
+    });
+  }
+
+  const rankDeltaTotal = rankDeltas.reduce((sum, delta) => sum + delta, 0);
+  if (Math.abs(rankDeltaTotal - matchesDelta) > Math.max(2, matchesDelta * 0.08)) {
+    warnings.push({
+      code: "PERIOD_DELTA_INCONSISTENT",
+      message: "順位率から推定した期間対戦数が、対戦数差分と大きくずれています。",
+      severity: "warning"
+    });
+  }
+
+  return warnings;
 }

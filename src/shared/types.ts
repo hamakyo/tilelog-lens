@@ -85,6 +85,9 @@ export type ValidationWarning = {
   code:
     | "RANK_RATE_SUM_NOT_100"
     | "AVG_PLACE_MISMATCH"
+    | "RANK_POINTS_EXCEED_CAP"
+    | "RATE_DELTA_NEGATIVE"
+    | "PERIOD_DELTA_INCONSISTENT"
     | "MATCHES_DECREASED"
     | "DUPLICATE_IMAGE_HASH"
     | "DUPLICATE_OBSERVED_AT";
@@ -178,6 +181,26 @@ export type RankPointAnalysis = {
   status: "ready" | "missing_points" | "missing_cap";
 };
 
+export type SnapshotComparisonMetric = {
+  key: string;
+  label: string;
+  from_value: number | null;
+  to_value: number | null;
+  delta: number | null;
+  unit: "number" | "rate" | "rank_point" | "place";
+  better_direction: "up" | "down" | "neutral";
+};
+
+export type SnapshotComparison = {
+  from_snapshot_id: number;
+  to_snapshot_id: number;
+  from_observed_at_utc: string;
+  to_observed_at_utc: string;
+  matches_delta: number;
+  metrics: SnapshotComparisonMetric[];
+  quality: "ok" | "same_matches" | "negative_matches" | "different_mode";
+};
+
 export type AiContext = {
   schema_version: "1.0";
   app: string;
@@ -192,6 +215,10 @@ export type AiContext = {
   snapshots: Snapshot[];
   derived_metrics: DerivedMetric[];
   estimated_deltas: EstimatedDelta[];
+  period_analyses: PeriodAnalysis[];
+  improvement_priorities: ImprovementPriority[];
+  rank_point_analysis: RankPointAnalysis | null;
+  data_quality_warnings: ValidationWarning[];
   notes: Array<{
     snapshot_id: number;
     observed_at_utc: string;

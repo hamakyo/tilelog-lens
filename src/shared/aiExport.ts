@@ -1,5 +1,12 @@
 import { APP_NAME, GAME_NAME } from "./constants";
-import { buildDerivedMetrics, buildEstimatedDeltas } from "./metrics";
+import {
+  buildDataQualityWarnings,
+  buildDerivedMetrics,
+  buildEstimatedDeltas,
+  buildImprovementPriorities,
+  buildPeriodAnalyses,
+  buildRankPointAnalysis
+} from "./metrics";
 import type { AiContext, Snapshot } from "./types";
 
 const metricsDescription: Record<string, string> = {
@@ -25,6 +32,13 @@ export function buildAiContext(
     player_name: anonymized ? null : snapshot.player_name,
     player_id: anonymized ? null : snapshot.player_id
   }));
+  const ordered = [...sanitizedSnapshots].sort((a, b) =>
+    a.observed_at_utc.localeCompare(b.observed_at_utc)
+  );
+  const latest = ordered.at(-1);
+  const latestModeSnapshots = latest
+    ? ordered.filter((snapshot) => snapshot.game_mode === latest.game_mode)
+    : ordered;
 
   return {
     schema_version: "1.0",
@@ -40,6 +54,12 @@ export function buildAiContext(
     snapshots: sanitizedSnapshots,
     derived_metrics: buildDerivedMetrics(sanitizedSnapshots),
     estimated_deltas: buildEstimatedDeltas(sanitizedSnapshots),
+    period_analyses: buildPeriodAnalyses(latestModeSnapshots),
+    improvement_priorities: buildImprovementPriorities(latestModeSnapshots),
+    rank_point_analysis: buildRankPointAnalysis(latestModeSnapshots),
+    data_quality_warnings: latest
+      ? buildDataQualityWarnings(latest, ordered, { excludeId: latest.id })
+      : [],
     notes: sanitizedSnapshots
       .filter((snapshot) => snapshot.note != null && snapshot.note.trim() !== "")
       .map((snapshot) => ({
@@ -56,7 +76,10 @@ export function buildAiContext(
         "副露率の変化",
         "立直率の変化",
         "3位・4位率の低減",
-        "段位ポイントの推移"
+        "段位ポイントの推移",
+        "直近期の悪化指標",
+        "改善優先度",
+        "サンプル数が十分か"
       ]
     }
   };

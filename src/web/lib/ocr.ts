@@ -29,6 +29,12 @@ type OcrProgress = {
   progress: number;
 };
 
+export type OcrCalibration = {
+  offsetX: number;
+  offsetY: number;
+  scale: number;
+};
+
 type NumericOcrField = Exclude<keyof OcrExtractedFields, "game_mode">;
 
 type NumericCropDefinition = {
@@ -98,6 +104,12 @@ const mahjongSoulNumericCrops: NumericCropDefinition[] = [
   { field: "call_rate", x: 1950, y: 895, width: 180, height: 58, rate: true, column: "right", row: 3 },
   { field: "riichi_rate", x: 1950, y: 952, width: 180, height: 58, rate: true, column: "right", row: 4 }
 ];
+
+export const DEFAULT_OCR_CALIBRATION: OcrCalibration = {
+  offsetX: 0,
+  offsetY: 0,
+  scale: 1
+};
 
 type MahjongSoulStatColumn = NonNullable<NumericCropDefinition["column"]>;
 
@@ -447,16 +459,25 @@ function detectMahjongSoulStatRows(image: HTMLImageElement): MahjongSoulDetected
 
 function resolveNumericCrop(
   crop: NumericCropDefinition,
-  detectedRows: MahjongSoulDetectedRows
+  detectedRows: MahjongSoulDetectedRows,
+  calibration: OcrCalibration = DEFAULT_OCR_CALIBRATION
 ): NumericCropDefinition {
-  if (crop.column == null || crop.row == null) return crop;
+  const calibrated = {
+    ...crop,
+    x: Math.round(crop.x + calibration.offsetX),
+    y: Math.round(crop.y + calibration.offsetY),
+    width: Math.round(crop.width * calibration.scale),
+    height: Math.round(crop.height * calibration.scale)
+  };
+
+  if (crop.column == null || crop.row == null) return calibrated;
 
   const rowCenter = detectedRows[crop.column]?.[crop.row];
-  if (rowCenter == null) return crop;
+  if (rowCenter == null) return calibrated;
 
   return {
-    ...crop,
-    y: Math.round(rowCenter - crop.height / 2)
+    ...calibrated,
+    y: Math.round(rowCenter - calibrated.height / 2 + calibration.offsetY)
   };
 }
 
@@ -514,9 +535,10 @@ async function buildNumericCropFile(
   image: HTMLImageElement,
   sourceFile: File,
   crop: NumericCropDefinition,
-  detectedRows: MahjongSoulDetectedRows
+  detectedRows: MahjongSoulDetectedRows,
+  calibration: OcrCalibration
 ): Promise<File | null> {
-  const resolvedCrop = resolveNumericCrop(crop, detectedRows);
+  const resolvedCrop = resolveNumericCrop(crop, detectedRows, calibration);
   const cropScale = 5;
   const canvas = buildNumericCropCanvas(
     image,
@@ -536,7 +558,8 @@ async function buildNumericCropFile(
 async function buildNumericColumnFile(
   image: HTMLImageElement,
   sourceFile: File,
-  detectedRows: MahjongSoulDetectedRows
+  detectedRows: MahjongSoulDetectedRows,
+  calibration: OcrCalibration
 ): Promise<File | null> {
   const rowWidth = 1000;
   const rowHeight = 330;
@@ -554,7 +577,7 @@ async function buildNumericColumnFile(
   context.imageSmoothingQuality = "high";
 
   for (const [index, crop] of mahjongSoulNumericCrops.entries()) {
-    const resolvedCrop = resolveNumericCrop(crop, detectedRows);
+    const resolvedCrop = resolveNumericCrop(crop, detectedRows, calibration);
     const cropCanvas = buildNumericCropCanvas(
       image,
       resolvedCrop,
@@ -672,7 +695,8 @@ function syntheticOcrText(fields: OcrExtractedFields): string {
 
 async function recognizeMahjongSoulNumericLayout(
   file: File,
-  onProgress?: (progress: OcrProgress) => void
+  onProgress?: (progress: OcrProgress) => void,
+  calibration: OcrCalibration = DEFAULT_OCR_CALIBRATION
 ): Promise<OcrExtractedFields> {
   const image = await loadImage(file);
   const aspect = image.naturalWidth / image.naturalHeight;
@@ -685,7 +709,7 @@ async function recognizeMahjongSoulNumericLayout(
   const detectedRows = detectMahjongSoulStatRows(image);
 
   try {
-    const columnFile = await buildNumericColumnFile(image, file, detectedRows);
+    const columnFile = await buildNumericColumnFile(image, file, detectedRows, calibration);
     if (columnFile) {
       onProgress?.({
         status: "雀魂スクショの数値欄をまとめて読み取っています",
@@ -707,7 +731,7 @@ async function recognizeMahjongSoulNumericLayout(
         progress: 55 + Math.round((index / focusedCrops.length) * 20)
       });
 
-      const cropFile = await buildNumericCropFile(image, file, crop, detectedRows);
+      const cropFile = await buildNumericCropFile(image, file, crop, detectedRows, calibration);
       if (!cropFile) continue;
 
       await worker.setParameters({
@@ -806,10 +830,11 @@ async function prepareSnapshotForOcr(file: File): Promise<File> {
 
 export async function recognizeSnapshotText(
   file: File,
-  onProgress?: (progress: OcrProgress) => void
+  onProgress?: (progress: OcrProgress) => void,
+  calibration: OcrCalibration = DEFAULT_OCR_CALIBRATION
 ): Promise<string> {
   onProgress?.({ status: "画像をOCR向けに前処理しています", progress: 0 });
-  const numericFields = await recognizeMahjongSoulNumericLayout(file, onProgress);
+  const numericFields = await recognizeMahjongSoulNumericLayout(file, onProgress, calibration);
   if (countExtractedFields(numericFields) >= 10) {
     return syntheticOcrText(numericFields);
   }

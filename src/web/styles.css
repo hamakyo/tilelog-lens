@@ -264,6 +264,29 @@ h2 {
   font-size: 20px;
 }
 
+.filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.filter-bar button {
+  min-height: 34px;
+  border: 1px solid #cdd6dd;
+  border-radius: 999px;
+  background: #fff;
+  color: #33454f;
+  padding: 6px 12px;
+  font-weight: 800;
+}
+
+.filter-bar button.active,
+.filter-bar button:hover {
+  border-color: #1f6f8b;
+  background: #eaf6fa;
+  color: #174f65;
+}
+
 .analysis-section {
   display: grid;
   gap: 12px;
@@ -580,6 +603,22 @@ tr:last-child td {
   border-bottom: 0;
 }
 
+.comparison-delta {
+  font-weight: 800;
+}
+
+.comparison-delta.good {
+  color: #126247;
+}
+
+.comparison-delta.bad {
+  color: #973228;
+}
+
+.comparison-delta.neutral {
+  color: #52636f;
+}
+
 .row-actions {
   display: inline-flex;
   gap: 6px;
@@ -601,6 +640,10 @@ tr:last-child td {
   display: grid;
   grid-template-columns: repeat(4, minmax(160px, 1fr));
   gap: 12px;
+}
+
+.compare-grid {
+  grid-template-columns: repeat(2, minmax(260px, 1fr));
 }
 
 label {
@@ -701,6 +744,43 @@ textarea:focus {
   color: #40505c;
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   font-size: 12px;
+}
+
+.ocr-calibration {
+  border: 1px solid #d7dee3;
+  border-radius: 8px;
+  background: #fbfcfd;
+  padding: 10px 12px;
+}
+
+.ocr-calibration summary {
+  color: #40505c;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.calibration-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(160px, 1fr)) auto;
+  gap: 12px;
+  align-items: end;
+  padding-top: 12px;
+}
+
+.calibration-grid label {
+  grid-template-columns: 1fr;
+}
+
+.calibration-grid input[type="range"] {
+  min-height: 28px;
+  padding: 0;
+}
+
+.calibration-grid output {
+  color: #172026;
+  font-size: 13px;
+  font-weight: 800;
 }
 
 @keyframes spin {
@@ -836,11 +916,13 @@ footer {
   .chart-grid,
   .period-grid,
   .rank-point-grid,
+  .calibration-grid,
   .export-grid {
     grid-template-columns: 1fr;
   }
 
   .form-grid,
+  .compare-grid,
   .metadata-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -857,6 +939,7 @@ footer {
   }
 
   .form-grid,
+  .compare-grid,
   .metadata-grid {
     grid-template-columns: 1fr;
   }
