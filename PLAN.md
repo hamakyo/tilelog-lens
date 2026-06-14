@@ -265,7 +265,7 @@ Goal: let the owner slice, compare, and export confirmed numerical data more fle
 
 Implementation order:
 
-- [ ] 12.1 Strengthen period and condition filters for analysis screens.
+- [x] 12.1 Strengthen period and condition filters for analysis screens.
 - [ ] 12.2 Expand comparison views for period and mode comparisons.
 - [ ] 12.3 Add user-defined custom metrics.
 - [ ] 12.4 Add purpose-based analysis templates.

@@ -838,6 +838,10 @@ table input[type="checkbox"] {
   grid-template-columns: repeat(2, minmax(260px, 1fr));
 }
 
+.analysis-filter-grid {
+  grid-template-columns: repeat(7, minmax(120px, 1fr));
+}
+
 label {
   display: grid;
   gap: 6px;
@@ -1306,6 +1310,7 @@ footer {
 
   .form-grid,
   .compare-grid,
+  .analysis-filter-grid,
   .metadata-grid,
   .confidence-grid,
   .assist-grid {
@@ -1325,6 +1330,7 @@ footer {
 
   .form-grid,
   .compare-grid,
+  .analysis-filter-grid,
   .metadata-grid,
   .confidence-grid,
   .assist-grid,

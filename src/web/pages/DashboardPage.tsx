@@ -10,6 +10,11 @@ import {
   RANK_POINT_MAX_BY_RANK_AND_LEVEL
 } from "../../shared/constants";
 import {
+  buildAnalysisFilterSummary,
+  filterSnapshotsForAnalysis,
+  type AnalysisFilterInput
+} from "../../shared/analysisFilters";
+import {
   buildEstimatedDeltas,
   buildImprovementPriorities,
   buildAnalysisComments,
@@ -27,6 +32,16 @@ type DashboardPageProps = {
   navigate: (path: string) => void;
 };
 
+type DashboardFilterForm = {
+  observedDateFrom: string;
+  observedDateTo: string;
+  minMatches: string;
+  maxMatches: string;
+  minWinRate: string;
+  maxDealInRate: string;
+  maxAvgPlace: string;
+};
+
 type ChartPoint = {
   label: string;
   avg_place: number;
@@ -39,6 +54,16 @@ type ChartPoint = {
   bottom_two_rate: number;
   rank_points: number | null;
   rank_point_progress: number | null;
+};
+
+const emptyDashboardFilters: DashboardFilterForm = {
+  observedDateFrom: "",
+  observedDateTo: "",
+  minMatches: "",
+  maxMatches: "",
+  minWinRate: "",
+  maxDealInRate: "",
+  maxAvgPlace: ""
 };
 
 function toChartPoints(snapshots: Snapshot[]): ChartPoint[] {
@@ -125,6 +150,12 @@ function rankPointMaxForSnapshot(snapshot: Snapshot): number | null {
   );
 }
 
+function optionalNumber(value: string): number | null {
+  if (value.trim() === "") return null;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
 export function DashboardPage({ navigate }: DashboardPageProps) {
   const [snapshots, setSnapshots] = useState<Snapshot[]>([]);
   const [deltas, setDeltas] = useState<EstimatedDelta[]>([]);
@@ -134,6 +165,8 @@ export function DashboardPage({ navigate }: DashboardPageProps) {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedMode, setSelectedMode] = useState<Snapshot["game_mode"] | "all">("all");
+  const [filterForm, setFilterForm] =
+    useState<DashboardFilterForm>(emptyDashboardFilters);
 
   useEffect(() => {
     setAnalysisGoals(loadAnalysisGoals());
@@ -150,21 +183,35 @@ export function DashboardPage({ navigate }: DashboardPageProps) {
     () => GAME_MODES.filter((mode) => snapshots.some((snapshot) => snapshot.game_mode === mode)),
     [snapshots]
   );
+  const analysisFilters = useMemo<AnalysisFilterInput>(
+    () => ({
+      game_mode: selectedMode,
+      observed_date_from: filterForm.observedDateFrom || undefined,
+      observed_date_to: filterForm.observedDateTo || undefined,
+      min_matches: optionalNumber(filterForm.minMatches),
+      max_matches: optionalNumber(filterForm.maxMatches),
+      min_win_rate: optionalNumber(filterForm.minWinRate),
+      max_deal_in_rate: optionalNumber(filterForm.maxDealInRate),
+      max_avg_place: optionalNumber(filterForm.maxAvgPlace)
+    }),
+    [filterForm, selectedMode]
+  );
   const displaySnapshots = useMemo(
-    () =>
-      selectedMode === "all"
-        ? snapshots
-        : snapshots.filter((snapshot) => snapshot.game_mode === selectedMode),
-    [selectedMode, snapshots]
+    () => filterSnapshotsForAnalysis(snapshots, analysisFilters),
+    [analysisFilters, snapshots]
+  );
+  const filterSummary = useMemo(
+    () => buildAnalysisFilterSummary(snapshots, displaySnapshots, analysisFilters),
+    [analysisFilters, displaySnapshots, snapshots]
   );
   const latest = displaySnapshots[0];
   const latestMode = latest?.game_mode ?? (selectedMode === "all" ? null : selectedMode);
   const modeSnapshots = useMemo(
     () =>
       latestMode
-        ? snapshots.filter((snapshot) => snapshot.game_mode === latestMode)
+        ? displaySnapshots.filter((snapshot) => snapshot.game_mode === latestMode)
         : displaySnapshots,
-    [displaySnapshots, latestMode, snapshots]
+    [displaySnapshots, latestMode]
   );
   const chartData = useMemo(() => toChartPoints(displaySnapshots), [displaySnapshots]);
   const periodAnalyses = useMemo(
@@ -193,10 +240,10 @@ export function DashboardPage({ navigate }: DashboardPageProps) {
   );
   const displayDeltas = useMemo(
     () =>
-      selectedMode === "all"
+      filterSummary.active_filter_count === 0
         ? deltas
         : buildEstimatedDeltas(displaySnapshots),
-    [deltas, displaySnapshots, selectedMode]
+    [deltas, displaySnapshots, filterSummary.active_filter_count]
   );
   const latestDelta = displayDeltas[displayDeltas.length - 1];
 
@@ -234,6 +281,134 @@ export function DashboardPage({ navigate }: DashboardPageProps) {
             {GAME_MODE_LABELS[mode]}
           </button>
         ))}
+      </section>
+
+      <section className="form-section analysis-filter-panel">
+        <div className="section-heading inline-heading">
+          <div>
+            <h2>分析フィルタ</h2>
+            <p>
+              {filterSummary.total_count}件中 {filterSummary.filtered_count}件を分析対象にしています。
+              {filterSummary.active_filter_count > 0
+                ? ` 有効な条件: ${filterSummary.active_filter_count}件`
+                : " 条件は未指定です。"}
+            </p>
+          </div>
+          <button
+            type="button"
+            className="secondary-button"
+            onClick={() => {
+              setSelectedMode("all");
+              setFilterForm(emptyDashboardFilters);
+            }}
+          >
+            条件をリセット
+          </button>
+        </div>
+        <div className="form-grid analysis-filter-grid">
+          <label>
+            <span>開始日</span>
+            <input
+              type="date"
+              value={filterForm.observedDateFrom}
+              onChange={(event) =>
+                setFilterForm((current) => ({
+                  ...current,
+                  observedDateFrom: event.target.value
+                }))
+              }
+            />
+          </label>
+          <label>
+            <span>終了日</span>
+            <input
+              type="date"
+              value={filterForm.observedDateTo}
+              onChange={(event) =>
+                setFilterForm((current) => ({
+                  ...current,
+                  observedDateTo: event.target.value
+                }))
+              }
+            />
+          </label>
+          <label>
+            <span>対戦数 下限</span>
+            <input
+              type="number"
+              min="0"
+              value={filterForm.minMatches}
+              onChange={(event) =>
+                setFilterForm((current) => ({
+                  ...current,
+                  minMatches: event.target.value
+                }))
+              }
+            />
+          </label>
+          <label>
+            <span>対戦数 上限</span>
+            <input
+              type="number"
+              min="0"
+              value={filterForm.maxMatches}
+              onChange={(event) =>
+                setFilterForm((current) => ({
+                  ...current,
+                  maxMatches: event.target.value
+                }))
+              }
+            />
+          </label>
+          <label>
+            <span>和了率 下限</span>
+            <input
+              type="number"
+              min="0"
+              max="100"
+              step="0.01"
+              value={filterForm.minWinRate}
+              onChange={(event) =>
+                setFilterForm((current) => ({
+                  ...current,
+                  minWinRate: event.target.value
+                }))
+              }
+            />
+          </label>
+          <label>
+            <span>放銃率 上限</span>
+            <input
+              type="number"
+              min="0"
+              max="100"
+              step="0.01"
+              value={filterForm.maxDealInRate}
+              onChange={(event) =>
+                setFilterForm((current) => ({
+                  ...current,
+                  maxDealInRate: event.target.value
+                }))
+              }
+            />
+          </label>
+          <label>
+            <span>平均順位 上限</span>
+            <input
+              type="number"
+              min="1"
+              max="4"
+              step="0.01"
+              value={filterForm.maxAvgPlace}
+              onChange={(event) =>
+                setFilterForm((current) => ({
+                  ...current,
+                  maxAvgPlace: event.target.value
+                }))
+              }
+            />
+          </label>
+        </div>
       </section>
 
       <section className="summary-grid">
