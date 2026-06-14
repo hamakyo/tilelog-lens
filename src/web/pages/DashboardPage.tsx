@@ -19,6 +19,7 @@ import {
   buildCustomMetricResults,
   type CustomMetricDefinition
 } from "../../shared/customMetrics";
+import { detectOutlierSignals } from "../../shared/outliers";
 import {
   buildEstimatedDeltas,
   buildImprovementPriorities,
@@ -242,6 +243,10 @@ export function DashboardPage({ navigate }: DashboardPageProps) {
   );
   const analysisTemplateReports = useMemo(
     () => buildAnalysisTemplateReports(modeSnapshots),
+    [modeSnapshots]
+  );
+  const outlierSignals = useMemo(
+    () => detectOutlierSignals(modeSnapshots),
     [modeSnapshots]
   );
   const rankPointAnalysis = useMemo(
@@ -781,6 +786,34 @@ export function DashboardPage({ navigate }: DashboardPageProps) {
             </article>
           ))}
         </div>
+      </section>
+
+      <section className="analysis-section">
+        <div className="section-heading">
+          <h2>変化点</h2>
+          <p>最新値が過去平均から大きくズレた指標を表示します。</p>
+        </div>
+        {outlierSignals.length === 0 ? (
+          <p className="empty-state">大きな変化点は検出されていません。</p>
+        ) : (
+          <div className="priority-list">
+            {outlierSignals.map((signal) => (
+              <article className="comment-item" key={signal.id}>
+                <span className={`severity-pill severity-${signal.severity}`}>
+                  {signal.severity === "risk" ? "危" : "注"}
+                </span>
+                <div className="priority-body">
+                  <h3>{signal.label}</h3>
+                  <p>{signal.message}</p>
+                  <p>
+                    現在 {formatDecimal(signal.current_value)} / 過去平均{" "}
+                    {formatDecimal(signal.baseline_value)}
+                  </p>
+                </div>
+              </article>
+            ))}
+          </div>
+        )}
       </section>
 
       <section className="analysis-section">
