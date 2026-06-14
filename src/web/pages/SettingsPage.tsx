@@ -6,8 +6,23 @@ import {
   resetAnalysisGoals,
   saveAnalysisGoals
 } from "../lib/analysisGoals";
+import type { ThemePreference } from "../lib/theme";
 
-export function SettingsPage() {
+type SettingsPageProps = {
+  themePreference: ThemePreference;
+  onThemePreferenceChange: (preference: ThemePreference) => void;
+};
+
+const themeOptions: Array<{ value: ThemePreference; label: string }> = [
+  { value: "light", label: "ライト" },
+  { value: "dark", label: "ダーク" },
+  { value: "system", label: "デバイス準拠" }
+];
+
+export function SettingsPage({
+  themePreference,
+  onThemePreferenceChange
+}: SettingsPageProps) {
   const [goals, setGoals] = useState<AnalysisGoal[]>(() => loadAnalysisGoals());
   const [message, setMessage] = useState<string | null>(null);
 
@@ -35,6 +50,26 @@ export function SettingsPage() {
           <h1>プライバシーとデプロイ</h1>
         </div>
       </div>
+
+      <section className="settings-panel">
+        <div className="section-heading inline-heading">
+          <h2>テーマ</h2>
+          <p>表示テーマを選択します。</p>
+        </div>
+        <div className="segmented-control" role="group" aria-label="テーマ">
+          {themeOptions.map((option) => (
+            <button
+              key={option.value}
+              type="button"
+              className={themePreference === option.value ? "active" : ""}
+              aria-pressed={themePreference === option.value}
+              onClick={() => onThemePreferenceChange(option.value)}
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
+      </section>
 
       <section className="settings-panel">
         <div className="section-heading inline-heading">

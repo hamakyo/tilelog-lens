@@ -20,6 +20,12 @@ import { QualityPage } from "./pages/QualityPage";
 import { SettingsPage } from "./pages/SettingsPage";
 import { SnapshotEditPage } from "./pages/SnapshotEditPage";
 import { SnapshotListPage } from "./pages/SnapshotListPage";
+import {
+  applyThemePreference,
+  loadThemePreference,
+  saveThemePreference,
+  type ThemePreference
+} from "./lib/theme";
 
 type NavItem = {
   path: string;
@@ -44,6 +50,9 @@ function getPath(): string {
 
 export function App() {
   const [path, setPath] = useState(getPath);
+  const [themePreference, setThemePreference] = useState<ThemePreference>(() =>
+    loadThemePreference()
+  );
 
   useEffect(() => {
     const handlePopState = () => setPath(getPath());
@@ -51,9 +60,24 @@ export function App() {
     return () => window.removeEventListener("popstate", handlePopState);
   }, []);
 
+  useEffect(() => {
+    applyThemePreference(themePreference);
+    if (themePreference !== "system" || !window.matchMedia) return undefined;
+
+    const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
+    const handleChange = () => applyThemePreference(themePreference);
+    mediaQuery.addEventListener("change", handleChange);
+    return () => mediaQuery.removeEventListener("change", handleChange);
+  }, [themePreference]);
+
   const navigate = (nextPath: string) => {
     window.history.pushState(null, "", nextPath);
     setPath(nextPath);
+  };
+
+  const updateThemePreference = (preference: ThemePreference) => {
+    saveThemePreference(preference);
+    setThemePreference(preference);
   };
 
   const content = useMemo(() => {
@@ -64,7 +88,14 @@ export function App() {
     if (path === "/compare") return <ComparePage />;
     if (path === "/quality") return <QualityPage navigate={navigate} />;
     if (path === "/export") return <ExportPage />;
-    if (path === "/settings") return <SettingsPage />;
+    if (path === "/settings") {
+      return (
+        <SettingsPage
+          themePreference={themePreference}
+          onThemePreferenceChange={updateThemePreference}
+        />
+      );
+    }
 
     const editMatch = path.match(/^\/snapshots\/(\d+)$/);
     if (editMatch) {
@@ -72,7 +103,7 @@ export function App() {
     }
 
     return <DashboardPage navigate={navigate} />;
-  }, [path]);
+  }, [path, themePreference]);
 
   return (
     <div className="app-shell">
