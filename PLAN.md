@@ -258,6 +258,30 @@ Tasks:
 - [x] Update README with exact commands.
 - [x] Add screenshots only if they do not contain Mahjong Soul copyrighted UI/assets, or use mock UI data.
 - [x] Add disclaimer to README and UI footer.
+
+## Phase 12 — Flexible analysis roadmap
+
+Goal: let the owner slice, compare, and export confirmed numerical data more flexibly without changing the screenshot privacy model.
+
+Implementation order:
+
+- [ ] 12.1 Strengthen period and condition filters for analysis screens.
+- [ ] 12.2 Expand comparison views for period and mode comparisons.
+- [ ] 12.3 Add user-defined custom metrics.
+- [ ] 12.4 Add purpose-based analysis templates.
+- [ ] 12.5 Add outlier and change-point detection.
+- [ ] 12.6 Add configurable chart metric selection.
+- [ ] 12.7 Add note tags and tag-based analysis.
+- [ ] 12.8 Add customizable AI analysis requests.
+- [ ] 12.9 Add customizable CSV/JSON exports.
+- [ ] 12.10 Expand the data quality view.
+
+Acceptance criteria:
+
+- [ ] Each step has a focused implementation commit.
+- [ ] No step uploads, stores, logs, or exports screenshots or base64 image payloads.
+- [ ] Existing Access, request guard, and export anonymization constraints remain intact.
+- [ ] `pnpm run build` and `pnpm test` pass after the final step.
 - [x] Add privacy/security notes.
 - [x] Add known limitations.
 - [x] Add backlog.
