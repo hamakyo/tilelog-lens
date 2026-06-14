@@ -65,4 +65,19 @@ describe("AI JSON export", () => {
     expect(context.analysis_request.focus).toContain("改善優先度");
     expect(context.analysis_request.focus).toContain("データ品質警告");
   });
+
+  it("allows custom analysis request options", () => {
+    const context = buildAiContext([makeSnapshot()], {
+      analysisRequest: {
+        goal: "ラス回避だけを重点分析してください。",
+        focus: ["四位率", "放銃率"]
+      }
+    });
+
+    expect(context.analysis_request).toEqual({
+      language: "ja",
+      goal: "ラス回避だけを重点分析してください。",
+      focus: ["四位率", "放銃率"]
+    });
+  });
 });

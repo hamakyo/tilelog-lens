@@ -272,7 +272,7 @@ Implementation order:
 - [x] 12.5 Add outlier and change-point detection.
 - [x] 12.6 Add configurable chart metric selection.
 - [x] 12.7 Add note tags and tag-based analysis.
-- [ ] 12.8 Add customizable AI analysis requests.
+- [x] 12.8 Add customizable AI analysis requests.
 - [ ] 12.9 Add customizable CSV/JSON exports.
 - [ ] 12.10 Expand the data quality view.
 

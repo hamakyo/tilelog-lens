@@ -26,7 +26,14 @@ const metricsDescription: Record<string, string> = {
 
 export function buildAiContext(
   snapshots: Snapshot[],
-  options: { anonymize?: boolean; exportedAt?: string } = {}
+  options: {
+    anonymize?: boolean;
+    exportedAt?: string;
+    analysisRequest?: {
+      goal?: string;
+      focus?: string[];
+    };
+  } = {}
 ): AiContext {
   const anonymized = options.anonymize !== false;
   const exportedAt = options.exportedAt ?? new Date().toISOString();
@@ -42,6 +49,24 @@ export function buildAiContext(
   const latestModeSnapshots = latest
     ? ordered.filter((snapshot) => snapshot.game_mode === latest.game_mode)
     : ordered;
+
+  const defaultAnalysisRequest = {
+    language: "ja" as const,
+    goal: "雀魂の戦績推移を分析し、改善優先度を特定してください。",
+    focus: [
+      "平均順位の推移",
+      "和了率と放銃率のバランス",
+      "副露率の変化",
+      "立直率の変化",
+      "3位・4位率の低減",
+      "段位ポイントの推移",
+      "直近期の悪化指標",
+      "期間比較",
+      "改善優先度",
+      "データ品質警告",
+      "サンプル数が十分か"
+    ]
+  };
 
   return {
     schema_version: "1.0",
@@ -75,20 +100,12 @@ export function buildAiContext(
       })),
     analysis_request: {
       language: "ja",
-      goal: "雀魂の戦績推移を分析し、改善優先度を特定してください。",
-      focus: [
-        "平均順位の推移",
-        "和了率と放銃率のバランス",
-        "副露率の変化",
-        "立直率の変化",
-        "3位・4位率の低減",
-        "段位ポイントの推移",
-        "直近期の悪化指標",
-        "期間比較",
-        "改善優先度",
-        "データ品質警告",
-        "サンプル数が十分か"
-      ]
+      goal: options.analysisRequest?.goal?.trim() || defaultAnalysisRequest.goal,
+      focus:
+        options.analysisRequest?.focus != null &&
+        options.analysisRequest.focus.length > 0
+          ? options.analysisRequest.focus
+          : defaultAnalysisRequest.focus
     }
   };
 }

@@ -861,6 +861,11 @@ table input[type="checkbox"] {
   grid-template-columns: minmax(220px, 1.4fr) repeat(4, minmax(120px, 1fr));
 }
 
+.export-request-grid {
+  grid-template-columns: minmax(260px, 1fr) minmax(260px, 1fr);
+  margin-top: 12px;
+}
+
 label {
   display: grid;
   gap: 6px;
@@ -1333,6 +1338,7 @@ footer {
   .analysis-filter-grid,
   .period-compare-grid,
   .custom-metric-grid,
+  .export-request-grid,
   .metadata-grid,
   .confidence-grid,
   .assist-grid {
@@ -1355,6 +1361,7 @@ footer {
   .analysis-filter-grid,
   .period-compare-grid,
   .custom-metric-grid,
+  .export-request-grid,
   .metadata-grid,
   .confidence-grid,
   .assist-grid,

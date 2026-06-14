@@ -21,6 +21,16 @@ const previewLabels: Record<PreviewKind, string> = {
 
 export function ExportPage() {
   const [anonymize, setAnonymize] = useState(true);
+  const [aiGoal, setAiGoal] = useState("雀魂の戦績推移を分析し、改善優先度を特定してください。");
+  const [aiFocus, setAiFocus] = useState(
+    [
+      "平均順位の推移",
+      "和了率と放銃率のバランス",
+      "副露率の変化",
+      "立直率の変化",
+      "改善優先度"
+    ].join("\n")
+  );
   const [preview, setPreview] = useState<ExportPreview | null>(null);
   const [previewBusy, setPreviewBusy] = useState<PreviewKind | null>(null);
   const [previewError, setPreviewError] = useState<string | null>(null);
@@ -31,7 +41,12 @@ export function ExportPage() {
   function exportPath(kind: PreviewKind): string {
     if (kind === "snapshots") return "/api/export/snapshots.csv";
     if (kind === "deltas") return "/api/export/deltas.csv";
-    return `/api/export/ai-context.json?anonymize=${String(anonymize)}`;
+    const params = new URLSearchParams({
+      anonymize: String(anonymize),
+      goal: aiGoal,
+      focus: aiFocus
+    });
+    return `/api/export/ai-context.json?${params.toString()}`;
   }
 
   async function handlePreview(kind: PreviewKind) {
@@ -55,6 +70,7 @@ export function ExportPage() {
           snapshots?: unknown[];
           improvement_priorities?: unknown[];
           data_quality_issues?: unknown[];
+          analysis_request?: unknown;
         };
         setPreview({
           label: previewLabels[kind],
@@ -69,6 +85,7 @@ export function ExportPage() {
               snapshot_count: data.snapshots?.length ?? 0,
               improvement_priority_count: data.improvement_priorities?.length ?? 0,
               data_quality_issue_count: data.data_quality_issues?.length ?? 0,
+              analysis_request: data.analysis_request,
               snapshots_preview: data.snapshots?.slice(0, 2) ?? []
             },
             null,
@@ -231,6 +248,26 @@ export function ExportPage() {
         <p>
           外部AIツールへアップロードする前に、メモの内容を確認してください。スクリーンショットはダウンロードに含まれず、アプリにも保存されません。
         </p>
+        <div className="form-grid export-request-grid">
+          <label>
+            <span>分析目的</span>
+            <textarea
+              value={aiGoal}
+              maxLength={300}
+              rows={3}
+              onChange={(event) => setAiGoal(event.target.value)}
+            />
+          </label>
+          <label>
+            <span>注目指標</span>
+            <textarea
+              value={aiFocus}
+              maxLength={1600}
+              rows={6}
+              onChange={(event) => setAiFocus(event.target.value)}
+            />
+          </label>
+        </div>
       </section>
 
       <section className="settings-panel">
