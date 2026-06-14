@@ -585,6 +585,11 @@ h2 {
   color: var(--color-danger-text);
 }
 
+.severity-insufficient_data {
+  background: var(--color-neutral-bg);
+  color: var(--color-neutral-text);
+}
+
 .priority-body {
   display: grid;
   gap: 6px;

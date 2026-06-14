@@ -14,6 +14,7 @@ import {
   filterSnapshotsForAnalysis,
   type AnalysisFilterInput
 } from "../../shared/analysisFilters";
+import { buildAnalysisTemplateReports } from "../../shared/analysisTemplates";
 import {
   buildCustomMetricResults,
   type CustomMetricDefinition
@@ -237,6 +238,10 @@ export function DashboardPage({ navigate }: DashboardPageProps) {
   );
   const analysisComments = useMemo(
     () => buildAnalysisComments(modeSnapshots),
+    [modeSnapshots]
+  );
+  const analysisTemplateReports = useMemo(
+    () => buildAnalysisTemplateReports(modeSnapshots),
     [modeSnapshots]
   );
   const rankPointAnalysis = useMemo(
@@ -749,6 +754,33 @@ export function DashboardPage({ navigate }: DashboardPageProps) {
             ))}
           </div>
         )}
+      </section>
+
+      <section className="analysis-section">
+        <div className="section-heading">
+          <h2>分析テンプレート</h2>
+          <p>目的別に最新値をチェックします。</p>
+        </div>
+        <div className="priority-list">
+          {analysisTemplateReports.map((report) => (
+            <article className="comment-item" key={report.id}>
+              <span className={`severity-pill severity-${report.status}`}>
+                {report.status === "good"
+                  ? "良"
+                  : report.status === "watch"
+                    ? "注"
+                    : report.status === "risk"
+                      ? "危"
+                      : "不"}
+              </span>
+              <div className="priority-body">
+                <h3>{report.title}</h3>
+                <p>{report.summary}</p>
+                <p>{report.focus.join(" / ")}</p>
+              </div>
+            </article>
+          ))}
+        </div>
       </section>
 
       <section className="analysis-section">
