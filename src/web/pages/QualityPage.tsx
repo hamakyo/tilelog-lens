@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { ShieldCheck } from "lucide-react";
 import { GAME_MODE_LABELS } from "../../shared/constants";
+import { summarizeDataQualityIssues } from "../../shared/dataQuality";
 import { buildDataQualityReport } from "../../shared/metrics";
 import type { Snapshot } from "../../shared/types";
 import { listSnapshots } from "../lib/api";
@@ -34,6 +35,10 @@ export function QualityPage({ navigate }: QualityPageProps) {
       ),
     [issues]
   );
+  const issueSummaries = useMemo(
+    () => summarizeDataQualityIssues(issues),
+    [issues]
+  );
 
   return (
     <main className="page-stack">
@@ -62,6 +67,43 @@ export function QualityPage({ navigate }: QualityPageProps) {
           <ShieldCheck size={20} aria-hidden="true" />
           <span>警告種別</span>
           <strong>{issueCodes.length}</strong>
+        </div>
+      </section>
+
+      <section className="table-section">
+        <div className="section-heading">
+          <h2>問題種別サマリー</h2>
+          <p>件数が多い順に、分析前に確認すべき内容を表示します。</p>
+        </div>
+        <div className="table-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th>種別</th>
+                <th>件数</th>
+                <th>コード</th>
+                <th>確認内容</th>
+              </tr>
+            </thead>
+            <tbody>
+              {issueSummaries.length === 0 ? (
+                <tr>
+                  <td colSpan={4}>品質上の警告はありません。</td>
+                </tr>
+              ) : (
+                issueSummaries.map((summary) => (
+                  <tr key={summary.code}>
+                    <td>{summary.label}</td>
+                    <td>{summary.count}</td>
+                    <td>
+                      <span className="code-pill">{summary.code}</span>
+                    </td>
+                    <td>{summary.action}</td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
         </div>
       </section>
 

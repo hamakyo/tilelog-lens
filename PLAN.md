@@ -274,7 +274,7 @@ Implementation order:
 - [x] 12.7 Add note tags and tag-based analysis.
 - [x] 12.8 Add customizable AI analysis requests.
 - [x] 12.9 Add customizable CSV/JSON exports.
-- [ ] 12.10 Expand the data quality view.
+- [x] 12.10 Expand the data quality view.
 
 Acceptance criteria:
 
