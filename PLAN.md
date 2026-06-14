@@ -270,7 +270,7 @@ Implementation order:
 - [x] 12.3 Add user-defined custom metrics.
 - [x] 12.4 Add purpose-based analysis templates.
 - [x] 12.5 Add outlier and change-point detection.
-- [ ] 12.6 Add configurable chart metric selection.
+- [x] 12.6 Add configurable chart metric selection.
 - [ ] 12.7 Add note tags and tag-based analysis.
 - [ ] 12.8 Add customizable AI analysis requests.
 - [ ] 12.9 Add customizable CSV/JSON exports.

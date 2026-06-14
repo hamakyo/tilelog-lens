@@ -392,6 +392,12 @@ h2 {
   padding: 0;
 }
 
+.chart-metric-picker {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
 .period-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -1311,6 +1317,7 @@ footer {
 
   .summary-grid,
   .chart-grid,
+  .chart-metric-picker,
   .period-grid,
   .period-comparison-grid,
   .goal-grid,
@@ -1366,6 +1373,10 @@ footer {
 
   .rank-point-metrics,
   .rank-point-metrics.compact {
+    grid-template-columns: 1fr;
+  }
+
+  .chart-metric-picker {
     grid-template-columns: 1fr;
   }
 }

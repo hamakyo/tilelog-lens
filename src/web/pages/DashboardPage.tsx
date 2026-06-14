@@ -63,6 +63,24 @@ type ChartPoint = {
   rank_point_progress: number | null;
 };
 
+type ChartMetricKey = Exclude<keyof ChartPoint, "label">;
+
+const chartMetricOptions: Array<{
+  key: ChartMetricKey;
+  label: string;
+  color: string;
+}> = [
+  { key: "avg_place", label: "平均順位", color: "#1f6f8b" },
+  { key: "win_rate", label: "和了率", color: "#117a65" },
+  { key: "deal_in_rate", label: "放銃率", color: "#b23b3b" },
+  { key: "attack_defense_gap", label: "攻守差", color: "#7f5f01" },
+  { key: "call_rate", label: "副露率", color: "#2f6fed" },
+  { key: "riichi_rate", label: "立直率", color: "#b0477d" },
+  { key: "top_two_rate", label: "1-2位率", color: "#147d64" },
+  { key: "bottom_two_rate", label: "3-4位率", color: "#9b3b3b" },
+  { key: "rank_point_progress", label: "段位pt進捗", color: "#3d5a80" }
+];
+
 const emptyDashboardFilters: DashboardFilterForm = {
   observedDateFrom: "",
   observedDateTo: "",
@@ -177,6 +195,11 @@ export function DashboardPage({ navigate }: DashboardPageProps) {
   const [selectedMode, setSelectedMode] = useState<Snapshot["game_mode"] | "all">("all");
   const [filterForm, setFilterForm] =
     useState<DashboardFilterForm>(emptyDashboardFilters);
+  const [selectedChartMetrics, setSelectedChartMetrics] = useState<ChartMetricKey[]>([
+    "avg_place",
+    "win_rate",
+    "deal_in_rate"
+  ]);
 
   useEffect(() => {
     setAnalysisGoals(loadAnalysisGoals());
@@ -225,6 +248,17 @@ export function DashboardPage({ navigate }: DashboardPageProps) {
     [displaySnapshots, latestMode]
   );
   const chartData = useMemo(() => toChartPoints(displaySnapshots), [displaySnapshots]);
+  const selectedChartLines = useMemo(
+    () =>
+      chartMetricOptions
+        .filter((option) => selectedChartMetrics.includes(option.key))
+        .map((option) => ({
+          dataKey: option.key,
+          label: option.label,
+          color: option.color
+        })),
+    [selectedChartMetrics]
+  );
   const periodAnalyses = useMemo(
     () => buildPeriodAnalyses(modeSnapshots),
     [modeSnapshots]
@@ -813,6 +847,40 @@ export function DashboardPage({ navigate }: DashboardPageProps) {
               </article>
             ))}
           </div>
+        )}
+      </section>
+
+      <section className="analysis-section">
+        <div className="section-heading">
+          <h2>自由選択チャート</h2>
+          <p>表示したい指標を選択して時系列で確認します。</p>
+        </div>
+        <div className="chart-metric-picker">
+          {chartMetricOptions.map((option) => (
+            <label className="checkbox-row" key={option.key}>
+              <input
+                type="checkbox"
+                checked={selectedChartMetrics.includes(option.key)}
+                onChange={(event) =>
+                  setSelectedChartMetrics((current) =>
+                    event.target.checked
+                      ? [...current, option.key]
+                      : current.filter((key) => key !== option.key)
+                  )
+                }
+              />
+              <span>{option.label}</span>
+            </label>
+          ))}
+        </div>
+        {selectedChartLines.length === 0 ? (
+          <p className="empty-state">表示する指標を選択してください。</p>
+        ) : (
+          <TrendChart
+            title="選択指標"
+            data={chartData}
+            lines={selectedChartLines}
+          />
         )}
       </section>
 
