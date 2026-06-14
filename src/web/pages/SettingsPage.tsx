@@ -1,4 +1,11 @@
 import { useState } from "react";
+import {
+  customMetricOperands,
+  customMetricOperators,
+  type CustomMetricDefinition,
+  type CustomMetricOperand,
+  type CustomMetricOperator
+} from "../../shared/customMetrics";
 import { PRIVACY_DISCLAIMER } from "../../shared/constants";
 import type { AnalysisGoal } from "../../shared/types";
 import {
@@ -6,6 +13,11 @@ import {
   resetAnalysisGoals,
   saveAnalysisGoals
 } from "../lib/analysisGoals";
+import {
+  loadCustomMetrics,
+  resetCustomMetrics,
+  saveCustomMetrics
+} from "../lib/customMetrics";
 import type { ThemePreference } from "../lib/theme";
 
 type SettingsPageProps = {
@@ -19,11 +31,25 @@ const themeOptions: Array<{ value: ThemePreference; label: string }> = [
   { value: "system", label: "デバイス準拠" }
 ];
 
+const emptyCustomMetricDraft: CustomMetricDefinition = {
+  id: "draft",
+  label: "",
+  left: "win_rate",
+  operator: "subtract",
+  right: "deal_in_rate",
+  unit: "number"
+};
+
 export function SettingsPage({
   themePreference,
   onThemePreferenceChange
 }: SettingsPageProps) {
   const [goals, setGoals] = useState<AnalysisGoal[]>(() => loadAnalysisGoals());
+  const [customMetrics, setCustomMetrics] = useState<CustomMetricDefinition[]>(() =>
+    loadCustomMetrics()
+  );
+  const [customMetricDraft, setCustomMetricDraft] =
+    useState<CustomMetricDefinition>(emptyCustomMetricDraft);
   const [message, setMessage] = useState<string | null>(null);
 
   function updateGoal(id: AnalysisGoal["id"], patch: Partial<AnalysisGoal>) {
@@ -42,6 +68,40 @@ export function SettingsPage({
     setMessage("分析目標を初期値に戻しました。");
   }
 
+  function handleAddCustomMetric() {
+    const label = customMetricDraft.label.trim();
+    if (!label) {
+      setMessage("カスタム指標名を入力してください。");
+      return;
+    }
+    if (customMetricDraft.left === customMetricDraft.right) {
+      setMessage("左右に異なる指標を選択してください。");
+      return;
+    }
+
+    setCustomMetrics((current) => [
+      ...current,
+      {
+        ...customMetricDraft,
+        id: `custom-${Date.now()}`,
+        label
+      }
+    ]);
+    setCustomMetricDraft(emptyCustomMetricDraft);
+    setMessage("カスタム指標を追加しました。保存すると反映されます。");
+  }
+
+  function handleSaveCustomMetrics() {
+    saveCustomMetrics(customMetrics);
+    setMessage("カスタム指標を保存しました。");
+  }
+
+  function handleResetCustomMetrics() {
+    setCustomMetrics(resetCustomMetrics());
+    setCustomMetricDraft(emptyCustomMetricDraft);
+    setMessage("カスタム指標を初期値に戻しました。");
+  }
+
   return (
     <main className="page-stack">
       <div className="page-header">
@@ -50,6 +110,8 @@ export function SettingsPage({
           <h1>プライバシーとデプロイ</h1>
         </div>
       </div>
+
+      {message ? <p className="form-message">{message}</p> : null}
 
       <section className="settings-panel">
         <div className="section-heading inline-heading">
@@ -125,7 +187,155 @@ export function SettingsPage({
             目標を保存
           </button>
         </div>
-        {message ? <p className="form-message">{message}</p> : null}
+      </section>
+
+      <section className="settings-panel">
+        <div className="section-heading inline-heading">
+          <h2>カスタム指標</h2>
+          <p>許可済みの指標同士を組み合わせて、ダッシュボードに表示します。</p>
+        </div>
+        <div className="form-grid custom-metric-grid">
+          <label>
+            <span>表示名</span>
+            <input
+              type="text"
+              value={customMetricDraft.label}
+              onChange={(event) =>
+                setCustomMetricDraft((current) => ({
+                  ...current,
+                  label: event.target.value
+                }))
+              }
+              placeholder="例: 和了率 - 放銃率"
+            />
+          </label>
+          <label>
+            <span>左の指標</span>
+            <select
+              value={customMetricDraft.left}
+              onChange={(event) =>
+                setCustomMetricDraft((current) => ({
+                  ...current,
+                  left: event.target.value as CustomMetricOperand
+                }))
+              }
+            >
+              {Object.entries(customMetricOperands).map(([value, operand]) => (
+                <option key={value} value={value}>
+                  {operand.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            <span>演算</span>
+            <select
+              value={customMetricDraft.operator}
+              onChange={(event) =>
+                setCustomMetricDraft((current) => ({
+                  ...current,
+                  operator: event.target.value as CustomMetricOperator
+                }))
+              }
+            >
+              {Object.entries(customMetricOperators).map(([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            <span>右の指標</span>
+            <select
+              value={customMetricDraft.right}
+              onChange={(event) =>
+                setCustomMetricDraft((current) => ({
+                  ...current,
+                  right: event.target.value as CustomMetricOperand
+                }))
+              }
+            >
+              {Object.entries(customMetricOperands).map(([value, operand]) => (
+                <option key={value} value={value}>
+                  {operand.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            <span>単位</span>
+            <select
+              value={customMetricDraft.unit}
+              onChange={(event) =>
+                setCustomMetricDraft((current) => ({
+                  ...current,
+                  unit: event.target.value as CustomMetricDefinition["unit"]
+                }))
+              }
+            >
+              <option value="number">数値</option>
+              <option value="rate">%</option>
+              <option value="rank_point">pt</option>
+              <option value="place">順位</option>
+            </select>
+          </label>
+        </div>
+        <div className="form-actions">
+          <button type="button" className="secondary-button" onClick={handleResetCustomMetrics}>
+            初期値に戻す
+          </button>
+          <button type="button" className="secondary-button" onClick={handleAddCustomMetric}>
+            指標を追加
+          </button>
+          <button type="button" className="primary-button" onClick={handleSaveCustomMetrics}>
+            指標を保存
+          </button>
+        </div>
+        <div className="table-scroll compact-table">
+          <table>
+            <thead>
+              <tr>
+                <th>表示名</th>
+                <th>式</th>
+                <th>単位</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody>
+              {customMetrics.length === 0 ? (
+                <tr>
+                  <td colSpan={4}>カスタム指標はありません。</td>
+                </tr>
+              ) : (
+                customMetrics.map((metric) => (
+                  <tr key={metric.id}>
+                    <td>{metric.label}</td>
+                    <td>
+                      {customMetricOperands[metric.left].label}{" "}
+                      {customMetricOperators[metric.operator]}{" "}
+                      {customMetricOperands[metric.right].label}
+                    </td>
+                    <td>{metric.unit}</td>
+                    <td>
+                      <button
+                        type="button"
+                        className="secondary-button compact-button"
+                        onClick={() =>
+                          setCustomMetrics((current) =>
+                            current.filter((item) => item.id !== metric.id)
+                          )
+                        }
+                      >
+                        削除
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
       </section>
 
       <section className="settings-panel">

@@ -15,6 +15,10 @@ import {
   type AnalysisFilterInput
 } from "../../shared/analysisFilters";
 import {
+  buildCustomMetricResults,
+  type CustomMetricDefinition
+} from "../../shared/customMetrics";
+import {
   buildEstimatedDeltas,
   buildImprovementPriorities,
   buildAnalysisComments,
@@ -25,6 +29,7 @@ import {
 import { buildAnalysisGoalStatuses } from "../../shared/goals";
 import { listDeltas, listSnapshots } from "../lib/api";
 import { loadAnalysisGoals } from "../lib/analysisGoals";
+import { loadCustomMetrics } from "../lib/customMetrics";
 import { formatDateTime, formatDecimal, formatNumber, formatRate } from "../lib/format";
 import { TrendChart } from "../components/TrendChart";
 
@@ -162,6 +167,9 @@ export function DashboardPage({ navigate }: DashboardPageProps) {
   const [analysisGoals, setAnalysisGoals] = useState<AnalysisGoal[]>(() =>
     loadAnalysisGoals()
   );
+  const [customMetrics, setCustomMetrics] = useState<CustomMetricDefinition[]>(() =>
+    loadCustomMetrics()
+  );
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedMode, setSelectedMode] = useState<Snapshot["game_mode"] | "all">("all");
@@ -170,6 +178,7 @@ export function DashboardPage({ navigate }: DashboardPageProps) {
 
   useEffect(() => {
     setAnalysisGoals(loadAnalysisGoals());
+    setCustomMetrics(loadCustomMetrics());
     Promise.all([listSnapshots(), listDeltas()])
       .then(([snapshotResult, deltaResult]) => {
         setSnapshots(snapshotResult.items);
@@ -237,6 +246,10 @@ export function DashboardPage({ navigate }: DashboardPageProps) {
   const goalStatuses = useMemo(
     () => buildAnalysisGoalStatuses(analysisGoals, latest),
     [analysisGoals, latest]
+  );
+  const customMetricResults = useMemo(
+    () => buildCustomMetricResults(latest, customMetrics),
+    [customMetrics, latest]
   );
   const displayDeltas = useMemo(
     () =>
@@ -476,6 +489,33 @@ export function DashboardPage({ navigate }: DashboardPageProps) {
                       {goal.direction === "at_most" ? "≦ " : "≧ "}
                       {goalValueText(goal, goal.target_value)}
                     </dd>
+                  </div>
+                </dl>
+              </article>
+            ))}
+          </div>
+        )}
+      </section>
+
+      <section className="analysis-section">
+        <div className="section-heading">
+          <h2>カスタム指標</h2>
+          <p>設定ページで追加した式を、最新スナップショットに対して計算します。</p>
+        </div>
+        {customMetricResults.length === 0 ? (
+          <p className="empty-state">カスタム指標はありません。</p>
+        ) : (
+          <div className="goal-grid">
+            {customMetricResults.map((result) => (
+              <article className="goal-tile" key={result.definition.id}>
+                <div className="period-tile-header">
+                  <strong>{result.definition.label}</strong>
+                  <span>{result.definition.unit}</span>
+                </div>
+                <dl className="period-metrics">
+                  <div>
+                    <dt>最新値</dt>
+                    <dd>{metricUnitValue(result.value, result.definition.unit)}</dd>
                   </div>
                 </dl>
               </article>
