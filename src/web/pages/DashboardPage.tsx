@@ -20,6 +20,7 @@ import {
   type CustomMetricDefinition
 } from "../../shared/customMetrics";
 import { detectOutlierSignals } from "../../shared/outliers";
+import { buildTagAnalyses } from "../../shared/tags";
 import {
   buildEstimatedDeltas,
   buildImprovementPriorities,
@@ -281,6 +282,10 @@ export function DashboardPage({ navigate }: DashboardPageProps) {
   );
   const outlierSignals = useMemo(
     () => detectOutlierSignals(modeSnapshots),
+    [modeSnapshots]
+  );
+  const tagAnalyses = useMemo(
+    () => buildTagAnalyses(modeSnapshots),
     [modeSnapshots]
   );
   const rankPointAnalysis = useMemo(
@@ -882,6 +887,45 @@ export function DashboardPage({ navigate }: DashboardPageProps) {
             lines={selectedChartLines}
           />
         )}
+      </section>
+
+      <section className="analysis-section">
+        <div className="section-heading">
+          <h2>タグ別分析</h2>
+          <p>メモ内の #タグ ごとに平均値を集計します。</p>
+        </div>
+        <div className="table-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th>タグ</th>
+                <th>件数</th>
+                <th>平均順位</th>
+                <th>和了率</th>
+                <th>放銃率</th>
+                <th>四位率</th>
+              </tr>
+            </thead>
+            <tbody>
+              {tagAnalyses.length === 0 ? (
+                <tr>
+                  <td colSpan={6}>メモに #タグ を追加すると集計できます。</td>
+                </tr>
+              ) : (
+                tagAnalyses.map((analysis) => (
+                  <tr key={analysis.tag}>
+                    <td>#{analysis.tag}</td>
+                    <td>{formatNumber(analysis.snapshot_count)}</td>
+                    <td>{formatDecimal(analysis.avg_place)}</td>
+                    <td>{formatRate(analysis.win_rate)}</td>
+                    <td>{formatRate(analysis.deal_in_rate)}</td>
+                    <td>{formatRate(analysis.fourth_rate)}</td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
       </section>
 
       <section className="analysis-section">

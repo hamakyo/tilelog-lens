@@ -1039,6 +1039,7 @@ export function SnapshotForm({
             value={values.note}
             maxLength={5000}
             rows={4}
+            placeholder="例: 守備意識を強めた #守備練習"
             onChange={setField("note")}
           />
         </label>
