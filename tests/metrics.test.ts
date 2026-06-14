@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   buildDerivedMetrics,
+  buildCustomPeriodComparison,
   buildDataQualityWarnings,
   buildDataQualityReport,
   buildAnalysisComments,
@@ -383,6 +384,56 @@ describe("metrics", () => {
     expect(comparisons[1]).toMatchObject({
       id: "month",
       quality: "ok"
+    });
+  });
+
+  it("builds custom period comparisons by date range and game mode", () => {
+    const comparison = buildCustomPeriodComparison(
+      [
+        makeSnapshot({
+          id: 1,
+          observed_date: "2026-01-01",
+          observed_at_utc: "2026-01-01T00:00:00.000Z",
+          game_mode: "south",
+          avg_place: 2.6,
+          win_rate: 20,
+          deal_in_rate: 14
+        }),
+        makeSnapshot({
+          id: 2,
+          observed_date: "2026-01-10",
+          observed_at_utc: "2026-01-10T00:00:00.000Z",
+          game_mode: "east",
+          avg_place: 3,
+          win_rate: 15,
+          deal_in_rate: 20
+        }),
+        makeSnapshot({
+          id: 3,
+          observed_date: "2026-02-01",
+          observed_at_utc: "2026-02-01T00:00:00.000Z",
+          game_mode: "south",
+          avg_place: 2.2,
+          win_rate: 25,
+          deal_in_rate: 10
+        })
+      ],
+      {
+        from_date_from: "2026-01-01",
+        from_date_to: "2026-01-31",
+        to_date_from: "2026-02-01",
+        to_date_to: "2026-02-28",
+        game_mode: "south"
+      }
+    );
+
+    expect(comparison.from_count).toBe(1);
+    expect(comparison.to_count).toBe(1);
+    expect(comparison.quality).toBe("ok");
+    expect(comparison.metrics.find((metric) => metric.key === "win_rate")).toMatchObject({
+      from_value: 20,
+      to_value: 25,
+      delta: 5
     });
   });
 });

@@ -1,8 +1,16 @@
 import { useEffect, useMemo, useState } from "react";
 import { GitCompareArrows } from "lucide-react";
-import { GAME_MODE_LABELS } from "../../shared/constants";
-import { buildSnapshotComparison } from "../../shared/metrics";
-import type { Snapshot, SnapshotComparisonMetric } from "../../shared/types";
+import { GAME_MODE_LABELS, GAME_MODES } from "../../shared/constants";
+import {
+  buildCustomPeriodComparison,
+  buildSnapshotComparison
+} from "../../shared/metrics";
+import type {
+  GameMode,
+  PeriodComparison,
+  Snapshot,
+  SnapshotComparisonMetric
+} from "../../shared/types";
 import { listSnapshots } from "../lib/api";
 import { formatDecimal, formatNumber, formatRate } from "../lib/format";
 
@@ -30,10 +38,68 @@ function metricTone(metric: SnapshotComparisonMetric): string {
   return improved ? "good" : "bad";
 }
 
+type PeriodCompareForm = {
+  gameMode: GameMode | "all";
+  fromDateFrom: string;
+  fromDateTo: string;
+  toDateFrom: string;
+  toDateTo: string;
+};
+
+const emptyPeriodCompareForm: PeriodCompareForm = {
+  gameMode: "all",
+  fromDateFrom: "",
+  fromDateTo: "",
+  toDateFrom: "",
+  toDateTo: ""
+};
+
+function PeriodComparisonTable({ comparison }: { comparison: PeriodComparison }) {
+  return (
+    <section className="table-section">
+      <div className="section-heading">
+        <h2>{comparison.label}</h2>
+        <p>
+          {comparison.from_label} {comparison.from_count}件 / {comparison.to_label}{" "}
+          {comparison.to_count}件
+        </p>
+      </div>
+      <div className="table-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th>指標</th>
+              <th>{comparison.from_label}</th>
+              <th>{comparison.to_label}</th>
+              <th>差分</th>
+            </tr>
+          </thead>
+          <tbody>
+            {comparison.metrics.map((metric) => (
+              <tr key={metric.key}>
+                <td>{metric.label}</td>
+                <td>{formatMetricValue(metric.from_value, metric.unit)}</td>
+                <td>{formatMetricValue(metric.to_value, metric.unit)}</td>
+                <td className={`comparison-delta ${metricTone(metric)}`}>
+                  {metric.delta != null && metric.delta > 0 ? "+" : ""}
+                  {formatMetricValue(metric.delta, metric.unit)}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  );
+}
+
 export function ComparePage() {
   const [snapshots, setSnapshots] = useState<Snapshot[]>([]);
   const [fromId, setFromId] = useState("");
   const [toId, setToId] = useState("");
+  const [periodCompareForm, setPeriodCompareForm] = useState<PeriodCompareForm>(
+    emptyPeriodCompareForm
+  );
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -59,6 +125,29 @@ export function ComparePage() {
         ? buildSnapshotComparison(fromSnapshot, toSnapshot)
         : null,
     [fromSnapshot, toSnapshot]
+  );
+  const periodComparison = useMemo(
+    () =>
+      buildCustomPeriodComparison(snapshots, {
+        label: "期間A vs 期間B",
+        from_label: "期間A",
+        to_label: "期間B",
+        from_date_from: periodCompareForm.fromDateFrom || undefined,
+        from_date_to: periodCompareForm.fromDateTo || undefined,
+        to_date_from: periodCompareForm.toDateFrom || undefined,
+        to_date_to: periodCompareForm.toDateTo || undefined,
+        game_mode: periodCompareForm.gameMode
+      }),
+    [periodCompareForm, snapshots]
+  );
+  const latestSnapshotsByMode = useMemo(
+    () =>
+      GAME_MODES.map((mode) =>
+        snapshots
+          .filter((snapshot) => snapshot.game_mode === mode)
+          .sort((a, b) => b.observed_at_utc.localeCompare(a.observed_at_utc))[0]
+      ).filter((snapshot): snapshot is Snapshot => snapshot != null),
+    [snapshots]
   );
 
   return (
@@ -95,6 +184,95 @@ export function ComparePage() {
                 </option>
               ))}
             </select>
+          </label>
+        </div>
+      </section>
+
+      <section className="form-section">
+        <div className="section-heading inline-heading">
+          <div>
+            <h2>期間比較</h2>
+            <p>任意の期間A/Bを平均値で比較します。</p>
+          </div>
+          <button
+            type="button"
+            className="secondary-button"
+            onClick={() => setPeriodCompareForm(emptyPeriodCompareForm)}
+          >
+            条件をリセット
+          </button>
+        </div>
+        <div className="form-grid period-compare-grid">
+          <label>
+            <span>ゲームモード</span>
+            <select
+              value={periodCompareForm.gameMode}
+              onChange={(event) =>
+                setPeriodCompareForm((current) => ({
+                  ...current,
+                  gameMode: event.target.value as PeriodCompareForm["gameMode"]
+                }))
+              }
+            >
+              <option value="all">すべて</option>
+              {GAME_MODES.map((mode) => (
+                <option key={mode} value={mode}>
+                  {GAME_MODE_LABELS[mode]}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            <span>期間A 開始</span>
+            <input
+              type="date"
+              value={periodCompareForm.fromDateFrom}
+              onChange={(event) =>
+                setPeriodCompareForm((current) => ({
+                  ...current,
+                  fromDateFrom: event.target.value
+                }))
+              }
+            />
+          </label>
+          <label>
+            <span>期間A 終了</span>
+            <input
+              type="date"
+              value={periodCompareForm.fromDateTo}
+              onChange={(event) =>
+                setPeriodCompareForm((current) => ({
+                  ...current,
+                  fromDateTo: event.target.value
+                }))
+              }
+            />
+          </label>
+          <label>
+            <span>期間B 開始</span>
+            <input
+              type="date"
+              value={periodCompareForm.toDateFrom}
+              onChange={(event) =>
+                setPeriodCompareForm((current) => ({
+                  ...current,
+                  toDateFrom: event.target.value
+                }))
+              }
+            />
+          </label>
+          <label>
+            <span>期間B 終了</span>
+            <input
+              type="date"
+              value={periodCompareForm.toDateTo}
+              onChange={(event) =>
+                setPeriodCompareForm((current) => ({
+                  ...current,
+                  toDateTo: event.target.value
+                }))
+              }
+            />
           </label>
         </div>
       </section>
@@ -157,6 +335,49 @@ export function ComparePage() {
           </section>
         </>
       )}
+
+      <PeriodComparisonTable comparison={periodComparison} />
+
+      <section className="table-section">
+        <div className="section-heading">
+          <h2>モード別の最新値</h2>
+          <p>ゲームモードごとの最新スナップショットを横断比較します。</p>
+        </div>
+        <div className="table-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th>モード</th>
+                <th>観測日時</th>
+                <th>対戦数</th>
+                <th>平均順位</th>
+                <th>和了率</th>
+                <th>放銃率</th>
+                <th>攻守差</th>
+              </tr>
+            </thead>
+            <tbody>
+              {latestSnapshotsByMode.length === 0 ? (
+                <tr>
+                  <td colSpan={7}>比較できる記録がまだありません。</td>
+                </tr>
+              ) : (
+                latestSnapshotsByMode.map((snapshot) => (
+                  <tr key={snapshot.game_mode}>
+                    <td>{GAME_MODE_LABELS[snapshot.game_mode]}</td>
+                    <td>{`${snapshot.observed_date} ${snapshot.observed_time}`}</td>
+                    <td>{formatNumber(snapshot.matches)}</td>
+                    <td>{formatDecimal(snapshot.avg_place)}</td>
+                    <td>{formatRate(snapshot.win_rate)}</td>
+                    <td>{formatRate(snapshot.deal_in_rate)}</td>
+                    <td>{formatDecimal(snapshot.win_rate - snapshot.deal_in_rate)}</td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </section>
     </main>
   );
 }

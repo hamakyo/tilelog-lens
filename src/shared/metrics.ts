@@ -702,6 +702,57 @@ function monthLabel(key: string): string {
   return `${year}年${Number(month)}月`;
 }
 
+export function buildCustomPeriodComparison(
+  snapshots: Snapshot[],
+  options: {
+    id?: string;
+    label?: string;
+    from_label?: string;
+    to_label?: string;
+    from_date_from?: string;
+    from_date_to?: string;
+    to_date_from?: string;
+    to_date_to?: string;
+    game_mode?: Snapshot["game_mode"] | "all";
+  }
+): PeriodComparison {
+  const ordered = [...snapshots].sort(byObservedAsc);
+  const scopedSnapshots =
+    options.game_mode && options.game_mode !== "all"
+      ? ordered.filter((snapshot) => snapshot.game_mode === options.game_mode)
+      : ordered;
+
+  const fromSnapshots = scopedSnapshots.filter((snapshot) =>
+    snapshotWithinDateRange(
+      snapshot,
+      options.from_date_from,
+      options.from_date_to
+    )
+  );
+  const toSnapshots = scopedSnapshots.filter((snapshot) =>
+    snapshotWithinDateRange(snapshot, options.to_date_from, options.to_date_to)
+  );
+
+  return buildSnapshotGroupComparison(
+    options.id ?? "custom-period",
+    options.label ?? "期間A vs 期間B",
+    options.from_label ?? "期間A",
+    options.to_label ?? "期間B",
+    fromSnapshots,
+    toSnapshots
+  );
+}
+
+function snapshotWithinDateRange(
+  snapshot: Pick<Snapshot, "observed_date">,
+  dateFrom?: string,
+  dateTo?: string
+): boolean {
+  if (dateFrom && snapshot.observed_date < dateFrom) return false;
+  if (dateTo && snapshot.observed_date > dateTo) return false;
+  return true;
+}
+
 export function buildRecentWindowComparison(
   snapshots: Snapshot[],
   windowSize = 10

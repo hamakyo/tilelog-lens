@@ -842,6 +842,10 @@ table input[type="checkbox"] {
   grid-template-columns: repeat(7, minmax(120px, 1fr));
 }
 
+.period-compare-grid {
+  grid-template-columns: repeat(5, minmax(140px, 1fr));
+}
+
 label {
   display: grid;
   gap: 6px;
@@ -1311,6 +1315,7 @@ footer {
   .form-grid,
   .compare-grid,
   .analysis-filter-grid,
+  .period-compare-grid,
   .metadata-grid,
   .confidence-grid,
   .assist-grid {
@@ -1331,6 +1336,7 @@ footer {
   .form-grid,
   .compare-grid,
   .analysis-filter-grid,
+  .period-compare-grid,
   .metadata-grid,
   .confidence-grid,
   .assist-grid,
