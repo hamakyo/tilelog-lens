@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Download, Eye, LoaderCircle, Upload } from "lucide-react";
+import { GAME_MODE_LABELS, GAME_MODES } from "../../shared/constants";
 import type { Snapshot, SnapshotCreateInput } from "../../shared/types";
 import { createSnapshot } from "../lib/api";
 
@@ -21,6 +22,9 @@ const previewLabels: Record<PreviewKind, string> = {
 
 export function ExportPage() {
   const [anonymize, setAnonymize] = useState(true);
+  const [exportGameMode, setExportGameMode] = useState("all");
+  const [exportDateFrom, setExportDateFrom] = useState("");
+  const [exportDateTo, setExportDateTo] = useState("");
   const [aiGoal, setAiGoal] = useState("雀魂の戦績推移を分析し、改善優先度を特定してください。");
   const [aiFocus, setAiFocus] = useState(
     [
@@ -39,14 +43,17 @@ export function ExportPage() {
   const [restoreMessage, setRestoreMessage] = useState<string | null>(null);
 
   function exportPath(kind: PreviewKind): string {
-    if (kind === "snapshots") return "/api/export/snapshots.csv";
-    if (kind === "deltas") return "/api/export/deltas.csv";
-    const params = new URLSearchParams({
-      anonymize: String(anonymize),
-      goal: aiGoal,
-      focus: aiFocus
-    });
-    return `/api/export/ai-context.json?${params.toString()}`;
+    const params = new URLSearchParams();
+    if (exportGameMode !== "all") params.set("game_mode", exportGameMode);
+    if (exportDateFrom) params.set("observed_date_from", exportDateFrom);
+    if (exportDateTo) params.set("observed_date_to", exportDateTo);
+
+    if (kind === "snapshots") return withParams("/api/export/snapshots.csv", params);
+    if (kind === "deltas") return withParams("/api/export/deltas.csv", params);
+    params.set("anonymize", String(anonymize));
+    params.set("goal", aiGoal);
+    params.set("focus", aiFocus);
+    return withParams("/api/export/ai-context.json", params);
   }
 
   async function handlePreview(kind: PreviewKind) {
@@ -237,6 +244,45 @@ export function ExportPage() {
       </section>
 
       <section className="settings-panel">
+        <div className="section-heading inline-heading">
+          <h2>出力条件</h2>
+          <p>CSV/JSONに含める記録を絞り込みます。</p>
+        </div>
+        <div className="form-grid export-filter-grid">
+          <label>
+            <span>ゲームモード</span>
+            <select
+              value={exportGameMode}
+              onChange={(event) => setExportGameMode(event.target.value)}
+            >
+              <option value="all">すべて</option>
+              {GAME_MODES.map((mode) => (
+                <option key={mode} value={mode}>
+                  {GAME_MODE_LABELS[mode]}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            <span>開始日</span>
+            <input
+              type="date"
+              value={exportDateFrom}
+              onChange={(event) => setExportDateFrom(event.target.value)}
+            />
+          </label>
+          <label>
+            <span>終了日</span>
+            <input
+              type="date"
+              value={exportDateTo}
+              onChange={(event) => setExportDateTo(event.target.value)}
+            />
+          </label>
+        </div>
+      </section>
+
+      <section className="settings-panel">
         <label className="checkbox-row">
           <input
             type="checkbox"
@@ -312,4 +358,9 @@ export function ExportPage() {
       ) : null}
     </main>
   );
+}
+
+function withParams(path: string, params: URLSearchParams): string {
+  const query = params.toString();
+  return query ? `${path}?${query}` : path;
 }

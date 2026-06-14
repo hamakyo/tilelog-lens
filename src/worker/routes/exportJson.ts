@@ -1,7 +1,9 @@
 import { Hono } from "hono";
+import { filterSnapshotsForAnalysis } from "../../shared/analysisFilters";
 import { buildAiContext } from "../../shared/aiExport";
 import type { AppBindings } from "../env";
 import { listAllSnapshots } from "../lib/d1";
+import { parseExportFilters } from "../lib/exportFilters";
 
 export const exportJsonRoutes = new Hono<AppBindings>();
 
@@ -9,7 +11,8 @@ exportJsonRoutes.get("/ai-context.json", async (c) => {
   const anonymize = c.req.query("anonymize") !== "false";
   const goal = sanitizeAnalysisRequestText(c.req.query("goal"), 300);
   const focus = sanitizeAnalysisFocus(c.req.query("focus"));
-  const snapshots = await listAllSnapshots(c.env.DB);
+  const filters = parseExportFilters((name) => c.req.query(name));
+  const snapshots = filterSnapshotsForAnalysis(await listAllSnapshots(c.env.DB), filters);
   const body = JSON.stringify(
     buildAiContext(snapshots, {
       anonymize,

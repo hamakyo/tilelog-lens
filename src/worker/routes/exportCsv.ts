@@ -1,9 +1,11 @@
 import { Hono } from "hono";
+import { filterSnapshotsForAnalysis } from "../../shared/analysisFilters";
 import { buildEstimatedDeltas } from "../../shared/metrics";
 import type { Snapshot } from "../../shared/types";
 import type { AppBindings } from "../env";
 import { buildCsv } from "../lib/csv";
 import { listAllSnapshots } from "../lib/d1";
+import { parseExportFilters } from "../lib/exportFilters";
 
 export const exportCsvRoutes = new Hono<AppBindings>();
 
@@ -77,12 +79,14 @@ function csvResponse(csv: string, filename: string): Response {
 }
 
 exportCsvRoutes.get("/snapshots.csv", async (c) => {
-  const snapshots = await listAllSnapshots(c.env.DB);
+  const filters = parseExportFilters((name) => c.req.query(name));
+  const snapshots = filterSnapshotsForAnalysis(await listAllSnapshots(c.env.DB), filters);
   return csvResponse(buildCsv(snapshots, snapshotColumns), "tilelog-snapshots.csv");
 });
 
 exportCsvRoutes.get("/deltas.csv", async (c) => {
-  const snapshots = await listAllSnapshots(c.env.DB);
+  const filters = parseExportFilters((name) => c.req.query(name));
+  const snapshots = filterSnapshotsForAnalysis(await listAllSnapshots(c.env.DB), filters);
   const deltas = buildEstimatedDeltas(snapshots);
   return csvResponse(buildCsv(deltas, [...deltaColumns]), "tilelog-deltas.csv");
 });
