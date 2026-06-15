@@ -21,6 +21,10 @@ jobs:
       TF_VAR_cloudflare_account_id: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
       TF_VAR_cloudflare_zone_id: ${{ vars.CLOUDFLARE_ZONE_ID }}
       TF_VAR_owner_email: ${{ secrets.TF_OWNER_EMAIL }}
+      TF_IMPORT_D1_DATABASE_ID: ${{ secrets.TF_IMPORT_D1_DATABASE_ID }}
+      TF_IMPORT_DNS_RECORD_ID: ${{ secrets.TF_IMPORT_DNS_RECORD_ID }}
+      TF_IMPORT_ACCESS_APPLICATION_ID: ${{ secrets.TF_IMPORT_ACCESS_APPLICATION_ID }}
+      TF_IMPORT_ACCESS_POLICY_ID: ${{ secrets.TF_IMPORT_ACCESS_POLICY_ID }}
 
     defaults:
       run:
@@ -41,6 +45,24 @@ jobs:
 
       - name: Terraform validate
         run: terraform validate
+
+      - name: Import existing Cloudflare resources
+        run: |
+          missing=0
+          for name in TF_IMPORT_D1_DATABASE_ID TF_IMPORT_DNS_RECORD_ID TF_IMPORT_ACCESS_APPLICATION_ID TF_IMPORT_ACCESS_POLICY_ID; do
+            if [ -z "${!name}" ]; then
+              echo "::error::${name} is required so terraform plan compares against existing Cloudflare resources."
+              missing=1
+            fi
+          done
+          if [ "${missing}" -ne 0 ]; then
+            exit 1
+          fi
+
+          terraform import -input=false cloudflare_d1_database.tilelog_lens "${TF_VAR_cloudflare_account_id}/${TF_IMPORT_D1_DATABASE_ID}"
+          terraform import -input=false cloudflare_record.tilelog_lens "${TF_VAR_cloudflare_zone_id}/${TF_IMPORT_DNS_RECORD_ID}"
+          terraform import -input=false cloudflare_zero_trust_access_application.tilelog_lens "${TF_VAR_cloudflare_zone_id}/${TF_IMPORT_ACCESS_APPLICATION_ID}"
+          terraform import -input=false cloudflare_zero_trust_access_policy.owner "${TF_VAR_cloudflare_zone_id}/${TF_IMPORT_ACCESS_POLICY_ID}"
 
       - name: Terraform plan
         run: terraform plan -input=false

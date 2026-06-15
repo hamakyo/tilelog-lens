@@ -202,14 +202,21 @@ export async function listAllSnapshots(
   db: D1Database,
   gameMode?: GameMode
 ): Promise<Snapshot[]> {
-  return (
-    await listSnapshots(db, {
-      gameMode,
-      order: "asc",
-      limit: 500,
-      offset: 0
-    })
-  ).items;
+  const params: Array<string | number> = [];
+  const where = gameMode ? "WHERE game_mode = ?" : "";
+
+  if (gameMode) {
+    params.push(gameMode);
+  }
+
+  const rowsResult = await db
+    .prepare(
+      `SELECT ${selectColumns} FROM stat_snapshots ${where} ORDER BY observed_at_utc ASC`
+    )
+    .bind(...params)
+    .all<SnapshotRow>();
+
+  return (rowsResult.results ?? []).map(rowToSnapshot);
 }
 
 export async function getSnapshotById(

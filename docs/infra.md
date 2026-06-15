@@ -33,6 +33,8 @@ TileLog Lens の本番環境は Cloudflare Workers、Cloudflare D1、Cloudflare 
 
 `.github/workflows/deploy.yml` は `workflow_dispatch` で手動実行します。
 
+本番deploy jobは `main` ブランチでだけ実行されます。deploy前に TypeScript 型チェック、Vitest、Vite ビルドを再実行します。
+
 必要な GitHub Secrets:
 
 - `CLOUDFLARE_API_TOKEN`: Workers deploy とD1 migrationに必要なCloudflare API token
@@ -54,13 +56,17 @@ Worker runtime secrets は GitHub に置かず、Cloudflare 側に設定しま�
 
 - `CLOUDFLARE_API_TOKEN`
 - `TF_OWNER_EMAIL`: TerraformでCloudflare Access policyに設定する所有者メール
+- `TF_IMPORT_D1_DATABASE_ID`: 既存D1 database ID
+- `TF_IMPORT_DNS_RECORD_ID`: 既存DNS record ID
+- `TF_IMPORT_ACCESS_APPLICATION_ID`: 既存Cloudflare Access application ID
+- `TF_IMPORT_ACCESS_POLICY_ID`: 既存Cloudflare Access policy ID
 
 必要な GitHub Variables:
 
 - `CLOUDFLARE_ACCOUNT_ID`
 - `CLOUDFLARE_ZONE_ID`
 
-このworkflowは `terraform plan` まで実行します。既存Cloudflareリソースのimportや `terraform apply` はローカルで内容を確認してから実行します。
+このworkflowは既存Cloudflareリソースを一時stateへimportしてから `terraform plan` まで実行します。import用secretが未設定の場合は、空stateによる誤解しやすいplanを避けるため失敗します。`terraform apply` はローカルで内容を確認してから実行します。
 
 ## Terraform と Wrangler の責務
 

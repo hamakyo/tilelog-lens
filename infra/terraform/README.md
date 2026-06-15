@@ -62,6 +62,13 @@ terraform -chdir=infra/terraform import cloudflare_zero_trust_access_policy.owne
 
 import ID はCloudflare Terraform Providerの対象resource仕様に従ってください。
 
+GitHub Actions の `Terraform Plan` workflow は、次のSecretsを使って既存リソースを一時stateへimportしてからplanします。未設定の場合は、空stateによる誤解しやすいplanを避けるため失敗します。
+
+- `TF_IMPORT_D1_DATABASE_ID`
+- `TF_IMPORT_DNS_RECORD_ID`
+- `TF_IMPORT_ACCESS_APPLICATION_ID`
+- `TF_IMPORT_ACCESS_POLICY_ID`
+
 ## 適用後のWorker設定
 
 TerraformでAccess applicationを作成または更新したら、audience tagをWorker secretに設定します。

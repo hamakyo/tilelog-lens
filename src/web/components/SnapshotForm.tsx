@@ -789,24 +789,27 @@ export function SnapshotForm({
       setServerWarnings(warnings);
       setMessage("記録を保存しました。");
     } catch (error) {
+      const failureMessage =
+        error instanceof Error ? error.message : "記録の保存に失敗しました。";
       if (values.file_name || values.source_image_sha256 || values.parser_version) {
-        void createImportEvent({
-          snapshot_id: null,
-          status: "failed",
-          source_image_sha256: nullableText(values.source_image_sha256),
-          file_name: nullableText(values.file_name),
-          image_width: nullableNumber(values.image_width),
-          image_height: nullableNumber(values.image_height),
-          parser_version: nullableText(values.parser_version),
-          extracted_field_count:
-            ocrFilledFields.length > 0 ? ocrFilledFields.length : null,
-          message:
-            error instanceof Error
-              ? error.message.slice(0, 200)
-              : "snapshot_save_failed"
-        }).catch(() => undefined);
+        try {
+          await createImportEvent({
+            snapshot_id: null,
+            status: "failed",
+            source_image_sha256: nullableText(values.source_image_sha256),
+            file_name: nullableText(values.file_name),
+            image_width: nullableNumber(values.image_width),
+            image_height: nullableNumber(values.image_height),
+            parser_version: nullableText(values.parser_version),
+            extracted_field_count:
+              ocrFilledFields.length > 0 ? ocrFilledFields.length : null,
+            message: failureMessage.slice(0, 200)
+          });
+        } catch {
+          // The original save error is more important than audit-log persistence here.
+        }
       }
-      setMessage(error instanceof Error ? error.message : "記録の保存に失敗しました。");
+      setMessage(failureMessage);
     } finally {
       setBusy(false);
     }
