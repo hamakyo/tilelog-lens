@@ -44,6 +44,22 @@ Worker runtime secrets は GitHub に置かず、Cloudflare 側に設定しま�
 
 リモートD1マイグレーションをデプロイ前に適用する場合は、手動実行時に `apply_migrations` を有効にします。
 
+### Terraform Plan
+
+`.github/workflows/terraform-plan.yml` は `workflow_dispatch` で手動実行します。
+
+必要な GitHub Secrets:
+
+- `CLOUDFLARE_API_TOKEN`
+- `TF_OWNER_EMAIL`: TerraformでCloudflare Access policyに設定する所有者メール
+
+必要な GitHub Variables:
+
+- `CLOUDFLARE_ACCOUNT_ID`
+- `CLOUDFLARE_ZONE_ID`
+
+このworkflowは `terraform plan` まで実行します。既存Cloudflareリソースのimportや `terraform apply` はローカルで内容を確認してから実行します。
+
 ## Terraform と Wrangler の責務
 
 Terraform は次のCloudflareリソースを管理します。
@@ -61,6 +77,8 @@ Terraform output の `access_application_aud` は Worker secret `ACCESS_AUD` と
 terraform -chdir=infra/terraform output -raw access_application_aud | wrangler secret put ACCESS_AUD
 wrangler secret put OWNER_EMAIL
 ```
+
+Terraform の具体的な実行手順は [infra/terraform/README.md](/Users/kyoshirohama/Documents/tilelog-lens/infra/terraform/README.md) を参照してください。
 
 ## セキュリティ方針
 

@@ -1,0 +1,6 @@
+cloudflare_account_id = "00000000000000000000000000000000"
+cloudflare_zone_id    = "00000000000000000000000000000000"
+
+zone_name     = "hamakyo.dev"
+app_subdomain = "tilelog-lens"
+owner_email   = "owner@example.com"

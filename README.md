@@ -238,6 +238,8 @@ wrangler d1 migrations apply tilelog_lens --remote
 
 GitHub Actions、Cloudflareデプロイ、Terraformによる周辺インフラ管理は [docs/infra.md](/Users/kyoshirohama/Documents/tilelog-lens/docs/infra.md) を参照してください。
 
+Terraform設定は [infra/terraform/README.md](/Users/kyoshirohama/Documents/tilelog-lens/infra/terraform/README.md) にあります。Worker本体と静的assetsはWrangler、D1・DNS・Cloudflare AccessはTerraformで管理します。
+
 ## D1バックアップと復元
 
 リモートマイグレーションやリスクのあるデータ変更の前に、リモートD1のSQLバックアップを作成します。

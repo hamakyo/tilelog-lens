@@ -18,3 +18,15 @@ backups/*.sql
 .dev.vars
 .dev.vars.*
 !.dev.vars.example
+
+.terraform/
+**/.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+!*.tfvars.example
+crash.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
