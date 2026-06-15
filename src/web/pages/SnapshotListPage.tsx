@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
-import { Download, Edit, Trash2 } from "lucide-react";
+import Download from "lucide-react/dist/esm/icons/download.js";
+import Edit from "lucide-react/dist/esm/icons/edit.js";
+import Trash2 from "lucide-react/dist/esm/icons/trash-2.js";
 import { GAME_MODE_LABELS } from "../../shared/constants";
 import type { Snapshot } from "../../shared/types";
 import { deleteSnapshot, listSnapshots } from "../lib/api";

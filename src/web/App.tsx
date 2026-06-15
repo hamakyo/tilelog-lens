@@ -1,15 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
-import {
-  BarChart3,
-  Download,
-  FilePlus2,
-  GitCompareArrows,
-  History,
-  LayoutDashboard,
-  List,
-  Settings,
-  ShieldCheck
-} from "lucide-react";
+import BarChart3 from "lucide-react/dist/esm/icons/bar-chart-3.js";
+import Download from "lucide-react/dist/esm/icons/download.js";
+import FilePlus2 from "lucide-react/dist/esm/icons/file-plus-2.js";
+import GitCompareArrows from "lucide-react/dist/esm/icons/git-compare-arrows.js";
+import History from "lucide-react/dist/esm/icons/history.js";
+import LayoutDashboard from "lucide-react/dist/esm/icons/layout-dashboard.js";
+import List from "lucide-react/dist/esm/icons/list.js";
+import Settings from "lucide-react/dist/esm/icons/settings.js";
+import ShieldCheck from "lucide-react/dist/esm/icons/shield-check.js";
 import { PRIVACY_DISCLAIMER } from "../shared/constants";
 import { DashboardPage } from "./pages/DashboardPage";
 import { ExportPage } from "./pages/ExportPage";

@@ -1,5 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
-import { AlertTriangle, ImagePlus, LoaderCircle, Save, ScanText } from "lucide-react";
+import AlertTriangle from "lucide-react/dist/esm/icons/alert-triangle.js";
+import ImagePlus from "lucide-react/dist/esm/icons/image-plus.js";
+import LoaderCircle from "lucide-react/dist/esm/icons/loader-circle.js";
+import Save from "lucide-react/dist/esm/icons/save.js";
+import ScanText from "lucide-react/dist/esm/icons/scan-text.js";
 import {
   DEFAULT_TIMEZONE,
   GAME_MODE_LABELS,

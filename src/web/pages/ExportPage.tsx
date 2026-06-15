@@ -1,5 +1,8 @@
 import { useState } from "react";
-import { Download, Eye, LoaderCircle, Upload } from "lucide-react";
+import Download from "lucide-react/dist/esm/icons/download.js";
+import Eye from "lucide-react/dist/esm/icons/eye.js";
+import LoaderCircle from "lucide-react/dist/esm/icons/loader-circle.js";
+import Upload from "lucide-react/dist/esm/icons/upload.js";
 import { GAME_MODE_LABELS, GAME_MODES } from "../../shared/constants";
 import type { Snapshot, SnapshotCreateInput } from "../../shared/types";
 import { createSnapshot } from "../lib/api";

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { GitCompareArrows } from "lucide-react";
+import GitCompareArrows from "lucide-react/dist/esm/icons/git-compare-arrows.js";
 import { GAME_MODE_LABELS, GAME_MODES } from "../../shared/constants";
 import {
   buildCustomPeriodComparison,

@@ -1,5 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
-import { Activity, Flag, Gauge, ShieldAlert } from "lucide-react";
+import Activity from "lucide-react/dist/esm/icons/activity.js";
+import Flag from "lucide-react/dist/esm/icons/flag.js";
+import Gauge from "lucide-react/dist/esm/icons/gauge.js";
+import ShieldAlert from "lucide-react/dist/esm/icons/shield-alert.js";
 import type { AnalysisGoal, EstimatedDelta, Snapshot } from "../../shared/types";
 import {
   GAME_MODE_LABELS,
