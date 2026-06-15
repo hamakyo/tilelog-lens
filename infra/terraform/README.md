@@ -69,6 +69,8 @@ TerraformでAccess applicationを作成または更新したら、audience tag�
 ```bash
 terraform -chdir=infra/terraform output -raw access_application_aud | wrangler secret put ACCESS_AUD
 wrangler secret put OWNER_EMAIL
+wrangler secret put ACCESS_ISSUER
+wrangler secret put ACCESS_JWKS_URL
 ```
 
 D1 database ID が変わった場合は、`wrangler.jsonc` の `d1_databases[0].database_id` も合わせます。

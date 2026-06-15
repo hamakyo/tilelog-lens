@@ -27,8 +27,6 @@
     }
   ],
   "vars": {
-    "ENVIRONMENT": "production",
-    "ACCESS_ISSUER": "https://hamakyoh.cloudflareaccess.com",
-    "ACCESS_JWKS_URL": "https://hamakyoh.cloudflareaccess.com/cdn-cgi/access/certs"
+    "ENVIRONMENT": "production"
   }
 }

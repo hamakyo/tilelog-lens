@@ -15,7 +15,7 @@ resource "cloudflare_record" "tilelog_lens" {
   zone_id = var.cloudflare_zone_id
   name    = var.app_subdomain
   type    = var.dns_record_type
-  value   = var.dns_record_content
+  content = var.dns_record_content
   proxied = true
   ttl     = 1
   comment = "TileLog Lens Worker hostname. Worker code and route are deployed by Wrangler."

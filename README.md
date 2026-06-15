@@ -159,23 +159,23 @@ interface Env {
     }
   ],
   "vars": {
-    "ENVIRONMENT": "production",
-    "ACCESS_ISSUER": "https://<team-name>.cloudflareaccess.com",
-    "ACCESS_JWKS_URL": "https://<team-name>.cloudflareaccess.com/cdn-cgi/access/certs"
+    "ENVIRONMENT": "production"
   }
 }
 ```
 
-Secrets は次のように設定します。
+Cloudflare Access 関連値は公開リポジトリにteam domainを出さないため、Worker secretsとして設定します。
 
 ```bash
 wrangler secret put OWNER_EMAIL
 wrangler secret put ACCESS_AUD
+wrangler secret put ACCESS_ISSUER
+wrangler secret put ACCESS_JWKS_URL
 ```
 
 ## 設定情報の扱い
 
-`wrangler.jsonc` には、D1 database ID、本番ホスト名、Cloudflare Access issuer/JWKS URL など、デプロイ固有の識別子が含まれる場合があります。
+`wrangler.jsonc` には、D1 database ID、本番ホスト名など、デプロイ固有の識別子が含まれる場合があります。
 
 これらは単体ではアプリケーション秘密情報ではありませんが、デプロイ構成のメタデータです。公開リポジトリにする場合は、コミットしたままにするかプレースホルダーへ置き換えるかを確認してください。
 
@@ -183,6 +183,8 @@ wrangler secret put ACCESS_AUD
 
 - `OWNER_EMAIL`
 - `ACCESS_AUD`
+- `ACCESS_ISSUER`
+- `ACCESS_JWKS_URL`
 - APIトークン
 - Cloudflareアカウントトークン
 - 秘密鍵や認証情報
@@ -198,6 +200,8 @@ wrangler secret put ACCESS_AUD
 7. Application audience tag を確認し、`ACCESS_AUD` として設定します。
 8. JWT検証用に `ACCESS_ISSUER` と `ACCESS_JWKS_URL` を設定します。
 9. 本番では `workers_dev` を無効にするか、workers.dev も Access で保護します。
+
+`ACCESS_ISSUER` は `https://<team-name>.cloudflareaccess.com`、`ACCESS_JWKS_URL` は `<ACCESS_ISSUER>/cdn-cgi/access/certs` の形式です。`<team-name>` はCloudflare Zero Trustのteam domainです。
 
 現在想定している本番ホスト名は次の通りです。
 

@@ -41,6 +41,8 @@ Worker runtime secrets は GitHub に置かず、Cloudflare 側に設定しま�
 
 - `OWNER_EMAIL`
 - `ACCESS_AUD`
+- `ACCESS_ISSUER`
+- `ACCESS_JWKS_URL`
 
 リモートD1マイグレーションをデプロイ前に適用する場合は、手動実行時に `apply_migrations` を有効にします。
 
@@ -76,6 +78,8 @@ Terraform output の `access_application_aud` は Worker secret `ACCESS_AUD` と
 ```bash
 terraform -chdir=infra/terraform output -raw access_application_aud | wrangler secret put ACCESS_AUD
 wrangler secret put OWNER_EMAIL
+wrangler secret put ACCESS_ISSUER
+wrangler secret put ACCESS_JWKS_URL
 ```
 
 Terraform の具体的な実行手順は [infra/terraform/README.md](/Users/kyoshirohama/Documents/tilelog-lens/infra/terraform/README.md) を参照してください。
