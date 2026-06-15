@@ -5,7 +5,7 @@
   "type": "module",
   "packageManager": "pnpm@9.15.4",
   "scripts": {
-    "build": "vite build",
+    "build": "vite build && find dist -name .DS_Store -delete",
     "dev": "pnpm run build && wrangler dev --local",
     "dev:vite": "vite --host 127.0.0.1",
     "typecheck": "pnpm run typecheck:web && pnpm run typecheck:worker && pnpm run typecheck:test && pnpm run typecheck:config",
