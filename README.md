@@ -234,6 +234,10 @@ pnpm run dev
 wrangler d1 migrations apply tilelog_lens --remote
 ```
 
+## CI/CD とIaC
+
+GitHub Actions、Cloudflareデプロイ、Terraformによる周辺インフラ管理は [docs/infra.md](/Users/kyoshirohama/Documents/tilelog-lens/docs/infra.md) を参照してください。
+
 ## D1バックアップと復元
 
 リモートマイグレーションやリスクのあるデータ変更の前に、リモートD1のSQLバックアップを作成します。

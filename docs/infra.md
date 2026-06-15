@@ -1,0 +1,70 @@
+# インフラ運用
+
+TileLog Lens の本番環境は Cloudflare Workers、Cloudflare D1、Cloudflare Access、Cloudflare DNS を使います。
+
+## GitHub Actions
+
+### CI
+
+`.github/workflows/ci.yml` は `main` への push と pull request で実行します。
+
+実行内容:
+
+- 依存関係のインストール
+- TypeScript 型チェック
+- Vitest の単体テスト
+- Vite ビルド
+
+`pnpm run typecheck` はCI上で停止しないように `timeout 180s` を付けています。Playwright E2E はブラウザ依存が重く、通常CIからは分離しています。
+
+### E2E
+
+`.github/workflows/e2e.yml` は `workflow_dispatch` で手動実行します。
+
+実行内容:
+
+- Chromium のインストール
+- `pnpm run test:e2e`
+- `playwright-report/` と `test-results/` のartifact保存
+
+本番データやスクリーンショット画像は使わず、テスト用のローカルWorkerとテストデータだけで実行します。
+
+### Deploy
+
+`.github/workflows/deploy.yml` は `workflow_dispatch` で手動実行します。
+
+必要な GitHub Secrets:
+
+- `CLOUDFLARE_API_TOKEN`: Workers deploy とD1 migrationに必要なCloudflare API token
+
+Worker runtime secrets は GitHub に置かず、Cloudflare 側に設定します。
+
+- `OWNER_EMAIL`
+- `ACCESS_AUD`
+
+リモートD1マイグレーションをデプロイ前に適用する場合は、手動実行時に `apply_migrations` を有効にします。
+
+## Terraform と Wrangler の責務
+
+Terraform は次のCloudflareリソースを管理します。
+
+- D1 database
+- 本番ホスト名のDNS record
+- Cloudflare Access application
+- 所有者メールだけを許可するCloudflare Access policy
+
+Worker本体、静的assets、Worker route、D1 migrations は引き続き Wrangler が管理します。Worker deploy と route 管理をTerraformとWranglerで二重管理すると差分の原因になるため、このプロジェクトでは分離します。
+
+Terraform output の `access_application_aud` は Worker secret `ACCESS_AUD` として設定します。
+
+```bash
+terraform -chdir=infra/terraform output -raw access_application_aud | wrangler secret put ACCESS_AUD
+wrangler secret put OWNER_EMAIL
+```
+
+## セキュリティ方針
+
+- Cloudflare API token、Terraform state、`terraform.tfvars` はコミットしません。
+- スクリーンショット画像やbase64ペイロードはサーバーに送信・保存・ログ出力しません。
+- CSV/JSONエクスポートは認証済みユーザーの手動操作だけで実行します。
+- AI用JSONは既定でプレイヤー識別子を匿名化します。
