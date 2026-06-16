@@ -82,21 +82,24 @@ TileLog Lens は、雀魂 / Mahjong Soul の対局後スクリーンショット
 
 スクリーンショットはブラウザ内だけで処理します。APIリクエストには、確認済みの戦績数値と、必要に応じてハッシュ・画像サイズ・ファイル名などのメタデータだけを含めます。スクリーンショット画像やbase64ペイロードは送信しません。
 
-## 推奨リポジトリ構成
+## リポジトリ構成
 
 ```txt
 .
+├─ .github/workflows/       # CI、E2E、deploy、Terraform plan
+├─ docs/                    # アーキテクチャ図と運用ドキュメント
+├─ infra/terraform/         # D1、DNS、Cloudflare Access のIaC
 ├─ migrations/
-│  └─ 0001_init.sql
+│  └─ *.sql                 # Cloudflare D1 migration
 ├─ src/
-│  ├─ worker/
-│  ├─ web/
-│  └─ shared/
-├─ tests/
+│  ├─ worker/               # Hono API、Access認証、D1アクセス
+│  ├─ web/                  # React SPA、OCR、画面コンポーネント
+│  └─ shared/               # Zod schema、型、分析ロジック
+├─ tests/                   # Vitest と Playwright E2E
+├─ README.md
 ├─ AGENTS.md
 ├─ DESIGN.md
 ├─ PLAN.md
-├─ README.md
 └─ SPEC.md
 ```
 
