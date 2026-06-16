@@ -78,35 +78,7 @@ TileLog Lens は、雀魂 / Mahjong Soul の対局後スクリーンショット
 
 ## システム構成
 
-```mermaid
-flowchart LR
-  User["所有者のブラウザ"]
-  Screenshot["ローカルスクリーンショット"]
-  SPA["React SPA\nインポート / ダッシュボード / エクスポート"]
-  OCR["ブラウザ内OCR\nSHA-256 + メタデータ抽出"]
-  Access["Cloudflare Access\nメールOTP"]
-  Worker["Cloudflare Worker\nHono API"]
-  Auth["Access JWT検証\n所有者メール確認"]
-  Guards["リクエストガード\n画像/base64ペイロード拒否"]
-  D1["Cloudflare D1\n確認済み数値だけ保存"]
-  Assets["Cloudflare Assets\nビルド済みSPA"]
-  Export["ユーザー操作によるCSV / JSON出力\nAI JSONは既定で匿名化"]
-
-  User --> SPA
-  Screenshot --> OCR
-  OCR --> SPA
-  SPA --> Access
-  Access --> Worker
-  Worker --> Auth
-  Auth --> Guards
-  Guards --> D1
-  D1 --> Worker
-  Worker --> Export
-  Worker --> Assets
-
-  Screenshot -. "画像本体はブラウザ内に留まる" .-> SPA
-  SPA -. "スクリーンショットをアップロードしない" .-> Guards
-```
+![TileLog Lens システム構成](docs/architecture.svg)
 
 スクリーンショットはブラウザ内だけで処理します。APIリクエストには、確認済みの戦績数値と、必要に応じてハッシュ・画像サイズ・ファイル名などのメタデータだけを含めます。スクリーンショット画像やbase64ペイロードは送信しません。
 
