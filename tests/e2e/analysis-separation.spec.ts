@@ -87,9 +87,12 @@ async function deleteSnapshots(
   request: APIRequestContext,
   snapshots: SnapshotFixture[]
 ): Promise<void> {
-  await Promise.all(
+  const responses = await Promise.all(
     snapshots.map((snapshot) => request.delete(`/api/snapshots/${snapshot.id}`))
   );
+  responses.forEach((response) => {
+    expect(response.status()).toBe(200);
+  });
 }
 
 async function expectNoHorizontalOverflow(page: Page): Promise<void> {
@@ -144,6 +147,7 @@ test("/ does not show detailed-analysis-only blocks", async ({ page, request }) 
     await expect(page.getByRole("heading", { name: "分析コメント" })).not.toBeVisible();
     await expect(page.getByRole("heading", { name: "分析フィルタ" })).not.toBeVisible();
     await expect(page.getByRole("heading", { name: "期間比較" })).not.toBeVisible();
+    await expect(page.getByRole("heading", { name: "期間差分の推定" })).not.toBeVisible();
   } finally {
     await deleteSnapshots(request, snapshots);
   }
@@ -162,10 +166,11 @@ test("/analysis shows detailed analysis blocks", async ({ page, request }) => {
     await expect(page.getByRole("heading", { name: "詳細分析" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "分析フィルタ" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "改善優先度" })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "分析テンプレート" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "分析テンプレート", level: 2 })).toBeVisible();
     await expect(page.getByRole("heading", { name: "自由選択チャート" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "タグ別分析" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "分析コメント" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "期間比較" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "期間差分の推定" })).toBeVisible();
     await expectNoHorizontalOverflow(page);
   } finally {
