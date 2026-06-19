@@ -267,6 +267,13 @@ h2 {
   opacity: 0.55;
 }
 
+.action-row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
 .icon-button {
   display: inline-grid;
   place-items: center;
@@ -1360,6 +1367,15 @@ footer {
   .page-header {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .action-row {
+    justify-content: flex-start;
+  }
+
+  .action-row .primary-button,
+  .action-row .secondary-button {
+    flex: 1 1 150px;
   }
 
   .form-grid,

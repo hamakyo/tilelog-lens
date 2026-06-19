@@ -9,6 +9,7 @@ import List from "lucide-react/dist/esm/icons/list.js";
 import Settings from "lucide-react/dist/esm/icons/settings.js";
 import ShieldCheck from "lucide-react/dist/esm/icons/shield-check.js";
 import { PRIVACY_DISCLAIMER } from "../shared/constants";
+import { AnalysisPage } from "./pages/AnalysisPage";
 import { DashboardPage } from "./pages/DashboardPage";
 import { ExportPage } from "./pages/ExportPage";
 import { ImportPage } from "./pages/ImportPage";
@@ -33,6 +34,7 @@ type NavItem = {
 
 const navItems: NavItem[] = [
   { path: "/", label: "ダッシュボード", icon: LayoutDashboard },
+  { path: "/analysis", label: "詳細分析", icon: BarChart3 },
   { path: "/import", label: "インポート", icon: FilePlus2 },
   { path: "/import-history", label: "取込履歴", icon: History },
   { path: "/snapshots", label: "記録一覧", icon: List },
@@ -80,6 +82,7 @@ export function App() {
 
   const content = useMemo(() => {
     if (path === "/") return <DashboardPage navigate={navigate} />;
+    if (path === "/analysis") return <AnalysisPage navigate={navigate} />;
     if (path === "/import") return <ImportPage />;
     if (path === "/import-history") return <ImportHistoryPage />;
     if (path === "/snapshots") return <SnapshotListPage navigate={navigate} />;
