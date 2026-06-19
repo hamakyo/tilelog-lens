@@ -8,6 +8,7 @@ import LayoutDashboard from "lucide-react/dist/esm/icons/layout-dashboard.js";
 import List from "lucide-react/dist/esm/icons/list.js";
 import Settings from "lucide-react/dist/esm/icons/settings.js";
 import ShieldCheck from "lucide-react/dist/esm/icons/shield-check.js";
+import Server from "lucide-react/dist/esm/icons/server.js";
 import { PRIVACY_DISCLAIMER } from "../shared/constants";
 import { AnalysisPage } from "./pages/AnalysisPage";
 import { DashboardPage } from "./pages/DashboardPage";
@@ -19,6 +20,7 @@ import { QualityPage } from "./pages/QualityPage";
 import { SettingsPage } from "./pages/SettingsPage";
 import { SnapshotEditPage } from "./pages/SnapshotEditPage";
 import { SnapshotListPage } from "./pages/SnapshotListPage";
+import { SystemPage } from "./pages/SystemPage";
 import {
   applyThemePreference,
   loadThemePreference,
@@ -41,6 +43,7 @@ const navItems: NavItem[] = [
   { path: "/compare", label: "比較", icon: GitCompareArrows },
   { path: "/quality", label: "品質", icon: ShieldCheck },
   { path: "/export", label: "エクスポート", icon: Download },
+  { path: "/system", label: "状態", icon: Server },
   { path: "/settings", label: "設定", icon: Settings }
 ];
 
@@ -89,6 +92,7 @@ export function App() {
     if (path === "/compare") return <ComparePage />;
     if (path === "/quality") return <QualityPage navigate={navigate} />;
     if (path === "/export") return <ExportPage />;
+    if (path === "/system") return <SystemPage />;
     if (path === "/settings") {
       return (
         <SettingsPage

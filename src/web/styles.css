@@ -523,9 +523,20 @@ h2 {
   color: var(--color-success-text);
 }
 
+.quality-stable {
+  background: var(--color-success-bg);
+  color: var(--color-success-text);
+}
+
+.quality-watch,
 .quality-limited_data {
   background: var(--color-warning-bg);
   color: var(--color-warning-text);
+}
+
+.quality-volatile {
+  background: var(--color-danger-bg-soft);
+  color: var(--color-danger-text);
 }
 
 .quality-insufficient_data {

@@ -1,0 +1,191 @@
+name: AI Pipeline Commands
+
+on:
+  issue_comment:
+    types:
+      - created
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+
+concurrency:
+  group: ai-pipeline-${{ github.event.issue.number }}
+  cancel-in-progress: false
+
+jobs:
+  route-command:
+    if: github.event.issue.pull_request == null && contains(github.event.comment.body, '/ai-')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Route AI pipeline command
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const issue = context.payload.issue;
+            const comment = context.payload.comment;
+            const body = comment.body ?? "";
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const issueNumber = issue.number;
+            const issueUrl = issue.html_url;
+            const actor = comment.user?.login ?? "unknown";
+
+            async function commentIssue(message) {
+              await github.rest.issues.createComment({
+                owner,
+                repo,
+                issue_number: issueNumber,
+                body: message
+              });
+            }
+
+            if (body.includes("/ai-implement")) {
+              await commentIssue([
+                "AI pipeline command detected: `/ai-implement`",
+                "",
+                "Status: blocked in GitHub Actions.",
+                "",
+                "This repository-side workflow can route comments and scaffold planning PRs, but a hosted Hermes runner is not configured here. Continue the implementation from Codex/Hermes locally using the `github-ai-pipeline` skill, then push the Hermes branch and open the implementation PR.",
+                "",
+                `Issue: ${issueUrl}`
+              ].join("\n"));
+              return;
+            }
+
+            if (!body.includes("/ai-plan")) {
+              return;
+            }
+
+            const defaultBranch = context.payload.repository.default_branch;
+            const branchName = `codex/plan-issue-${issueNumber}`;
+            const planPath = "PLAN.md";
+            const sectionMarker = `## Issue #${issueNumber}: ${issue.title}`;
+            const { data: defaultRef } = await github.rest.git.getRef({
+              owner,
+              repo,
+              ref: `heads/${defaultBranch}`
+            });
+
+            let branchSha = defaultRef.object.sha;
+            try {
+              const { data: branchRef } = await github.rest.git.getRef({
+                owner,
+                repo,
+                ref: `heads/${branchName}`
+              });
+              branchSha = branchRef.object.sha;
+            } catch (error) {
+              if (error.status !== 404) throw error;
+              await github.rest.git.createRef({
+                owner,
+                repo,
+                ref: `refs/heads/${branchName}`,
+                sha: defaultRef.object.sha
+              });
+            }
+
+            const { data: file } = await github.rest.repos.getContent({
+              owner,
+              repo,
+              path: planPath,
+              ref: branchName
+            });
+            if (Array.isArray(file) || file.type !== "file") {
+              throw new Error(`${planPath} is not a file`);
+            }
+
+            const currentPlan = Buffer.from(file.content, file.encoding).toString("utf8");
+            if (!currentPlan.includes(sectionMarker)) {
+              const safeBody = (issue.body ?? "(本文なし)")
+                .replace(/\r\n/g, "\n")
+                .trim();
+              const section = [
+                "",
+                sectionMarker,
+                "",
+                `- Issue: ${issueUrl}`,
+                `- Trigger: /ai-plan by @${actor}`,
+                "",
+                "### Summary",
+                "",
+                safeBody,
+                "",
+                "### Intended Behavior",
+                "",
+                "- 既存のAGENTS.md、SPEC.md、README.md、CI制約に従って実装します。",
+                "- スクリーンショット画像やbase64 payloadをサーバーへ送信・保存・ログ出力しません。",
+                "",
+                "### Implementation Steps",
+                "",
+                "1. 関連する既存実装とテストを確認します。",
+                "2. 変更範囲を最小化して実装します。",
+                "3. 必要な単体テストまたはE2Eを追加します。",
+                "4. `pnpm run typecheck`、`pnpm test`、`pnpm run build` を通します。",
+                "",
+                "### Validation Plan",
+                "",
+                "- TypeScript typecheck",
+                "- Vitest",
+                "- 必要に応じたPlaywright E2E",
+                "",
+                "### Risks and Rollback",
+                "",
+                "- Cloudflare Access、D1、画像非保存制約を崩さないことを確認します。",
+                "- 問題があれば該当PRをrevertします。",
+                "",
+                "### Out of Scope",
+                "",
+                "- 対局中支援、通信解析、ゲームクライアント改変、画像のサーバー保存。",
+                ""
+              ].join("\n");
+
+              await github.rest.repos.createOrUpdateFileContents({
+                owner,
+                repo,
+                path: planPath,
+                branch: branchName,
+                sha: file.sha,
+                message: `Plan issue #${issueNumber}`,
+                content: Buffer.from(`${currentPlan.trimEnd()}\n${section}\n`).toString("base64")
+              });
+            }
+
+            const { data: pulls } = await github.rest.pulls.list({
+              owner,
+              repo,
+              head: `${owner}:${branchName}`,
+              base: defaultBranch,
+              state: "open"
+            });
+
+            let pull = pulls[0];
+            if (!pull) {
+              const created = await github.rest.pulls.create({
+                owner,
+                repo,
+                head: branchName,
+                base: defaultBranch,
+                title: `Plan issue #${issueNumber}: ${issue.title}`,
+                body: [
+                  `Planning PR for ${issueUrl}.`,
+                  "",
+                  "This PR updates `PLAN.md` only. Use `/ai-implement` after reviewing the plan.",
+                  "",
+                  "Generated by the AI Pipeline Commands workflow."
+                ].join("\n"),
+                draft: true
+              });
+              pull = created.data;
+            }
+
+            await commentIssue([
+              "AI pipeline command detected: `/ai-plan`",
+              "",
+              `Planning PR: ${pull.html_url}`,
+              "",
+              "Next trigger after reviewing the plan: `/ai-implement`"
+            ].join("\n"));

@@ -185,6 +185,21 @@ export type RankPointAnalysis = {
   status: "ready" | "missing_points" | "missing_cap";
 };
 
+export type MetricDistribution = {
+  key: string;
+  label: string;
+  unit: "number" | "rate" | "rank_point" | "place";
+  count: number;
+  average: number | null;
+  median: number | null;
+  min: number | null;
+  max: number | null;
+  standard_deviation: number | null;
+  latest_value: number | null;
+  latest_delta_from_average: number | null;
+  stability: "stable" | "watch" | "volatile" | "insufficient_data";
+};
+
 export type AnalysisGoalMetric =
   | "avg_place"
   | "win_rate"

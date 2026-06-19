@@ -12,11 +12,38 @@ const app = new Hono<AppBindings>();
 
 app.use("*", accessAuth);
 
-app.get("/api/health", (c) =>
-  c.json({
-    ok: true
-  })
-);
+app.get("/api/health", async (c) => {
+  const checkedAt = new Date().toISOString();
+
+  try {
+    await c.env.DB.prepare("SELECT 1 AS ok").first();
+    c.header("Cache-Control", "no-store");
+    return c.json({
+      ok: true,
+      checked_at: checkedAt,
+      environment: c.env.ENVIRONMENT,
+      checks: {
+        worker: "ok",
+        d1: "ok"
+      }
+    });
+  } catch (error) {
+    logWorkerError(c, "health_check_failed", error);
+    c.header("Cache-Control", "no-store");
+    return c.json(
+      {
+        ok: false,
+        checked_at: checkedAt,
+        environment: c.env.ENVIRONMENT,
+        checks: {
+          worker: "ok",
+          d1: "error"
+        }
+      },
+      503
+    );
+  }
+});
 
 app.get("/api/auth/me", (c) =>
   c.json({

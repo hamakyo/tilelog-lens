@@ -133,6 +133,7 @@ function normalizeFullWidth(input: string): string {
       String.fromCharCode(char.charCodeAt(0) - 0xfee0)
     )
     .replace(/[％]/g, "%")
+    .replace(/[／]/g, "/")
     .replace(/[．。]/g, ".")
     .replace(/[，、]/g, ",")
     .replace(/[：]/g, ":");

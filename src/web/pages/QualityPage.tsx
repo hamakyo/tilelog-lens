@@ -3,7 +3,7 @@ import ShieldCheck from "lucide-react/dist/esm/icons/shield-check.js";
 import { GAME_MODE_LABELS } from "../../shared/constants";
 import { summarizeDataQualityIssues } from "../../shared/dataQuality";
 import { buildDataQualityReport } from "../../shared/metrics";
-import type { Snapshot } from "../../shared/types";
+import type { DataQualityIssue, Snapshot } from "../../shared/types";
 import { listSnapshots } from "../lib/api";
 import { formatDateTime } from "../lib/format";
 
@@ -13,6 +13,7 @@ type QualityPageProps = {
 
 export function QualityPage({ navigate }: QualityPageProps) {
   const [snapshots, setSnapshots] = useState<Snapshot[]>([]);
+  const [selectedCode, setSelectedCode] = useState<DataQualityIssue["code"] | "all">("all");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -39,6 +40,21 @@ export function QualityPage({ navigate }: QualityPageProps) {
     () => summarizeDataQualityIssues(issues),
     [issues]
   );
+  const filteredIssues = useMemo(
+    () =>
+      selectedCode === "all"
+        ? issues
+        : issues.filter((issue) => issue.code === selectedCode),
+    [issues, selectedCode]
+  );
+  const affectedSnapshotCount = useMemo(
+    () => new Set(issues.map((issue) => issue.snapshot_id)).size,
+    [issues]
+  );
+  const filteredSnapshotCount = useMemo(
+    () => new Set(filteredIssues.map((issue) => issue.snapshot_id)).size,
+    [filteredIssues]
+  );
 
   return (
     <main className="page-stack">
@@ -55,7 +71,7 @@ export function QualityPage({ navigate }: QualityPageProps) {
       <section className="summary-grid">
         <div className="summary-tile">
           <ShieldCheck size={20} aria-hidden="true" />
-          <span>確認対象</span>
+          <span>警告件数</span>
           <strong>{issues.length}</strong>
         </div>
         <div className="summary-tile">
@@ -65,9 +81,34 @@ export function QualityPage({ navigate }: QualityPageProps) {
         </div>
         <div className="summary-tile">
           <ShieldCheck size={20} aria-hidden="true" />
+          <span>影響記録</span>
+          <strong>{affectedSnapshotCount}</strong>
+        </div>
+        <div className="summary-tile">
+          <ShieldCheck size={20} aria-hidden="true" />
           <span>警告種別</span>
           <strong>{issueCodes.length}</strong>
         </div>
+      </section>
+
+      <section className="filter-bar" aria-label="品質警告の絞り込み">
+        <button
+          type="button"
+          className={selectedCode === "all" ? "active" : ""}
+          onClick={() => setSelectedCode("all")}
+        >
+          すべて
+        </button>
+        {issueSummaries.map((summary) => (
+          <button
+            key={summary.code}
+            type="button"
+            className={selectedCode === summary.code ? "active" : ""}
+            onClick={() => setSelectedCode(summary.code)}
+          >
+            {summary.label}
+          </button>
+        ))}
       </section>
 
       <section className="table-section">
@@ -83,12 +124,13 @@ export function QualityPage({ navigate }: QualityPageProps) {
                 <th>件数</th>
                 <th>コード</th>
                 <th>確認内容</th>
+                <th>操作</th>
               </tr>
             </thead>
             <tbody>
               {issueSummaries.length === 0 ? (
                 <tr>
-                  <td colSpan={4}>品質上の警告はありません。</td>
+                  <td colSpan={5}>品質上の警告はありません。</td>
                 </tr>
               ) : (
                 issueSummaries.map((summary) => (
@@ -99,6 +141,15 @@ export function QualityPage({ navigate }: QualityPageProps) {
                       <span className="code-pill">{summary.code}</span>
                     </td>
                     <td>{summary.action}</td>
+                    <td>
+                      <button
+                        type="button"
+                        className="secondary-button compact-button"
+                        onClick={() => setSelectedCode(summary.code)}
+                      >
+                        絞り込み
+                      </button>
+                    </td>
                   </tr>
                 ))
               )}
@@ -110,7 +161,11 @@ export function QualityPage({ navigate }: QualityPageProps) {
       <section className="table-section">
         <div className="section-heading">
           <h2>修正候補</h2>
-          <p>累積値、順位率、重複候補から確認が必要な記録を抽出します。</p>
+          <p>
+            {selectedCode === "all"
+              ? `累積値、順位率、重複候補から確認が必要な記録を抽出します。`
+              : `${filteredIssues.length}件 / ${filteredSnapshotCount}記録に絞り込んでいます。`}
+          </p>
         </div>
         <div className="table-scroll">
           <table>
@@ -125,12 +180,12 @@ export function QualityPage({ navigate }: QualityPageProps) {
               </tr>
             </thead>
             <tbody>
-              {issues.length === 0 ? (
+              {filteredIssues.length === 0 ? (
                 <tr>
                   <td colSpan={6}>確認が必要な記録はありません。</td>
                 </tr>
               ) : (
-                issues.map((issue) => {
+                filteredIssues.map((issue) => {
                   const snapshot = issueSnapshots.get(issue.snapshot_id);
                   return (
                     <tr key={`${issue.snapshot_id}-${issue.code}-${issue.message}`}>

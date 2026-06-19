@@ -184,6 +184,60 @@ describe("OCR parser", () => {
     }
   });
 
+  it("extracts the collapsed profile detail sample with lower visible chart area", () => {
+    const fields = parseMahjongStatsOcr(`
+      魂の啓発者
+      530/800
+      東風戦
+      一位率 18.85% 対戦数 244 和了率 19.68%
+      二位率 26.64% 平均和了 6542 ツモ率 29.23%
+      三位率 30.74% 平均順位 2.59 放銃率 17.71%
+      四位率 23.77% 最大連荘 4 副露率 28.01%
+      飛び率 2.87% 和了巡数 12.67 立直率 26.04%
+    `);
+
+    expect(fields.game_mode).toBe("east");
+    expect(fields.rank_points).toBe(530);
+    expect(fields.rank_points_max).toBe(800);
+    expect(fields.matches).toBe(244);
+    expect(fields.avg_win_score).toBe(6542);
+    expect(fields.avg_place).toBe(2.59);
+    expect(fields.max_renchan).toBe(4);
+    expect(fields.avg_win_turn).toBe(12.67);
+    expect(fields.first_rate).toBe(18.85);
+    expect(fields.second_rate).toBe(26.64);
+    expect(fields.third_rate).toBe(30.74);
+    expect(fields.fourth_rate).toBe(23.77);
+    expect(fields.bust_rate).toBe(2.87);
+    expect(fields.win_rate).toBe(19.68);
+    expect(fields.tsumo_rate).toBe(29.23);
+    expect(fields.deal_in_rate).toBe(17.71);
+    expect(fields.call_rate).toBe(28.01);
+    expect(fields.riichi_rate).toBe(26.04);
+    expect(countExtractedFields(fields)).toBe(18);
+  });
+
+  it("accepts common OCR punctuation and spacing noise in profile detail text", () => {
+    const fields = parseMahjongStatsOcr(`
+      ５３０／８００
+      東 風 戦
+      ー位率: 18．85％    対戦数：244    和了率 19,68%
+      二位率 26．64% 平均和了得点 6542 ツモ率 29．23％
+      三位率 30．74% 平均順位 2．59 放铳率 17．71%
+      四位率 23．77% 最大連莊 4 副露率 28．01%
+      飛率 2．87% 和了巡数 12．67 リーチ率 26．04%
+    `);
+
+    expect(fields.rank_points).toBe(530);
+    expect(fields.rank_points_max).toBe(800);
+    expect(fields.matches).toBe(244);
+    expect(fields.avg_win_score).toBe(6542);
+    expect(fields.first_rate).toBe(18.85);
+    expect(fields.win_rate).toBe(19.68);
+    expect(fields.deal_in_rate).toBe(17.71);
+    expect(fields.riichi_rate).toBe(26.04);
+  });
+
   it("selects the visible five stat rows from collapsed profile detail screenshots", () => {
     expect(
       selectMahjongSoulStatRowCenters([

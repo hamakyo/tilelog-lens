@@ -21,6 +21,16 @@ type SnapshotResponse = {
   warnings?: ValidationWarning[];
 };
 
+export type HealthResponse = {
+  ok: boolean;
+  checked_at: string;
+  environment: "development" | "preview" | "production";
+  checks: {
+    worker: "ok";
+    d1: "ok" | "error";
+  };
+};
+
 async function apiJson<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(path, init);
   const data = (await response.json()) as unknown;
@@ -86,6 +96,10 @@ export function deleteSnapshot(id: number): Promise<{ ok: true }> {
 
 export function listDeltas(): Promise<{ items: EstimatedDelta[] }> {
   return apiJson<{ items: EstimatedDelta[] }>("/api/analytics/deltas");
+}
+
+export function getHealth(): Promise<HealthResponse> {
+  return apiJson<HealthResponse>("/api/health");
 }
 
 export function listImportEvents(): Promise<{ items: ImportEvent[] }> {

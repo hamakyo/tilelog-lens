@@ -5,6 +5,7 @@ import type {
   DuplicateSnapshotCandidate,
   EstimatedDelta,
   ImprovementPriority,
+  MetricDistribution,
   PeriodComparison,
   PeriodAnalysis,
   RankPointAnalysis,
@@ -76,6 +77,35 @@ function average(values: Array<number | null | undefined>): number | null {
   return round2(
     usableValues.reduce((sum, value) => sum + value, 0) / usableValues.length
   );
+}
+
+function median(values: number[]): number | null {
+  if (values.length === 0) return null;
+  const ordered = [...values].sort((a, b) => a - b);
+  const midpoint = Math.floor(ordered.length / 2);
+  if (ordered.length % 2 === 1) return round2(ordered[midpoint]);
+  return round2((ordered[midpoint - 1] + ordered[midpoint]) / 2);
+}
+
+function standardDeviation(values: number[]): number | null {
+  if (values.length < 2) return null;
+  const avg = average(values);
+  if (avg == null) return null;
+  const variance =
+    values.reduce((sum, value) => sum + (value - avg) ** 2, 0) / values.length;
+  return round2(Math.sqrt(variance));
+}
+
+function distributionStability(
+  standardDeviationValue: number | null,
+  unit: MetricDistribution["unit"]
+): MetricDistribution["stability"] {
+  if (standardDeviationValue == null) return "insufficient_data";
+  const watchThreshold = unit === "place" ? 0.08 : unit === "rate" ? 1.5 : 30;
+  const volatileThreshold = unit === "place" ? 0.16 : unit === "rate" ? 3 : 80;
+  if (standardDeviationValue >= volatileThreshold) return "volatile";
+  if (standardDeviationValue >= watchThreshold) return "watch";
+  return "stable";
 }
 
 function priority(
@@ -591,6 +621,65 @@ export function buildRankPointAnalysis(snapshots: Snapshot[]): RankPointAnalysis
           ? "missing_cap"
           : "ready"
   };
+}
+
+export function buildMetricDistributions(snapshots: Snapshot[]): MetricDistribution[] {
+  const ordered = [...snapshots].sort(byObservedAsc);
+  const latest = ordered.at(-1);
+  const definitions: Array<{
+    key: string;
+    label: string;
+    unit: MetricDistribution["unit"];
+    value: (snapshot: Snapshot) => number | null;
+  }> = [
+    { key: "avg_place", label: "平均順位", unit: "place", value: (snapshot) => snapshot.avg_place },
+    { key: "win_rate", label: "和了率", unit: "rate", value: (snapshot) => snapshot.win_rate },
+    { key: "deal_in_rate", label: "放銃率", unit: "rate", value: (snapshot) => snapshot.deal_in_rate },
+    {
+      key: "attack_defense_gap",
+      label: "攻守差",
+      unit: "number",
+      value: (snapshot) => round2(snapshot.win_rate - snapshot.deal_in_rate)
+    },
+    { key: "fourth_rate", label: "四位率", unit: "rate", value: (snapshot) => snapshot.fourth_rate },
+    { key: "call_rate", label: "副露率", unit: "rate", value: (snapshot) => snapshot.call_rate },
+    { key: "riichi_rate", label: "立直率", unit: "rate", value: (snapshot) => snapshot.riichi_rate },
+    {
+      key: "rank_point_progress",
+      label: "段位pt進捗",
+      unit: "rate",
+      value: (snapshot) => {
+        const pointMax = rankPointMaxFor(snapshot);
+        if (snapshot.rank_points == null || pointMax == null || pointMax <= 0) return null;
+        return round2((snapshot.rank_points / pointMax) * 100);
+      }
+    }
+  ];
+
+  return definitions.map((definition) => {
+    const values = ordered
+      .map((snapshot) => definition.value(snapshot))
+      .filter((value): value is number => value != null);
+    const avg = average(values);
+    const standardDeviationValue = standardDeviation(values);
+    const latestValue = latest ? definition.value(latest) : null;
+
+    return {
+      key: definition.key,
+      label: definition.label,
+      unit: definition.unit,
+      count: values.length,
+      average: avg,
+      median: median(values),
+      min: values.length > 0 ? round2(Math.min(...values)) : null,
+      max: values.length > 0 ? round2(Math.max(...values)) : null,
+      standard_deviation: standardDeviationValue,
+      latest_value: latestValue,
+      latest_delta_from_average:
+        latestValue == null || avg == null ? null : round2(latestValue - avg),
+      stability: distributionStability(standardDeviationValue, definition.unit)
+    };
+  });
 }
 
 export function buildSnapshotComparison(

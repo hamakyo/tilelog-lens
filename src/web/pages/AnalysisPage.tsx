@@ -30,7 +30,8 @@ import {
   buildAnalysisComments,
   buildPeriodComparisons,
   buildPeriodAnalyses,
-  buildRankPointAnalysis
+  buildRankPointAnalysis,
+  buildMetricDistributions
 } from "../../shared/metrics";
 import { buildAnalysisGoalStatuses } from "../../shared/goals";
 import { listDeltas, listSnapshots } from "../lib/api";
@@ -293,6 +294,10 @@ export function AnalysisPage({ navigate }: AnalysisPageProps) {
   );
   const rankPointAnalysis = useMemo(
     () => buildRankPointAnalysis(modeSnapshots),
+    [modeSnapshots]
+  );
+  const metricDistributions = useMemo(
+    () => buildMetricDistributions(modeSnapshots),
     [modeSnapshots]
   );
   const goalStatuses = useMemo(
@@ -717,6 +722,62 @@ export function AnalysisPage({ navigate }: AnalysisPageProps) {
               </div>
             ))
           )}
+        </div>
+      </section>
+
+      <section className="analysis-section">
+        <div className="section-heading">
+          <h2>指標分布</h2>
+          <p>現在の分析対象内で、最新値が平均からどの程度離れているかを確認します。</p>
+        </div>
+        <div className="table-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th>指標</th>
+                <th>件数</th>
+                <th>最新</th>
+                <th>平均</th>
+                <th>中央値</th>
+                <th>範囲</th>
+                <th>平均との差</th>
+                <th>安定性</th>
+              </tr>
+            </thead>
+            <tbody>
+              {metricDistributions.map((distribution) => (
+                <tr key={distribution.key}>
+                  <td>{distribution.label}</td>
+                  <td>{formatNumber(distribution.count)}</td>
+                  <td>{metricUnitValue(distribution.latest_value, distribution.unit)}</td>
+                  <td>{metricUnitValue(distribution.average, distribution.unit)}</td>
+                  <td>{metricUnitValue(distribution.median, distribution.unit)}</td>
+                  <td>
+                    {metricUnitValue(distribution.min, distribution.unit)} -{" "}
+                    {metricUnitValue(distribution.max, distribution.unit)}
+                  </td>
+                  <td>
+                    {distribution.latest_delta_from_average != null &&
+                    distribution.latest_delta_from_average > 0
+                      ? "+"
+                      : ""}
+                    {metricUnitValue(distribution.latest_delta_from_average, distribution.unit)}
+                  </td>
+                  <td>
+                    <span className={`quality-pill quality-${distribution.stability}`}>
+                      {distribution.stability === "stable"
+                        ? "安定"
+                        : distribution.stability === "watch"
+                          ? "注意"
+                          : distribution.stability === "volatile"
+                            ? "変動大"
+                            : "不足"}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       </section>
 

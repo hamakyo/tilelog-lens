@@ -8,6 +8,7 @@ import {
   buildDuplicateSnapshotCandidates,
   buildEstimatedDeltas,
   buildImprovementPriorities,
+  buildMetricDistributions,
   buildPeriodComparisons,
   buildPeriodAnalyses,
   buildRankPointAnalysis,
@@ -220,6 +221,56 @@ describe("metrics", () => {
       points_per_match: 6,
       projected_matches_to_promotion: 47,
       status: "ready"
+    });
+  });
+
+  it("summarizes metric distributions for filtered analysis targets", () => {
+    const distributions = buildMetricDistributions([
+      makeSnapshot({
+        id: 1,
+        observed_at_utc: "2026-06-01T00:00:00.000Z",
+        matches: 100,
+        avg_place: 2.5,
+        win_rate: 20,
+        deal_in_rate: 10,
+        rank_points: 400,
+        rank_points_max: 800
+      }),
+      makeSnapshot({
+        id: 2,
+        observed_at_utc: "2026-06-02T00:00:00.000Z",
+        matches: 120,
+        avg_place: 2.4,
+        win_rate: 24,
+        deal_in_rate: 11,
+        rank_points: 520,
+        rank_points_max: 800
+      }),
+      makeSnapshot({
+        id: 3,
+        observed_at_utc: "2026-06-03T00:00:00.000Z",
+        matches: 140,
+        avg_place: 2.6,
+        win_rate: 22,
+        deal_in_rate: 12,
+        rank_points: 560,
+        rank_points_max: 800
+      })
+    ]);
+
+    expect(distributions.find((item) => item.key === "win_rate")).toMatchObject({
+      count: 3,
+      average: 22,
+      median: 22,
+      min: 20,
+      max: 24,
+      latest_value: 22,
+      latest_delta_from_average: 0,
+      stability: "watch"
+    });
+    expect(distributions.find((item) => item.key === "rank_point_progress")).toMatchObject({
+      average: 61.67,
+      latest_value: 70
     });
   });
 
