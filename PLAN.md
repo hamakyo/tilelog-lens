@@ -259,6 +259,66 @@ Tasks:
 - [x] Add screenshots only if they do not contain Mahjong Soul copyrighted UI/assets, or use mock UI data.
 - [x] Add disclaimer to README and UI footer.
 
+## Issue #1 — 詳細分析ページの情報設計とE2Eを整備する
+
+Issue: https://github.com/hamakyo/tilelog-lens/issues/1
+
+### Summary
+
+ダッシュボードの認知負荷を下げるため、詳細な分析ブロックを専用ページへ分離する。ダッシュボードは最新サマリと主要トレンドに絞り、詳細分析ページで既存の分析フィルタ、分析目標、カスタム指標、段位ポイント分析、期間分析、期間比較、改善優先度、分析テンプレート、変化点、自由選択チャート、タグ別分析、分析コメント、期間差分テーブルを扱う。
+
+### Intended behavior
+
+- `/` は状況把握用の軽量ダッシュボードとして表示する。
+- `/analysis` は詳細分析ページとして表示する。
+- サイドバーから「詳細分析」へ移動できる。
+- ダッシュボードには「詳細分析」への導線を置く。
+- 既存の分析計算、CSV/JSON export、Cloudflare Access、スクリーンショット非送信制約は変更しない。
+- 画像本体、base64、data URLをAPIへ送らない設計は維持する。
+
+### Assumptions and open questions
+
+- 既存Dashboardの詳細分析UIは、初回実装では大きく再設計せず `/analysis` へ移す。
+- E2EはローカルD1とdevelopment auth bypassを使う既存方針に従う。
+- 詳細分析ページ内のさらなるタブ化や保存済みビューは本Issueでは扱わない。
+
+### Implementation steps
+
+1. `DashboardPage` を軽量化する。
+   - 最新サマリ、主要トレンド、ゲームモード切替、詳細分析への導線に絞る。
+2. 既存の詳細分析ブロックを `AnalysisPage` へ移す。
+   - 既存の計算ロジックとUI部品を維持する。
+3. `App` のナビゲーションとルーティングへ `/analysis` を追加する。
+4. 必要なCSSを追加・調整する。
+   - ヘッダー内の複数アクションボタンがdesktop/mobileで崩れないようにする。
+5. E2Eを追加する。
+   - `/` に主要サマリと主要トレンドが表示されること。
+   - `/` に詳細分析固有ブロックが出ないこと。
+   - `/analysis` に詳細分析固有ブロックが表示されること。
+   - サイドバーまたは導線から `/analysis` へ移動できること。
+
+### Validation plan
+
+- `pnpm run typecheck`
+- `pnpm test`
+- `pnpm run build`
+- `pnpm run test:e2e` または対象E2Eのみ
+- 可能ならローカルWorkerで `/` と `/analysis` をブラウザ確認し、コンソールエラーがないことを確認する。
+
+### Risks and rollback notes
+
+- 既存Dashboardから詳細分析を移すため、import/exportなど他ページのルーティングに影響しないか確認する。
+- `DashboardPage` と `AnalysisPage` でロジックが重複する可能性がある。初回は安全性を優先し、必要なら後続Issueで共通hookへ整理する。
+- 戻す場合は `/analysis` route追加とDashboard軽量化をrevertし、旧Dashboardへ戻す。
+
+### Out of scope
+
+- 分析ページ内のタブ化。
+- 保存済み分析ビュー。
+- URL queryによる分析フィルタ共有。
+- CSV/JSON export仕様変更。
+- OCR精度改善。
+
 ## Phase 12 — Flexible analysis roadmap
 
 Goal: let the owner slice, compare, and export confirmed numerical data more flexibly without changing the screenshot privacy model.
