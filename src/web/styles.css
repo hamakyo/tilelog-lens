@@ -738,6 +738,10 @@ h2 {
   padding: 0;
 }
 
+.rank-rate-panel .compact-table table {
+  min-width: 100%;
+}
+
 .table-section {
   overflow: hidden;
 }

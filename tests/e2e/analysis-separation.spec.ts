@@ -121,6 +121,7 @@ test("/ shows latest summary, major trends, and navigation to detailed analysis"
     await expect(page.getByText("最新の和了率 / 放銃率")).toBeVisible();
     await expect(page.getByText("最新の対戦数差分")).toBeVisible();
     await expect(page.getByRole("heading", { name: "主要トレンド" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "最新順位率" })).toBeVisible();
     await expect(page.getByRole("button", { name: "詳細分析", exact: true })).toBeVisible();
     await expect(page.getByRole("link", { name: "詳細分析", exact: true })).toBeVisible();
     await expectNoHorizontalOverflow(page);

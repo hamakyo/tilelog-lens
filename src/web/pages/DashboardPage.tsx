@@ -16,6 +16,7 @@ import {
 import { buildEstimatedDeltas, buildRankPointAnalysis } from "../../shared/metrics";
 import { listDeltas, listSnapshots } from "../lib/api";
 import { formatDecimal, formatNumber, formatRate } from "../lib/format";
+import { RankRatePieChart } from "../components/RankRatePieChart";
 import { TrendChart } from "../components/TrendChart";
 
 type DashboardPageProps = {
@@ -225,6 +226,7 @@ export function DashboardPage({ navigate }: DashboardPageProps) {
               { dataKey: "rank_point_progress", label: "進捗率", color: "#3d5a80" }
             ]}
           />
+          <RankRatePieChart title="最新順位率" rates={latest} />
         </div>
       </section>
     </main>
