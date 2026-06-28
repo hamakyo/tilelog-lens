@@ -204,6 +204,31 @@ test("/analysis shows detailed analysis blocks", async ({ page, request }) => {
   }
 });
 
+test("/analysis restores selected analysis tab", async ({ page, request }) => {
+  const baseMinute = fixtureBaseMinute();
+  const snapshots: SnapshotFixture[] = [];
+
+  try {
+    snapshots.push(await createSnapshot(request, baseMinute, 0, 100));
+    snapshots.push(await createSnapshot(request, baseMinute, 1, 104));
+
+    await page.goto("/analysis?tab=detail");
+    await expect(page.getByRole("heading", { name: "指標分布" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "改善優先度" })).not.toBeVisible();
+
+    await page.getByRole("tab", { name: "改善" }).click();
+    await expect(page).toHaveURL(/\/analysis\?tab=improvement$/);
+    await expect(page.getByRole("heading", { name: "改善優先度" })).toBeVisible();
+
+    await page.reload();
+    await expect(page.getByRole("heading", { name: "改善優先度" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "指標分布" })).not.toBeVisible();
+    await expectNoHorizontalOverflow(page);
+  } finally {
+    await deleteSnapshots(request, snapshots);
+  }
+});
+
 test("dashboard button navigates to /analysis", async ({ page, request }) => {
   const baseMinute = fixtureBaseMinute();
   const snapshots: SnapshotFixture[] = [];
@@ -214,7 +239,7 @@ test("dashboard button navigates to /analysis", async ({ page, request }) => {
     await page.goto("/");
     await page.getByRole("button", { name: "詳細分析" }).first().click();
 
-    await expect(page).toHaveURL("/analysis");
+    await expect(page).toHaveURL(/\/analysis(?:\?tab=overview)?$/);
     await expect(page.getByRole("heading", { name: "詳細分析" })).toBeVisible();
   } finally {
     await deleteSnapshots(request, snapshots);
@@ -225,6 +250,6 @@ test("sidebar navigates to /analysis", async ({ page }) => {
   await page.goto("/");
   await page.getByRole("navigation", { name: "メインナビゲーション" }).getByRole("link", { name: "詳細分析" }).click();
 
-  await expect(page).toHaveURL("/analysis");
+  await expect(page).toHaveURL(/\/analysis(?:\?tab=overview)?$/);
   await expect(page.getByRole("heading", { name: "詳細分析" })).toBeVisible();
 });

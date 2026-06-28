@@ -85,6 +85,8 @@ const analysisTabs: Array<{ id: AnalysisTab; label: string }> = [
   { id: "detail", label: "詳細" }
 ];
 
+const analysisTabStorageKey = "tilelog-lens:analysis-tab";
+
 const chartMetricOptions: Array<{
   key: ChartMetricKey;
   label: string;
@@ -205,6 +207,44 @@ function analysisTabPanelClass(tab: AnalysisTab, activeTab: AnalysisTab): string
   return `analysis-tab-panel${activeTab === tab ? " active" : ""}`;
 }
 
+function isAnalysisTab(value: string | null | undefined): value is AnalysisTab {
+  return analysisTabs.some((tab) => tab.id === value);
+}
+
+function loadInitialAnalysisTab(): AnalysisTab {
+  if (typeof window === "undefined") return "overview";
+
+  const queryTab = new URLSearchParams(window.location.search).get("tab");
+  if (isAnalysisTab(queryTab)) return queryTab;
+
+  try {
+    const storedTab = window.localStorage.getItem(analysisTabStorageKey);
+    return isAnalysisTab(storedTab) ? storedTab : "overview";
+  } catch {
+    return "overview";
+  }
+}
+
+function persistAnalysisTab(tab: AnalysisTab): void {
+  if (typeof window === "undefined") return;
+
+  try {
+    window.localStorage.setItem(analysisTabStorageKey, tab);
+  } catch {
+    // localStorage can be unavailable in hardened browser settings.
+  }
+
+  if (window.location.pathname !== "/analysis") return;
+
+  const url = new URL(window.location.href);
+  url.searchParams.set("tab", tab);
+  const nextUrl = `${url.pathname}${url.search}${url.hash}`;
+  const currentUrl = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+  if (nextUrl !== currentUrl) {
+    window.history.replaceState(null, "", nextUrl);
+  }
+}
+
 export function AnalysisPage({ navigate }: AnalysisPageProps) {
   const [snapshots, setSnapshots] = useState<Snapshot[]>([]);
   const [deltas, setDeltas] = useState<EstimatedDelta[]>([]);
@@ -224,7 +264,7 @@ export function AnalysisPage({ navigate }: AnalysisPageProps) {
     "win_rate",
     "deal_in_rate"
   ]);
-  const [activeTab, setActiveTab] = useState<AnalysisTab>("overview");
+  const [activeTab, setActiveTab] = useState<AnalysisTab>(loadInitialAnalysisTab);
 
   useEffect(() => {
     setAnalysisGoals(loadAnalysisGoals());
@@ -237,6 +277,10 @@ export function AnalysisPage({ navigate }: AnalysisPageProps) {
       .catch((caught) => setError(caught instanceof Error ? caught.message : "読み込みに失敗しました。"))
       .finally(() => setLoading(false));
   }, []);
+
+  useEffect(() => {
+    persistAnalysisTab(activeTab);
+  }, [activeTab]);
 
   const availableModes = useMemo(
     () => GAME_MODES.filter((mode) => snapshots.some((snapshot) => snapshot.game_mode === mode)),
