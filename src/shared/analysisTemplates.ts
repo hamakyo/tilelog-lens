@@ -28,6 +28,7 @@ export function buildAnalysisTemplateReports(snapshots: Snapshot[]): AnalysisTem
   return [
     buildAvoidFourthReport(latest),
     buildAttackDefenseReport(latest),
+    buildRiichiReport(latest),
     buildRankPointReport(latest)
   ];
 }
@@ -63,6 +64,42 @@ function buildAttackDefenseReport(snapshot: Snapshot): AnalysisTemplateReport {
           ? "攻守差がやや小さめです。副露・立直後の放銃を確認してください。"
           : "攻守差が小さい状態です。無理な押しと和了率低下のどちらが原因か切り分けてください。",
     focus: ["和了率", "放銃率", "攻守差"]
+  };
+}
+
+function buildRiichiReport(snapshot: Snapshot): AnalysisTemplateReport {
+  const lateWinTurn = snapshot.avg_win_turn != null && snapshot.avg_win_turn >= 12.5;
+  const lowWinScore = snapshot.avg_win_score != null && snapshot.avg_win_score < 6500;
+  const lowWinRate = snapshot.win_rate < 20;
+  const highDealInRate = snapshot.deal_in_rate >= 13;
+  const highRiichiRate = snapshot.riichi_rate >= 24;
+  const lowRiichiRate = snapshot.riichi_rate < 16;
+  const riskSignals = [
+    highRiichiRate && lowWinRate,
+    highRiichiRate && highDealInRate,
+    lateWinTurn && lowWinRate,
+    lowWinScore && lowWinRate
+  ].filter(Boolean).length;
+  const watchSignals = [
+    lowRiichiRate && snapshot.win_rate < 22,
+    lateWinTurn,
+    lowWinScore,
+    highDealInRate
+  ].filter(Boolean).length;
+  const status =
+    riskSignals >= 2 ? "risk" : riskSignals >= 1 || watchSignals >= 2 ? "watch" : "good";
+
+  return {
+    id: "riichi",
+    title: "立直分析",
+    status,
+    summary:
+      status === "good"
+        ? "立直率、和了率、放銃率のバランスは大きく崩れていません。立直判断は現状維持で確認できます。"
+        : status === "watch"
+          ? "立直まわりに確認余地があります。立直率だけでなく、和了率・放銃率・和了巡目を合わせて見てください。"
+          : "立直判断が失点または和了率低下につながっている可能性があります。高リスク局面の立直と待ちの質を重点確認してください。",
+    focus: ["立直率", "和了率", "放銃率", "平均和了巡", "平均和了点"]
   };
 }
 
