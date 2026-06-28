@@ -76,6 +76,15 @@ type ChartPoint = {
 
 type ChartMetricKey = Exclude<keyof ChartPoint, "label">;
 
+type AnalysisTab = "overview" | "riichi" | "improvement" | "detail";
+
+const analysisTabs: Array<{ id: AnalysisTab; label: string }> = [
+  { id: "overview", label: "概要" },
+  { id: "riichi", label: "立直" },
+  { id: "improvement", label: "改善" },
+  { id: "detail", label: "詳細" }
+];
+
 const chartMetricOptions: Array<{
   key: ChartMetricKey;
   label: string;
@@ -192,6 +201,10 @@ function optionalNumber(value: string): number | null {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
+function analysisTabPanelClass(tab: AnalysisTab, activeTab: AnalysisTab): string {
+  return `analysis-tab-panel${activeTab === tab ? " active" : ""}`;
+}
+
 export function AnalysisPage({ navigate }: AnalysisPageProps) {
   const [snapshots, setSnapshots] = useState<Snapshot[]>([]);
   const [deltas, setDeltas] = useState<EstimatedDelta[]>([]);
@@ -211,6 +224,7 @@ export function AnalysisPage({ navigate }: AnalysisPageProps) {
     "win_rate",
     "deal_in_rate"
   ]);
+  const [activeTab, setActiveTab] = useState<AnalysisTab>("overview");
 
   useEffect(() => {
     setAnalysisGoals(loadAnalysisGoals());
@@ -544,6 +558,22 @@ export function AnalysisPage({ navigate }: AnalysisPageProps) {
         </div>
       </section>
 
+      <section className="analysis-tab-bar" role="tablist" aria-label="詳細分析カテゴリ">
+        {analysisTabs.map((tab) => (
+          <button
+            key={tab.id}
+            type="button"
+            role="tab"
+            aria-selected={activeTab === tab.id}
+            className={activeTab === tab.id ? "active" : ""}
+            onClick={() => setActiveTab(tab.id)}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </section>
+
+      <div className={analysisTabPanelClass("overview", activeTab)}>
       <section className="analysis-section">
         <div className="section-heading">
           <h2>分析目標</h2>
@@ -804,7 +834,9 @@ export function AnalysisPage({ navigate }: AnalysisPageProps) {
           )}
         </div>
       </section>
+      </div>
 
+      <div className={analysisTabPanelClass("riichi", activeTab)}>
       <section className="analysis-section">
         <div className="section-heading">
           <h2>立直トレンド</h2>
@@ -874,7 +906,9 @@ export function AnalysisPage({ navigate }: AnalysisPageProps) {
           </div>
         )}
       </section>
+      </div>
 
+      <div className={analysisTabPanelClass("detail", activeTab)}>
       <section className="analysis-section">
         <div className="section-heading">
           <h2>指標分布</h2>
@@ -1006,7 +1040,9 @@ export function AnalysisPage({ navigate }: AnalysisPageProps) {
           ))}
         </div>
       </section>
+      </div>
 
+      <div className={analysisTabPanelClass("improvement", activeTab)}>
       <section className="analysis-section">
         <div className="section-heading">
           <h2>改善優先度</h2>
@@ -1155,7 +1191,9 @@ export function AnalysisPage({ navigate }: AnalysisPageProps) {
           </div>
         )}
       </section>
+      </div>
 
+      <div className={analysisTabPanelClass("detail", activeTab)}>
       <section className="analysis-section">
         <div className="section-heading">
           <h2>自由選択チャート</h2>
@@ -1345,6 +1383,7 @@ export function AnalysisPage({ navigate }: AnalysisPageProps) {
           </table>
         </div>
       </section>
+      </div>
     </main>
   );
 }

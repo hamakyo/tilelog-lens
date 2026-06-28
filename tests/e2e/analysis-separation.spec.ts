@@ -149,6 +149,11 @@ test("/ does not show detailed-analysis-only blocks", async ({ page, request }) 
     await expect(page.getByRole("heading", { name: "分析フィルタ" })).not.toBeVisible();
     await expect(page.getByRole("heading", { name: "期間比較" })).not.toBeVisible();
     await expect(page.getByRole("heading", { name: "期間差分の推定" })).not.toBeVisible();
+    await expect(page.getByRole("heading", { name: "立直トレンド" })).not.toBeVisible();
+    await expect(page.getByRole("heading", { name: "立直リスクシグナル" })).not.toBeVisible();
+    await expect(page.getByRole("heading", { name: "悪化要因ランキング" })).not.toBeVisible();
+    await expect(page.getByRole("heading", { name: "見るべき項目" })).not.toBeVisible();
+    await expect(page.getByRole("heading", { name: "指標分布" })).not.toBeVisible();
   } finally {
     await deleteSnapshots(request, snapshots);
   }
@@ -166,8 +171,28 @@ test("/analysis shows detailed analysis blocks", async ({ page, request }) => {
 
     await expect(page.getByRole("heading", { name: "詳細分析" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "分析フィルタ" })).toBeVisible();
+    await expect(page.getByRole("tab", { name: "概要" })).toBeVisible();
+    await expect(page.getByRole("tab", { name: "立直" })).toBeVisible();
+    await expect(page.getByRole("tab", { name: "改善" })).toBeVisible();
+    await expect(page.getByRole("tab", { name: "詳細" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "分析目標" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "攻撃タイプ" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "直近期間" })).toBeVisible();
+
+    await page.getByRole("tab", { name: "立直" }).click();
+    await expect(page.getByRole("heading", { name: "立直トレンド" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "立直リスクシグナル" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "改善優先度" })).not.toBeVisible();
+
+    await page.getByRole("tab", { name: "改善" }).click();
     await expect(page.getByRole("heading", { name: "改善優先度" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "悪化要因ランキング" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "見るべき項目" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "分析テンプレート", level: 2 })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "変化点" })).toBeVisible();
+
+    await page.getByRole("tab", { name: "詳細" }).click();
+    await expect(page.getByRole("heading", { name: "指標分布" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "自由選択チャート" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "タグ別分析" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "分析コメント" })).toBeVisible();

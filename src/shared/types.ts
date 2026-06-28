@@ -392,8 +392,16 @@ export type AiContext = {
   estimated_deltas: EstimatedDelta[];
   period_analyses: PeriodAnalysis[];
   period_comparisons: PeriodComparison[];
+  metric_distributions: MetricDistribution[];
+  riichi_trends: RiichiTrendAnalysis[];
+  riichi_risk_signals: RiichiRiskSignal[];
+  attack_style: AttackStyleClassification | null;
   analysis_comments: AnalysisComment[];
   improvement_priorities: ImprovementPriority[];
+  regression_factors: RegressionFactor[];
+  focus_recommendations: FocusRecommendation[];
+  stability_score: StabilityScore;
+  goal_gap_comments: GoalGapComment[];
   rank_point_analysis: RankPointAnalysis | null;
   data_quality_warnings: ValidationWarning[];
   data_quality_issues: DataQualityIssue[];

@@ -58,11 +58,21 @@ describe("AI JSON export", () => {
 
     expect(context.period_analyses.length).toBeGreaterThan(0);
     expect(context.period_comparisons.length).toBeGreaterThan(0);
+    expect(context.metric_distributions).toEqual(expect.any(Array));
+    expect(context.riichi_trends).toEqual(expect.any(Array));
+    expect(context.riichi_risk_signals).toEqual(expect.any(Array));
+    expect(context.attack_style).not.toBeUndefined();
     expect(context.analysis_comments.length).toBeGreaterThan(0);
     expect(context.improvement_priorities.length).toBeGreaterThan(0);
+    expect(context.regression_factors).toEqual(expect.any(Array));
+    expect(context.focus_recommendations).toEqual(expect.any(Array));
+    expect(context.stability_score.status).toEqual(expect.any(String));
+    expect(context.goal_gap_comments).toEqual(expect.any(Array));
     expect(context.rank_point_analysis).not.toBeUndefined();
     expect(context.data_quality_issues).toEqual(expect.any(Array));
     expect(context.analysis_request.focus).toContain("改善優先度");
+    expect(context.analysis_request.focus).toContain("立直トレンド");
+    expect(context.analysis_request.focus).toContain("安定性スコア");
     expect(context.analysis_request.focus).toContain("データ品質警告");
   });
 
