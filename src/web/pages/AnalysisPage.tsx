@@ -34,7 +34,8 @@ import {
   buildMetricDistributions,
   buildRiichiTrendAnalyses,
   buildRiichiRiskSignals,
-  buildAttackStyleClassification
+  buildAttackStyleClassification,
+  buildRecentRegressionFactors
 } from "../../shared/metrics";
 import { buildAnalysisGoalStatuses } from "../../shared/goals";
 import { listDeltas, listSnapshots } from "../lib/api";
@@ -289,6 +290,10 @@ export function AnalysisPage({ navigate }: AnalysisPageProps) {
   );
   const improvementPriorities = useMemo(
     () => buildImprovementPriorities(modeSnapshots),
+    [modeSnapshots]
+  );
+  const regressionFactors = useMemo(
+    () => buildRecentRegressionFactors(modeSnapshots),
     [modeSnapshots]
   );
   const analysisComments = useMemo(
@@ -967,6 +972,43 @@ export function AnalysisPage({ navigate }: AnalysisPageProps) {
                   <h3>{priority.title}</h3>
                   <p>{priority.reason}</p>
                   <p>{priority.action}</p>
+                </div>
+              </article>
+            ))}
+          </div>
+        )}
+      </section>
+
+      <section className="analysis-section">
+        <div className="section-heading">
+          <h2>悪化要因ランキング</h2>
+          <p>直近10件とその前10件を比較し、悪化幅の大きい指標を表示します。</p>
+        </div>
+        {regressionFactors.length === 0 ? (
+          <p className="empty-state">大きく悪化している直近期の要因はありません。</p>
+        ) : (
+          <div className="priority-list">
+            {regressionFactors.map((factor) => (
+              <article className="priority-item" key={factor.key}>
+                <div className="priority-score">
+                  <span className={`severity-pill severity-${factor.severity}`}>
+                    {factor.severity === "high"
+                      ? "高"
+                      : factor.severity === "medium"
+                        ? "中"
+                        : "低"}
+                  </span>
+                  <strong>{factor.score}</strong>
+                </div>
+                <div className="priority-body">
+                  <h3>{factor.label}</h3>
+                  <p>{factor.message}</p>
+                  <p>
+                    前回 {metricUnitValue(factor.previous_value, factor.unit)} / 直近{" "}
+                    {metricUnitValue(factor.current_value, factor.unit)} / 差分{" "}
+                    {factor.delta != null && factor.delta > 0 ? "+" : ""}
+                    {metricUnitValue(factor.delta, factor.unit)}
+                  </p>
                 </div>
               </article>
             ))}

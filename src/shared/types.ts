@@ -190,6 +190,18 @@ export type AttackStyleClassification = {
   focus: string[];
 };
 
+export type RegressionFactor = {
+  key: string;
+  label: string;
+  score: number;
+  severity: "high" | "medium" | "low";
+  previous_value: number | null;
+  current_value: number | null;
+  delta: number | null;
+  unit: "number" | "rate" | "rank_point" | "place";
+  message: string;
+};
+
 export type ImprovementPriority = {
   id: string;
   title: string;

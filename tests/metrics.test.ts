@@ -15,6 +15,7 @@ import {
   buildRiichiRiskSignals,
   buildRiichiTrendAnalyses,
   buildRankPointAnalysis,
+  buildRecentRegressionFactors,
   buildSnapshotComparison
 } from "../src/shared/metrics";
 import { makeSnapshot } from "./fixtures";
@@ -241,6 +242,30 @@ describe("metrics", () => {
       type: "under_attack",
       status: "watch"
     });
+  });
+
+  it("ranks recent regression factors by worsening score", () => {
+    const snapshots = Array.from({ length: 20 }, (_, index) =>
+      makeSnapshot({
+        id: index + 1,
+        observed_at_utc: `2026-06-${String(index + 1).padStart(2, "0")}T00:00:00.000Z`,
+        avg_place: index < 10 ? 2.4 : 3.6,
+        win_rate: index < 10 ? 24 : 18,
+        deal_in_rate: index < 10 ? 10 : 14,
+        first_rate: 25,
+        second_rate: 25,
+        third_rate: 25,
+        fourth_rate: index < 10 ? 20 : 26,
+        rank_points: index < 10 ? 600 : 500
+      })
+    );
+
+    const factors = buildRecentRegressionFactors(snapshots, 10);
+
+    expect(factors.map((factor) => factor.key)).toEqual(
+      expect.arrayContaining(["win_rate", "deal_in_rate", "avg_place"])
+    );
+    expect(factors[0].score).toBeGreaterThanOrEqual(factors[1].score);
   });
 
   it("ranks improvement priorities from latest and recent rates", () => {

@@ -10,6 +10,7 @@ import type {
   PeriodComparison,
   PeriodAnalysis,
   RankPointAnalysis,
+  RegressionFactor,
   RiichiRiskSignal,
   RiichiTrendAnalysis,
   Snapshot,
@@ -1073,6 +1074,49 @@ export function buildPeriodComparisons(snapshots: Snapshot[]): PeriodComparison[
     buildRecentWindowComparison(snapshots, 10),
     buildCalendarMonthComparison(snapshots)
   ];
+}
+
+function regressionScore(
+  metric: SnapshotComparisonMetric
+): number {
+  if (metric.delta == null) return 0;
+  if (metric.better_direction === "neutral") return 0;
+  const worsened =
+    metric.better_direction === "up" ? metric.delta < 0 : metric.delta > 0;
+  if (!worsened) return 0;
+  const unitWeight =
+    metric.unit === "place" ? 40 : metric.unit === "rank_point" ? 0.2 : 10;
+  return Math.round(Math.abs(metric.delta) * unitWeight);
+}
+
+export function buildRecentRegressionFactors(
+  snapshots: Snapshot[],
+  windowSize = 10
+): RegressionFactor[] {
+  const comparison = buildRecentWindowComparison(snapshots, windowSize);
+  if (comparison.quality === "insufficient_data") return [];
+
+  return comparison.metrics
+    .map((metric) => {
+      const score = Math.min(100, regressionScore(metric));
+      return {
+        key: metric.key,
+        label: metric.label,
+        score,
+        severity: severityForScore(score),
+        previous_value: metric.from_value,
+        current_value: metric.to_value,
+        delta: metric.delta,
+        unit: metric.unit,
+        message:
+          score > 0
+            ? `${comparison.to_label}で${metric.label}が悪化しています。`
+            : `${comparison.to_label}で${metric.label}の悪化は大きくありません。`
+      };
+    })
+    .filter((factor) => factor.score > 0)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 5);
 }
 
 export function buildDuplicateSnapshotCandidates(
