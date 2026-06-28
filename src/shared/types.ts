@@ -376,6 +376,27 @@ export type DataQualityIssue = {
   severity: "warning";
 };
 
+export type AiContextSummary = {
+  snapshot_count: number;
+  latest_observed_at_utc: string | null;
+  latest_game_mode: GameMode | null;
+  latest_metrics: {
+    matches: number;
+    avg_place: number;
+    win_rate: number;
+    deal_in_rate: number;
+    call_rate: number;
+    riichi_rate: number;
+    fourth_rate: number;
+  } | null;
+  attack_style_label: string | null;
+  stability_status: StabilityScore["status"];
+  top_findings: string[];
+  recommended_actions: string[];
+  data_quality_issue_count: number;
+  summary_text: string;
+};
+
 export type AiContext = {
   schema_version: "1.0";
   app: string;
@@ -387,6 +408,7 @@ export type AiContext = {
     source_images_stored: false;
   };
   metrics_description: Record<string, string>;
+  summary: AiContextSummary;
   snapshots: Snapshot[];
   derived_metrics: DerivedMetric[];
   estimated_deltas: EstimatedDelta[];

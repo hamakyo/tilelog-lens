@@ -45,6 +45,7 @@ type AiContextPreview = {
     top_improvement_priority: string | null;
     top_regression_factor: string | null;
   };
+  summary?: AiContext["summary"];
   analysis_request?: AiContext["analysis_request"];
   snapshots_preview: AiContext["snapshots"];
 };
@@ -413,6 +414,7 @@ function buildAiContextPreview(data: AiContext): AiContextPreview {
       top_improvement_priority: topPriority?.title ?? null,
       top_regression_factor: topRegressionFactor?.label ?? null
     },
+    summary: data.summary,
     analysis_request: data.analysis_request,
     snapshots_preview: data.snapshots.slice(0, 2)
   };

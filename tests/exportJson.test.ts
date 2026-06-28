@@ -38,6 +38,7 @@ describe("AI JSON export", () => {
     const context = buildAiContext([
       makeSnapshot({
         id: 1,
+        game_mode: "east",
         observed_at_utc: "2026-06-01T00:00:00.000Z",
         matches: 100,
         win_rate: 24,
@@ -46,6 +47,7 @@ describe("AI JSON export", () => {
       }),
       makeSnapshot({
         id: 2,
+        game_mode: "east",
         observed_at_utc: "2026-06-02T00:00:00.000Z",
         matches: 150,
         win_rate: 18,
@@ -57,6 +59,20 @@ describe("AI JSON export", () => {
     ]);
 
     expect(context.period_analyses.length).toBeGreaterThan(0);
+    expect(context.summary).toMatchObject({
+      snapshot_count: 2,
+      latest_observed_at_utc: "2026-06-02T00:00:00.000Z",
+      latest_game_mode: "east",
+      data_quality_issue_count: expect.any(Number)
+    });
+    expect(context.summary.latest_metrics).toMatchObject({
+      matches: 150,
+      avg_place: 2.62,
+      win_rate: 18,
+      deal_in_rate: 15
+    });
+    expect(context.summary.top_findings.length).toBeGreaterThan(0);
+    expect(context.summary.summary_text).toContain("最新記録");
     expect(context.period_comparisons.length).toBeGreaterThan(0);
     expect(context.metric_distributions).toEqual(expect.any(Array));
     expect(context.riichi_trends).toEqual(expect.any(Array));

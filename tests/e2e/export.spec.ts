@@ -177,6 +177,10 @@ test("AI JSON export returns real D1 data with privacy metadata and download hea
 
     const body = (await response.json()) as {
       privacy: { anonymized: boolean; screenshots_included: boolean };
+      summary: {
+        snapshot_count: number;
+        summary_text: string;
+      };
       snapshots: Array<{
         id: number;
         player_name: string | null;
@@ -202,6 +206,8 @@ test("AI JSON export returns real D1 data with privacy metadata and download hea
     expect(
       body.derived_metrics.some((metric) => metric.snapshot_id === snapshots[0].id)
     ).toBe(true);
+    expect(body.summary.snapshot_count).toBeGreaterThan(0);
+    expect(body.summary.summary_text).toContain("最新記録");
   } finally {
     await deleteSnapshots(request, snapshots);
   }
@@ -226,6 +232,7 @@ test("AI JSON preview shows analysis section counts", async ({
     await expect(page.getByRole("heading", { name: "AI用JSONプレビュー" })).toBeVisible();
     const preview = page.locator(".export-preview");
     await expect(preview).toContainText("analysis_counts");
+    await expect(preview).toContainText("summary_text");
     await expect(preview).toContainText("riichi_trends");
     await expect(preview).toContainText("stability");
     await expect(preview).toContainText("top_improvement_priority");

@@ -39,6 +39,67 @@ const metricsDescription: Record<string, string> = {
   goal_gap_comments: "既定の分析目標に対する未達差分コメント。"
 };
 
+function formatSummaryRate(value: number): string {
+  return `${value.toFixed(2)}%`;
+}
+
+function buildAiContextSummary(input: {
+  snapshotCount: number;
+  latest: Snapshot | undefined;
+  attackStyle: AiContext["attack_style"];
+  improvementPriorities: AiContext["improvement_priorities"];
+  regressionFactors: AiContext["regression_factors"];
+  focusRecommendations: AiContext["focus_recommendations"];
+  stabilityScore: AiContext["stability_score"];
+  dataQualityIssues: AiContext["data_quality_issues"];
+}): AiContext["summary"] {
+  const latest = input.latest;
+  const topPriority = input.improvementPriorities[0];
+  const topRegression = input.regressionFactors[0];
+  const topFindings = [
+    latest
+      ? `最新記録は${latest.observed_at_utc}、${latest.matches}戦、平均順位${latest.avg_place.toFixed(2)}です。`
+      : "記録がまだありません。",
+    latest
+      ? `和了率${formatSummaryRate(latest.win_rate)}、放銃率${formatSummaryRate(latest.deal_in_rate)}、立直率${formatSummaryRate(latest.riichi_rate)}です。`
+      : null,
+    input.attackStyle ? `攻撃タイプは「${input.attackStyle.label}」です。` : null,
+    `安定性は「${input.stabilityScore.status}」です。`,
+    topRegression ? `主な悪化要因は「${topRegression.label}」です。` : null,
+    topPriority ? `最優先の改善項目は「${topPriority.title}」です。` : null
+  ].filter((finding): finding is string => finding != null);
+  const recommendedActions = input.focusRecommendations
+    .slice(0, 3)
+    .map((recommendation) => `${recommendation.title}: ${recommendation.reason}`);
+
+  return {
+    snapshot_count: input.snapshotCount,
+    latest_observed_at_utc: latest?.observed_at_utc ?? null,
+    latest_game_mode: latest?.game_mode ?? null,
+    latest_metrics: latest
+      ? {
+          matches: latest.matches,
+          avg_place: latest.avg_place,
+          win_rate: latest.win_rate,
+          deal_in_rate: latest.deal_in_rate,
+          call_rate: latest.call_rate,
+          riichi_rate: latest.riichi_rate,
+          fourth_rate: latest.fourth_rate
+        }
+      : null,
+    attack_style_label: input.attackStyle?.label ?? null,
+    stability_status: input.stabilityScore.status,
+    top_findings: topFindings,
+    recommended_actions: recommendedActions,
+    data_quality_issue_count: input.dataQualityIssues.length,
+    summary_text: `${topFindings.join(" ")}${
+      recommendedActions.length > 0
+        ? ` 次に見る項目: ${recommendedActions.map((action) => action.split(":")[0]).join(" / ")}。`
+        : ""
+    }`
+  };
+}
+
 export function buildAiContext(
   snapshots: Snapshot[],
   options: {
@@ -90,6 +151,35 @@ export function buildAiContext(
     ]
   };
   const goalStatuses = buildAnalysisGoalStatuses(DEFAULT_ANALYSIS_GOALS, latest);
+  const derivedMetrics = buildDerivedMetrics(sanitizedSnapshots);
+  const estimatedDeltas = buildEstimatedDeltas(sanitizedSnapshots);
+  const periodAnalyses = buildPeriodAnalyses(latestModeSnapshots);
+  const periodComparisons = buildPeriodComparisons(latestModeSnapshots);
+  const metricDistributions = buildMetricDistributions(latestModeSnapshots);
+  const riichiTrends = buildRiichiTrendAnalyses(latestModeSnapshots);
+  const riichiRiskSignals = buildRiichiRiskSignals(latestModeSnapshots);
+  const attackStyle = buildAttackStyleClassification(latestModeSnapshots);
+  const analysisComments = buildAnalysisComments(latestModeSnapshots);
+  const improvementPriorities = buildImprovementPriorities(latestModeSnapshots);
+  const regressionFactors = buildRecentRegressionFactors(latestModeSnapshots);
+  const focusRecommendations = buildFocusRecommendations(latestModeSnapshots);
+  const stabilityScore = buildStabilityScore(latestModeSnapshots);
+  const goalGapComments = buildGoalGapComments(goalStatuses);
+  const rankPointAnalysis = buildRankPointAnalysis(latestModeSnapshots);
+  const dataQualityWarnings = latest
+    ? buildDataQualityWarnings(latest, ordered, { excludeId: latest.id })
+    : [];
+  const dataQualityIssues = buildDataQualityReport(ordered);
+  const summary = buildAiContextSummary({
+    snapshotCount: sanitizedSnapshots.length,
+    latest,
+    attackStyle,
+    improvementPriorities,
+    regressionFactors,
+    focusRecommendations,
+    stabilityScore,
+    dataQualityIssues
+  });
 
   return {
     schema_version: "1.0",
@@ -102,26 +192,25 @@ export function buildAiContext(
       source_images_stored: false
     },
     metrics_description: metricsDescription,
+    summary,
     snapshots: sanitizedSnapshots,
-    derived_metrics: buildDerivedMetrics(sanitizedSnapshots),
-    estimated_deltas: buildEstimatedDeltas(sanitizedSnapshots),
-    period_analyses: buildPeriodAnalyses(latestModeSnapshots),
-    period_comparisons: buildPeriodComparisons(latestModeSnapshots),
-    metric_distributions: buildMetricDistributions(latestModeSnapshots),
-    riichi_trends: buildRiichiTrendAnalyses(latestModeSnapshots),
-    riichi_risk_signals: buildRiichiRiskSignals(latestModeSnapshots),
-    attack_style: buildAttackStyleClassification(latestModeSnapshots),
-    analysis_comments: buildAnalysisComments(latestModeSnapshots),
-    improvement_priorities: buildImprovementPriorities(latestModeSnapshots),
-    regression_factors: buildRecentRegressionFactors(latestModeSnapshots),
-    focus_recommendations: buildFocusRecommendations(latestModeSnapshots),
-    stability_score: buildStabilityScore(latestModeSnapshots),
-    goal_gap_comments: buildGoalGapComments(goalStatuses),
-    rank_point_analysis: buildRankPointAnalysis(latestModeSnapshots),
-    data_quality_warnings: latest
-      ? buildDataQualityWarnings(latest, ordered, { excludeId: latest.id })
-      : [],
-    data_quality_issues: buildDataQualityReport(ordered),
+    derived_metrics: derivedMetrics,
+    estimated_deltas: estimatedDeltas,
+    period_analyses: periodAnalyses,
+    period_comparisons: periodComparisons,
+    metric_distributions: metricDistributions,
+    riichi_trends: riichiTrends,
+    riichi_risk_signals: riichiRiskSignals,
+    attack_style: attackStyle,
+    analysis_comments: analysisComments,
+    improvement_priorities: improvementPriorities,
+    regression_factors: regressionFactors,
+    focus_recommendations: focusRecommendations,
+    stability_score: stabilityScore,
+    goal_gap_comments: goalGapComments,
+    rank_point_analysis: rankPointAnalysis,
+    data_quality_warnings: dataQualityWarnings,
+    data_quality_issues: dataQualityIssues,
     notes: sanitizedSnapshots
       .filter((snapshot) => snapshot.note != null && snapshot.note.trim() !== "")
       .map((snapshot) => ({

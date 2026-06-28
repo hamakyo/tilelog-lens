@@ -600,6 +600,18 @@ Example shape:
     "riichi_rate": "Riichi declaration rate.",
     "attack_defense_gap": "win_rate minus deal_in_rate. Higher is generally better."
   },
+  "summary": {
+    "snapshot_count": 0,
+    "latest_observed_at_utc": null,
+    "latest_game_mode": null,
+    "latest_metrics": null,
+    "attack_style_label": null,
+    "stability_status": "insufficient_data",
+    "top_findings": [],
+    "recommended_actions": [],
+    "data_quality_issue_count": 0,
+    "summary_text": "Not enough data."
+  },
   "snapshots": [],
   "derived_metrics": [],
   "estimated_deltas": [],
