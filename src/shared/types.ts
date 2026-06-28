@@ -210,6 +210,14 @@ export type FocusRecommendation = {
   check_items: string[];
 };
 
+export type StabilityScore = {
+  score: number | null;
+  status: "stable" | "watch" | "volatile" | "insufficient_data";
+  summary: string;
+  volatile_metrics: string[];
+  watch_metrics: string[];
+};
+
 export type ImprovementPriority = {
   id: string;
   title: string;

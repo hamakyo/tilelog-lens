@@ -36,7 +36,8 @@ import {
   buildRiichiRiskSignals,
   buildAttackStyleClassification,
   buildRecentRegressionFactors,
-  buildFocusRecommendations
+  buildFocusRecommendations,
+  buildStabilityScore
 } from "../../shared/metrics";
 import { buildAnalysisGoalStatuses } from "../../shared/goals";
 import { listDeltas, listSnapshots } from "../lib/api";
@@ -323,6 +324,10 @@ export function AnalysisPage({ navigate }: AnalysisPageProps) {
   );
   const metricDistributions = useMemo(
     () => buildMetricDistributions(modeSnapshots),
+    [modeSnapshots]
+  );
+  const stabilityScore = useMemo(
+    () => buildStabilityScore(modeSnapshots),
     [modeSnapshots]
   );
   const goalStatuses = useMemo(
@@ -850,6 +855,31 @@ export function AnalysisPage({ navigate }: AnalysisPageProps) {
           <h2>指標分布</h2>
           <p>現在の分析対象内で、最新値が平均からどの程度離れているかを確認します。</p>
         </div>
+        <article className="comment-item">
+          <span className={`severity-pill severity-${stabilityScore.status}`}>
+            {stabilityScore.status === "stable"
+              ? "安"
+              : stabilityScore.status === "watch"
+                ? "注"
+                : stabilityScore.status === "volatile"
+                  ? "揺"
+                  : "不"}
+          </span>
+          <div className="priority-body">
+            <h3>
+              安定性スコア{" "}
+              {stabilityScore.score == null ? "-" : formatNumber(stabilityScore.score)}
+            </h3>
+            <p>{stabilityScore.summary}</p>
+            {stabilityScore.volatile_metrics.length > 0 ||
+            stabilityScore.watch_metrics.length > 0 ? (
+              <p>
+                変動大: {stabilityScore.volatile_metrics.join(" / ") || "-"} / 注意:{" "}
+                {stabilityScore.watch_metrics.join(" / ") || "-"}
+              </p>
+            ) : null}
+          </div>
+        </article>
         <div className="table-scroll">
           <table>
             <thead>

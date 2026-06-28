@@ -601,12 +601,22 @@ h2 {
   color: var(--color-success-text);
 }
 
+.severity-stable {
+  background: var(--color-success-bg);
+  color: var(--color-success-text);
+}
+
 .severity-watch {
   background: var(--color-warning-bg);
   color: var(--color-warning-text);
 }
 
 .severity-risk {
+  background: var(--color-danger-bg);
+  color: var(--color-danger-text);
+}
+
+.severity-volatile {
   background: var(--color-danger-bg);
   color: var(--color-danger-text);
 }

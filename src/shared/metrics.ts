@@ -18,6 +18,7 @@ import type {
   SnapshotComparison,
   SnapshotComparisonMetric,
   SnapshotCreateInput,
+  StabilityScore,
   ValidationWarning
 } from "./types";
 import { RANK_LEVELS, RANK_POINT_MAX_BY_RANK_AND_LEVEL } from "./constants";
@@ -863,6 +864,62 @@ export function buildMetricDistributions(snapshots: Snapshot[]): MetricDistribut
       stability: distributionStability(standardDeviationValue, definition.unit)
     };
   });
+}
+
+export function buildStabilityScore(snapshots: Snapshot[]): StabilityScore {
+  const distributions = buildMetricDistributions(snapshots).filter(
+    (distribution) => distribution.count >= 3
+  );
+
+  if (distributions.length === 0) {
+    return {
+      score: null,
+      status: "insufficient_data",
+      summary: "安定性スコアの判定には、同じ分析対象で3件以上の記録が必要です。",
+      volatile_metrics: [],
+      watch_metrics: []
+    };
+  }
+
+  const pointByStatus: Record<MetricDistribution["stability"], number> = {
+    stable: 100,
+    watch: 65,
+    volatile: 30,
+    insufficient_data: 0
+  };
+  const score = Math.round(
+    distributions.reduce(
+      (sum, distribution) => sum + pointByStatus[distribution.stability],
+      0
+    ) / distributions.length
+  );
+  const volatileMetrics = distributions
+    .filter((distribution) => distribution.stability === "volatile")
+    .map((distribution) => distribution.label);
+  const watchMetrics = distributions
+    .filter((distribution) => distribution.stability === "watch")
+    .map((distribution) => distribution.label);
+  const status: StabilityScore["status"] =
+    volatileMetrics.length >= 2
+      ? "volatile"
+      : score >= 85
+        ? "stable"
+        : score >= 60
+          ? "watch"
+          : "volatile";
+
+  return {
+    score,
+    status,
+    summary:
+      status === "stable"
+        ? "主要指標のブレは小さく、傾向を読み取りやすい状態です。"
+        : status === "watch"
+          ? "一部指標にブレがあります。直近期と長期傾向を分けて確認してください。"
+          : "複数指標の変動が大きい状態です。短期の上振れ/下振れを切り分けてください。",
+    volatile_metrics: volatileMetrics,
+    watch_metrics: watchMetrics
+  };
 }
 
 export function buildSnapshotComparison(

@@ -17,7 +17,8 @@ import {
   buildRiichiTrendAnalyses,
   buildRankPointAnalysis,
   buildRecentRegressionFactors,
-  buildSnapshotComparison
+  buildSnapshotComparison,
+  buildStabilityScore
 } from "../src/shared/metrics";
 import { makeSnapshot } from "./fixtures";
 
@@ -422,6 +423,24 @@ describe("metrics", () => {
       average: 61.67,
       latest_value: 70
     });
+  });
+
+  it("builds an aggregate stability score from metric distributions", () => {
+    const stableScore = buildStabilityScore([
+      makeSnapshot({ id: 1, observed_at_utc: "2026-06-01T00:00:00.000Z", win_rate: 22, deal_in_rate: 11 }),
+      makeSnapshot({ id: 2, observed_at_utc: "2026-06-02T00:00:00.000Z", win_rate: 22.5, deal_in_rate: 11.2 }),
+      makeSnapshot({ id: 3, observed_at_utc: "2026-06-03T00:00:00.000Z", win_rate: 22.2, deal_in_rate: 11.1 })
+    ]);
+    expect(stableScore.status).toBe("stable");
+    expect(stableScore.score).toBeGreaterThanOrEqual(85);
+
+    const volatileScore = buildStabilityScore([
+      makeSnapshot({ id: 1, observed_at_utc: "2026-06-01T00:00:00.000Z", win_rate: 18, deal_in_rate: 8 }),
+      makeSnapshot({ id: 2, observed_at_utc: "2026-06-02T00:00:00.000Z", win_rate: 28, deal_in_rate: 16 }),
+      makeSnapshot({ id: 3, observed_at_utc: "2026-06-03T00:00:00.000Z", win_rate: 19, deal_in_rate: 14 })
+    ]);
+    expect(volatileScore.status).toBe("volatile");
+    expect(volatileScore.volatile_metrics).toContain("和了率");
   });
 
   it("builds snapshot comparison metrics", () => {
