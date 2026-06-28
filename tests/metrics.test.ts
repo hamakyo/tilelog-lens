@@ -5,6 +5,7 @@ import {
   buildDataQualityWarnings,
   buildDataQualityReport,
   buildAnalysisComments,
+  buildAttackStyleClassification,
   buildDuplicateSnapshotCandidates,
   buildEstimatedDeltas,
   buildImprovementPriorities,
@@ -210,6 +211,36 @@ describe("metrics", () => {
       ])
     );
     expect(signals[0].severity).toBe("risk");
+  });
+
+  it("classifies attack style from riichi, call, win, and deal-in rates", () => {
+    expect(
+      buildAttackStyleClassification([
+        makeSnapshot({
+          win_rate: 21,
+          deal_in_rate: 14,
+          riichi_rate: 25,
+          call_rate: 36
+        })
+      ])
+    ).toMatchObject({
+      type: "over_push",
+      status: "risk"
+    });
+
+    expect(
+      buildAttackStyleClassification([
+        makeSnapshot({
+          win_rate: 19,
+          deal_in_rate: 10,
+          riichi_rate: 15,
+          call_rate: 28
+        })
+      ])
+    ).toMatchObject({
+      type: "under_attack",
+      status: "watch"
+    });
   });
 
   it("ranks improvement priorities from latest and recent rates", () => {

@@ -176,6 +176,20 @@ export type RiichiRiskSignal = {
   focus: string[];
 };
 
+export type AttackStyleClassification = {
+  type:
+    | "riichi_focused"
+    | "call_focused"
+    | "over_push"
+    | "under_attack"
+    | "defensive"
+    | "balanced";
+  label: string;
+  status: "good" | "watch" | "risk";
+  summary: string;
+  focus: string[];
+};
+
 export type ImprovementPriority = {
   id: string;
   title: string;

@@ -1,5 +1,6 @@
 import type {
   AnalysisComment,
+  AttackStyleClassification,
   DataQualityIssue,
   DerivedMetric,
   DuplicateSnapshotCandidate,
@@ -499,6 +500,79 @@ export function buildRiichiRiskSignals(snapshots: Snapshot[]): RiichiRiskSignal[
   }
 
   return signals.slice(0, 4);
+}
+
+export function buildAttackStyleClassification(
+  snapshots: Snapshot[]
+): AttackStyleClassification | null {
+  const latest = [...snapshots].sort(byObservedAsc).at(-1);
+  if (!latest) return null;
+
+  const attackDefenseGap = latest.win_rate - latest.deal_in_rate;
+
+  if (latest.deal_in_rate >= 13 && (latest.riichi_rate >= 23 || latest.call_rate >= 35)) {
+    return {
+      type: "over_push",
+      label: "押しすぎ",
+      status: "risk",
+      summary: "攻撃参加が放銃率の高さと同時に出ています。立直・副露後の撤退基準を確認してください。",
+      focus: ["放銃率", "立直率", "副露率"]
+    };
+  }
+
+  if (latest.win_rate < 20 && latest.riichi_rate < 17 && latest.call_rate < 30) {
+    return {
+      type: "under_attack",
+      label: "攻撃不足",
+      status: "watch",
+      summary: "和了率が低く、立直率・副露率も控えめです。速度不足や打点化の機会損失を確認してください。",
+      focus: ["和了率", "立直率", "副露率"]
+    };
+  }
+
+  if (latest.riichi_rate >= 23 && latest.call_rate < 32) {
+    return {
+      type: "riichi_focused",
+      label: "立直寄り",
+      status: attackDefenseGap >= 8 ? "good" : "watch",
+      summary:
+        attackDefenseGap >= 8
+          ? "門前立直寄りで、攻守差も確保できています。"
+          : "立直寄りですが攻守差が小さめです。立直後の放銃と和了率を確認してください。",
+      focus: ["立直率", "攻守差", "放銃率"]
+    };
+  }
+
+  if (latest.call_rate >= 35 && latest.riichi_rate < 22) {
+    return {
+      type: "call_focused",
+      label: "副露寄り",
+      status: latest.deal_in_rate <= 12 ? "good" : "watch",
+      summary:
+        latest.deal_in_rate <= 12
+          ? "副露寄りですが放銃率は抑えられています。仕掛けの守備移行は大きく崩れていません。"
+          : "副露寄りで放銃率がやや高めです。仕掛け後の押し引きを確認してください。",
+      focus: ["副露率", "放銃率", "和了率"]
+    };
+  }
+
+  if (latest.deal_in_rate <= 10.5 && latest.win_rate < 21) {
+    return {
+      type: "defensive",
+      label: "守備寄り",
+      status: "watch",
+      summary: "放銃率は低い一方で和了率も控えめです。守備過多で速度を落としていないか確認してください。",
+      focus: ["放銃率", "和了率", "平均順位"]
+    };
+  }
+
+  return {
+    type: "balanced",
+    label: "バランス型",
+    status: "good",
+    summary: "立直率・副露率・攻守差のバランスは大きく偏っていません。",
+    focus: ["立直率", "副露率", "攻守差"]
+  };
 }
 
 export function buildImprovementPriorities(

@@ -33,7 +33,8 @@ import {
   buildRankPointAnalysis,
   buildMetricDistributions,
   buildRiichiTrendAnalyses,
-  buildRiichiRiskSignals
+  buildRiichiRiskSignals,
+  buildAttackStyleClassification
 } from "../../shared/metrics";
 import { buildAnalysisGoalStatuses } from "../../shared/goals";
 import { listDeltas, listSnapshots } from "../lib/api";
@@ -276,6 +277,10 @@ export function AnalysisPage({ navigate }: AnalysisPageProps) {
   );
   const riichiRiskSignals = useMemo(
     () => buildRiichiRiskSignals(modeSnapshots),
+    [modeSnapshots]
+  );
+  const attackStyle = useMemo(
+    () => buildAttackStyleClassification(modeSnapshots),
     [modeSnapshots]
   );
   const periodComparisons = useMemo(
@@ -682,6 +687,31 @@ export function AnalysisPage({ navigate }: AnalysisPageProps) {
               </dl>
             </div>
           </div>
+        )}
+      </section>
+
+      <section className="analysis-section">
+        <div className="section-heading">
+          <h2>攻撃タイプ</h2>
+          <p>立直率・副露率・和了率・放銃率から現在の傾向を分類します。</p>
+        </div>
+        {!attackStyle ? (
+          <p className="empty-state">攻撃タイプの判定には記録が必要です。</p>
+        ) : (
+          <article className="comment-item">
+            <span className={`severity-pill severity-${attackStyle.status}`}>
+              {attackStyle.status === "good"
+                ? "良"
+                : attackStyle.status === "watch"
+                  ? "注"
+                  : "危"}
+            </span>
+            <div className="priority-body">
+              <h3>{attackStyle.label}</h3>
+              <p>{attackStyle.summary}</p>
+              <p>{attackStyle.focus.join(" / ")}</p>
+            </div>
+          </article>
         )}
       </section>
 
