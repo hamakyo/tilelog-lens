@@ -35,7 +35,8 @@ import {
   buildRiichiTrendAnalyses,
   buildRiichiRiskSignals,
   buildAttackStyleClassification,
-  buildRecentRegressionFactors
+  buildRecentRegressionFactors,
+  buildFocusRecommendations
 } from "../../shared/metrics";
 import { buildAnalysisGoalStatuses } from "../../shared/goals";
 import { listDeltas, listSnapshots } from "../lib/api";
@@ -294,6 +295,10 @@ export function AnalysisPage({ navigate }: AnalysisPageProps) {
   );
   const regressionFactors = useMemo(
     () => buildRecentRegressionFactors(modeSnapshots),
+    [modeSnapshots]
+  );
+  const focusRecommendations = useMemo(
+    () => buildFocusRecommendations(modeSnapshots),
     [modeSnapshots]
   );
   const analysisComments = useMemo(
@@ -1014,6 +1019,31 @@ export function AnalysisPage({ navigate }: AnalysisPageProps) {
             ))}
           </div>
         )}
+      </section>
+
+      <section className="analysis-section">
+        <div className="section-heading">
+          <h2>見るべき項目</h2>
+          <p>現在の数値から、次に確認すると効果が大きい観点を提示します。</p>
+        </div>
+        <div className="priority-list">
+          {focusRecommendations.map((recommendation) => (
+            <article className="comment-item" key={recommendation.id}>
+              <span className={`severity-pill severity-${recommendation.priority}`}>
+                {recommendation.priority === "high"
+                  ? "高"
+                  : recommendation.priority === "medium"
+                    ? "中"
+                    : "低"}
+              </span>
+              <div className="priority-body">
+                <h3>{recommendation.title}</h3>
+                <p>{recommendation.reason}</p>
+                <p>{recommendation.check_items.join(" / ")}</p>
+              </div>
+            </article>
+          ))}
+        </div>
       </section>
 
       <section className="analysis-section">

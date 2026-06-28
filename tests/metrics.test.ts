@@ -8,6 +8,7 @@ import {
   buildAttackStyleClassification,
   buildDuplicateSnapshotCandidates,
   buildEstimatedDeltas,
+  buildFocusRecommendations,
   buildImprovementPriorities,
   buildMetricDistributions,
   buildPeriodComparisons,
@@ -266,6 +267,24 @@ describe("metrics", () => {
       expect.arrayContaining(["win_rate", "deal_in_rate", "avg_place"])
     );
     expect(factors[0].score).toBeGreaterThanOrEqual(factors[1].score);
+  });
+
+  it("recommends focus items from current indicators", () => {
+    const recommendations = buildFocusRecommendations([
+      makeSnapshot({
+        riichi_rate: 25,
+        deal_in_rate: 13,
+        win_rate: 19,
+        call_rate: 28,
+        fourth_rate: 25
+      })
+    ]);
+
+    expect(recommendations[0]).toMatchObject({
+      id: "riichi-danger-spots",
+      priority: "high"
+    });
+    expect(recommendations.map((item) => item.id)).toContain("speed-shortage");
   });
 
   it("ranks improvement priorities from latest and recent rates", () => {

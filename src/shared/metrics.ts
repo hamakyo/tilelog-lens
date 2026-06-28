@@ -5,6 +5,7 @@ import type {
   DerivedMetric,
   DuplicateSnapshotCandidate,
   EstimatedDelta,
+  FocusRecommendation,
   ImprovementPriority,
   MetricDistribution,
   PeriodComparison,
@@ -1117,6 +1118,75 @@ export function buildRecentRegressionFactors(
     .filter((factor) => factor.score > 0)
     .sort((a, b) => b.score - a.score)
     .slice(0, 5);
+}
+
+export function buildFocusRecommendations(snapshots: Snapshot[]): FocusRecommendation[] {
+  const latest = [...snapshots].sort(byObservedAsc).at(-1);
+  if (!latest) return [];
+
+  const recommendations: FocusRecommendation[] = [];
+
+  if (latest.riichi_rate >= 23 && latest.deal_in_rate >= 12.5) {
+    recommendations.push({
+      id: "riichi-danger-spots",
+      title: "立直する局面の危険度",
+      priority: "high",
+      reason: `立直率${latest.riichi_rate.toFixed(2)}%、放銃率${latest.deal_in_rate.toFixed(2)}%です。`,
+      check_items: ["先制ではない立直", "終盤立直", "ドラ周辺の押し"]
+    });
+  }
+
+  if (latest.win_rate < 20 && latest.call_rate < 30) {
+    recommendations.push({
+      id: "speed-shortage",
+      title: "速度不足の原因",
+      priority: "high",
+      reason: `和了率${latest.win_rate.toFixed(2)}%、副露率${latest.call_rate.toFixed(2)}%です。`,
+      check_items: ["鳴き判断", "孤立牌選択", "役牌・タンヤオ移行"]
+    });
+  }
+
+  if (latest.call_rate >= 35 && latest.deal_in_rate >= 12) {
+    recommendations.push({
+      id: "call-defense",
+      title: "仕掛け後の守備移行",
+      priority: "medium",
+      reason: `副露率${latest.call_rate.toFixed(2)}%、放銃率${latest.deal_in_rate.toFixed(2)}%です。`,
+      check_items: ["安手副露", "遠い仕掛け", "押し返し基準"]
+    });
+  }
+
+  if (latest.fourth_rate >= 24) {
+    recommendations.push({
+      id: "avoid-last-endgame",
+      title: "ラス回避局面",
+      priority: "medium",
+      reason: `四位率${latest.fourth_rate.toFixed(2)}%です。`,
+      check_items: ["南場の着順判断", "オーラス条件", "親番の失点管理"]
+    });
+  }
+
+  if (latest.win_rate - latest.deal_in_rate < 8) {
+    recommendations.push({
+      id: "attack-defense-gap",
+      title: "攻守差の内訳",
+      priority: "medium",
+      reason: `攻守差は${round2(latest.win_rate - latest.deal_in_rate).toFixed(2)}ptです。`,
+      check_items: ["和了率低下", "放銃率上昇", "副露・立直後の失点"]
+    });
+  }
+
+  if (recommendations.length === 0) {
+    recommendations.push({
+      id: "maintain-balance",
+      title: "現状維持の確認",
+      priority: "low",
+      reason: "主要指標に大きな警戒条件はありません。",
+      check_items: ["直近期の変化", "段位ポイント推移", "メモのタグ別傾向"]
+    });
+  }
+
+  return recommendations.slice(0, 4);
 }
 
 export function buildDuplicateSnapshotCandidates(

@@ -202,6 +202,14 @@ export type RegressionFactor = {
   message: string;
 };
 
+export type FocusRecommendation = {
+  id: string;
+  title: string;
+  priority: "high" | "medium" | "low";
+  reason: string;
+  check_items: string[];
+};
+
 export type ImprovementPriority = {
   id: string;
   title: string;
