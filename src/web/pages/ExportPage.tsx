@@ -4,7 +4,7 @@ import Eye from "lucide-react/dist/esm/icons/eye.js";
 import LoaderCircle from "lucide-react/dist/esm/icons/loader-circle.js";
 import Upload from "lucide-react/dist/esm/icons/upload.js";
 import { GAME_MODE_LABELS, GAME_MODES } from "../../shared/constants";
-import type { Snapshot, SnapshotCreateInput } from "../../shared/types";
+import type { AiContext, Snapshot, SnapshotCreateInput } from "../../shared/types";
 import { createSnapshot } from "../lib/api";
 
 type PreviewKind = "snapshots" | "deltas" | "ai";
@@ -15,6 +15,38 @@ type ExportPreview = {
   contentDisposition: string;
   lineCount: number;
   text: string;
+};
+
+type AiContextPreview = {
+  schema_version?: string;
+  exported_at?: string;
+  privacy?: AiContext["privacy"];
+  analysis_counts: {
+    snapshots: number;
+    derived_metrics: number;
+    estimated_deltas: number;
+    period_analyses: number;
+    period_comparisons: number;
+    metric_distributions: number;
+    riichi_trends: number;
+    riichi_risk_signals: number;
+    improvement_priorities: number;
+    regression_factors: number;
+    focus_recommendations: number;
+    goal_gap_comments: number;
+    data_quality_issues: number;
+  };
+  highlights: {
+    latest_observed_at_utc: string | null;
+    latest_game_mode: string | null;
+    latest_matches: number | null;
+    attack_style: string | null;
+    stability: string | null;
+    top_improvement_priority: string | null;
+    top_regression_factor: string | null;
+  };
+  analysis_request?: AiContext["analysis_request"];
+  snapshots_preview: AiContext["snapshots"];
 };
 
 const previewLabels: Record<PreviewKind, string> = {
@@ -73,34 +105,13 @@ export function ExportPage() {
       const contentType = response.headers.get("Content-Type") ?? "-";
       const contentDisposition = response.headers.get("Content-Disposition") ?? "-";
       if (kind === "ai") {
-        const data = JSON.parse(text) as {
-          schema_version?: string;
-          exported_at?: string;
-          privacy?: unknown;
-          snapshots?: unknown[];
-          improvement_priorities?: unknown[];
-          data_quality_issues?: unknown[];
-          analysis_request?: unknown;
-        };
+        const data = JSON.parse(text) as AiContext;
         setPreview({
           label: previewLabels[kind],
           contentType,
           contentDisposition,
           lineCount: text.split(/\r?\n/).length,
-          text: JSON.stringify(
-            {
-              schema_version: data.schema_version,
-              exported_at: data.exported_at,
-              privacy: data.privacy,
-              snapshot_count: data.snapshots?.length ?? 0,
-              improvement_priority_count: data.improvement_priorities?.length ?? 0,
-              data_quality_issue_count: data.data_quality_issues?.length ?? 0,
-              analysis_request: data.analysis_request,
-              snapshots_preview: data.snapshots?.slice(0, 2) ?? []
-            },
-            null,
-            2
-          )
+          text: JSON.stringify(buildAiContextPreview(data), null, 2)
         });
         return;
       }
@@ -232,6 +243,7 @@ export function ExportPage() {
             <button
               type="button"
               className="secondary-button"
+              aria-label={`${previewLabels[kind]}プレビュー`}
               disabled={previewBusy != null}
               onClick={() => void handlePreview(kind)}
             >
@@ -366,4 +378,42 @@ export function ExportPage() {
 function withParams(path: string, params: URLSearchParams): string {
   const query = params.toString();
   return query ? `${path}?${query}` : path;
+}
+
+function buildAiContextPreview(data: AiContext): AiContextPreview {
+  const latestSnapshot = data.snapshots.at(-1) ?? null;
+  const topPriority = data.improvement_priorities[0] ?? null;
+  const topRegressionFactor = data.regression_factors[0] ?? null;
+
+  return {
+    schema_version: data.schema_version,
+    exported_at: data.exported_at,
+    privacy: data.privacy,
+    analysis_counts: {
+      snapshots: data.snapshots.length,
+      derived_metrics: data.derived_metrics.length,
+      estimated_deltas: data.estimated_deltas.length,
+      period_analyses: data.period_analyses.length,
+      period_comparisons: data.period_comparisons.length,
+      metric_distributions: data.metric_distributions.length,
+      riichi_trends: data.riichi_trends.length,
+      riichi_risk_signals: data.riichi_risk_signals.length,
+      improvement_priorities: data.improvement_priorities.length,
+      regression_factors: data.regression_factors.length,
+      focus_recommendations: data.focus_recommendations.length,
+      goal_gap_comments: data.goal_gap_comments.length,
+      data_quality_issues: data.data_quality_issues.length
+    },
+    highlights: {
+      latest_observed_at_utc: latestSnapshot?.observed_at_utc ?? null,
+      latest_game_mode: latestSnapshot?.game_mode ?? null,
+      latest_matches: latestSnapshot?.matches ?? null,
+      attack_style: data.attack_style?.label ?? null,
+      stability: data.stability_score.status,
+      top_improvement_priority: topPriority?.title ?? null,
+      top_regression_factor: topRegressionFactor?.label ?? null
+    },
+    analysis_request: data.analysis_request,
+    snapshots_preview: data.snapshots.slice(0, 2)
+  };
 }

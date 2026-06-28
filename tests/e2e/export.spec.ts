@@ -206,3 +206,31 @@ test("AI JSON export returns real D1 data with privacy metadata and download hea
     await deleteSnapshots(request, snapshots);
   }
 });
+
+test("AI JSON preview shows analysis section counts", async ({
+  page,
+  request
+}, testInfo) => {
+  expectDesktopProject(testInfo);
+
+  const baseMinute = exportBaseMinute();
+  const snapshots: SnapshotExportFixture[] = [];
+
+  try {
+    snapshots.push(await createSnapshot(request, baseMinute, 0, 120));
+    snapshots.push(await createSnapshot(request, baseMinute, 1, 126));
+
+    await page.goto("/export");
+    await page.getByRole("button", { name: "AI用JSONプレビュー" }).click();
+
+    await expect(page.getByRole("heading", { name: "AI用JSONプレビュー" })).toBeVisible();
+    const preview = page.locator(".export-preview");
+    await expect(preview).toContainText("analysis_counts");
+    await expect(preview).toContainText("riichi_trends");
+    await expect(preview).toContainText("stability");
+    await expect(preview).toContainText("top_improvement_priority");
+    await expect(preview).toContainText("snapshots_preview");
+  } finally {
+    await deleteSnapshots(request, snapshots);
+  }
+});
