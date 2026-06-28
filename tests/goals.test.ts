@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   DEFAULT_ANALYSIS_GOALS,
-  buildAnalysisGoalStatuses
+  buildAnalysisGoalStatuses,
+  buildGoalGapComments
 } from "../src/shared/goals";
 import { makeSnapshot } from "./fixtures";
 
@@ -32,5 +33,27 @@ describe("analysis goals", () => {
       delta_to_target: -1
     });
     expect(statuses.some((goal) => goal.id === "rank_point_progress")).toBe(false);
+  });
+
+  it("builds comments for the largest unmet goal gaps", () => {
+    const statuses = buildAnalysisGoalStatuses(
+      DEFAULT_ANALYSIS_GOALS,
+      makeSnapshot({
+        avg_place: 2.7,
+        win_rate: 18,
+        deal_in_rate: 14,
+        fourth_rate: 24
+      })
+    );
+    const comments = buildGoalGapComments(statuses);
+
+    expect(comments.map((comment) => comment.id)).toEqual(
+      expect.arrayContaining([
+        "goal-gap-avg_place",
+        "goal-gap-win_rate",
+        "goal-gap-attack_defense_gap"
+      ])
+    );
+    expect(comments).toHaveLength(3);
   });
 });

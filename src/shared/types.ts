@@ -283,6 +283,16 @@ export type AnalysisGoalStatus = AnalysisGoal & {
   delta_to_target: number | null;
 };
 
+export type GoalGapComment = {
+  id: string;
+  title: string;
+  severity: "watch" | "risk";
+  message: string;
+  current_value: number;
+  target_value: number;
+  delta_to_target: number;
+};
+
 export type SnapshotRevision = {
   id: number;
   snapshot_id: number;

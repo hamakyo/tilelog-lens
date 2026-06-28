@@ -1,5 +1,5 @@
 import { RANK_LEVELS, RANK_POINT_MAX_BY_RANK_AND_LEVEL } from "./constants";
-import type { AnalysisGoal, AnalysisGoalStatus, Snapshot } from "./types";
+import type { AnalysisGoal, AnalysisGoalStatus, GoalGapComment, Snapshot } from "./types";
 
 function round2(value: number): number {
   return Math.round(value * 100) / 100;
@@ -104,4 +104,51 @@ export function buildAnalysisGoalStatuses(
               : round2(goal.target_value - currentValue)
       };
     });
+}
+
+export function buildGoalGapComments(statuses: AnalysisGoalStatus[]): GoalGapComment[] {
+  const weightedGap = (status: Pick<AnalysisGoalStatus, "id" | "delta_to_target">) => {
+    const delta = status.delta_to_target ?? 0;
+    if (status.id === "avg_place") return delta * 20;
+    if (status.id === "rank_point_progress") return delta * 0.5;
+    return delta;
+  };
+
+  return statuses
+    .filter(
+      (status): status is AnalysisGoalStatus & {
+        current_value: number;
+        delta_to_target: number;
+      } =>
+        status.achieved === false &&
+        status.current_value != null &&
+        status.delta_to_target != null &&
+        status.delta_to_target > 0
+    )
+    .map((status) => {
+      const severity: GoalGapComment["severity"] =
+        status.delta_to_target >= (status.id === "avg_place" ? 0.15 : 3)
+          ? "risk"
+          : "watch";
+
+      return {
+        id: `goal-gap-${status.id}`,
+        title: `${status.label}が目標未達`,
+        severity,
+        message:
+          status.direction === "at_most"
+            ? `${status.label}は目標より${status.delta_to_target.toFixed(2)}高い状態です。`
+            : `${status.label}は目標まで${status.delta_to_target.toFixed(2)}不足しています。`,
+        current_value: status.current_value,
+        target_value: status.target_value,
+        delta_to_target: status.delta_to_target
+      };
+    })
+    .sort((a, b) => {
+      const sourceA = statuses.find((status) => `goal-gap-${status.id}` === a.id);
+      const sourceB = statuses.find((status) => `goal-gap-${status.id}` === b.id);
+      return weightedGap(sourceB ?? { id: "win_rate", delta_to_target: b.delta_to_target }) -
+        weightedGap(sourceA ?? { id: "win_rate", delta_to_target: a.delta_to_target });
+    })
+    .slice(0, 3);
 }

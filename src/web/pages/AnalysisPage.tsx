@@ -39,7 +39,7 @@ import {
   buildFocusRecommendations,
   buildStabilityScore
 } from "../../shared/metrics";
-import { buildAnalysisGoalStatuses } from "../../shared/goals";
+import { buildAnalysisGoalStatuses, buildGoalGapComments } from "../../shared/goals";
 import { listDeltas, listSnapshots } from "../lib/api";
 import { loadAnalysisGoals } from "../lib/analysisGoals";
 import { loadCustomMetrics } from "../lib/customMetrics";
@@ -334,6 +334,10 @@ export function AnalysisPage({ navigate }: AnalysisPageProps) {
     () => buildAnalysisGoalStatuses(analysisGoals, latest),
     [analysisGoals, latest]
   );
+  const goalGapComments = useMemo(
+    () => buildGoalGapComments(goalStatuses),
+    [goalStatuses]
+  );
   const customMetricResults = useMemo(
     () => buildCustomMetricResults(latest, customMetrics),
     [customMetrics, latest]
@@ -548,39 +552,60 @@ export function AnalysisPage({ navigate }: AnalysisPageProps) {
         {goalStatuses.length === 0 ? (
           <p className="empty-state">有効な分析目標はありません。</p>
         ) : (
-          <div className="goal-grid">
-            {goalStatuses.map((goal) => (
-              <article className="goal-tile" key={goal.id}>
-                <div className="period-tile-header">
-                  <strong>{goal.label}</strong>
-                  <span
-                    className={`quality-pill ${
-                      goal.achieved == null
-                        ? "quality-insufficient_data"
-                        : goal.achieved
-                          ? "quality-ok"
-                          : "quality-limited_data"
-                    }`}
-                  >
-                    {goal.achieved == null ? "未判定" : goal.achieved ? "達成" : "未達"}
-                  </span>
-                </div>
-                <dl className="period-metrics">
-                  <div>
-                    <dt>現在</dt>
-                    <dd>{goalValueText(goal, goal.current_value)}</dd>
+          <>
+            <div className="goal-grid">
+              {goalStatuses.map((goal) => (
+                <article className="goal-tile" key={goal.id}>
+                  <div className="period-tile-header">
+                    <strong>{goal.label}</strong>
+                    <span
+                      className={`quality-pill ${
+                        goal.achieved == null
+                          ? "quality-insufficient_data"
+                          : goal.achieved
+                            ? "quality-ok"
+                            : "quality-limited_data"
+                      }`}
+                    >
+                      {goal.achieved == null ? "未判定" : goal.achieved ? "達成" : "未達"}
+                    </span>
                   </div>
-                  <div>
-                    <dt>目標</dt>
-                    <dd>
-                      {goal.direction === "at_most" ? "≦ " : "≧ "}
-                      {goalValueText(goal, goal.target_value)}
-                    </dd>
-                  </div>
-                </dl>
-              </article>
-            ))}
-          </div>
+                  <dl className="period-metrics">
+                    <div>
+                      <dt>現在</dt>
+                      <dd>{goalValueText(goal, goal.current_value)}</dd>
+                    </div>
+                    <div>
+                      <dt>目標</dt>
+                      <dd>
+                        {goal.direction === "at_most" ? "≦ " : "≧ "}
+                        {goalValueText(goal, goal.target_value)}
+                      </dd>
+                    </div>
+                  </dl>
+                </article>
+              ))}
+            </div>
+            {goalGapComments.length > 0 ? (
+              <div className="priority-list">
+                {goalGapComments.map((comment) => (
+                  <article className="comment-item" key={comment.id}>
+                    <span className={`severity-pill severity-${comment.severity}`}>
+                      {comment.severity === "risk" ? "危" : "注"}
+                    </span>
+                    <div className="priority-body">
+                      <h3>{comment.title}</h3>
+                      <p>{comment.message}</p>
+                      <p>
+                        現在 {formatDecimal(comment.current_value)} / 目標{" "}
+                        {formatDecimal(comment.target_value)}
+                      </p>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            ) : null}
+          </>
         )}
       </section>
 
