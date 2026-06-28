@@ -11,6 +11,7 @@ import {
   buildMetricDistributions,
   buildPeriodComparisons,
   buildPeriodAnalyses,
+  buildRiichiRiskSignals,
   buildRiichiTrendAnalyses,
   buildRankPointAnalysis,
   buildSnapshotComparison
@@ -174,6 +175,41 @@ describe("metrics", () => {
       deal_in_rate: 16,
       status: "risk"
     });
+  });
+
+  it("builds riichi risk signals from combined riichi indicators", () => {
+    const signals = buildRiichiRiskSignals([
+      makeSnapshot({
+        id: 1,
+        observed_at_utc: "2026-06-01T00:00:00.000Z",
+        matches: 100,
+        win_rate: 20,
+        deal_in_rate: 10,
+        riichi_rate: 20,
+        avg_win_turn: 12.2,
+        avg_win_score: 7000
+      }),
+      makeSnapshot({
+        id: 2,
+        observed_at_utc: "2026-06-02T00:00:00.000Z",
+        matches: 150,
+        win_rate: 18,
+        deal_in_rate: 14,
+        riichi_rate: 27,
+        avg_win_turn: 12.8,
+        avg_win_score: 6200
+      })
+    ]);
+
+    expect(signals.map((signal) => signal.id)).toEqual(
+      expect.arrayContaining([
+        "high-riichi-low-win",
+        "high-riichi-high-deal-in",
+        "late-win-turn-low-win",
+        "low-score-low-win"
+      ])
+    );
+    expect(signals[0].severity).toBe("risk");
   });
 
   it("ranks improvement priorities from latest and recent rates", () => {

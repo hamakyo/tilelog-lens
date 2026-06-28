@@ -32,7 +32,8 @@ import {
   buildPeriodAnalyses,
   buildRankPointAnalysis,
   buildMetricDistributions,
-  buildRiichiTrendAnalyses
+  buildRiichiTrendAnalyses,
+  buildRiichiRiskSignals
 } from "../../shared/metrics";
 import { buildAnalysisGoalStatuses } from "../../shared/goals";
 import { listDeltas, listSnapshots } from "../lib/api";
@@ -271,6 +272,10 @@ export function AnalysisPage({ navigate }: AnalysisPageProps) {
   );
   const riichiTrendAnalyses = useMemo(
     () => buildRiichiTrendAnalyses(modeSnapshots),
+    [modeSnapshots]
+  );
+  const riichiRiskSignals = useMemo(
+    () => buildRiichiRiskSignals(modeSnapshots),
     [modeSnapshots]
   );
   const periodComparisons = useMemo(
@@ -773,6 +778,31 @@ export function AnalysisPage({ navigate }: AnalysisPageProps) {
             </article>
           ))}
         </div>
+      </section>
+
+      <section className="analysis-section">
+        <div className="section-heading">
+          <h2>立直リスクシグナル</h2>
+          <p>立直率と攻守指標の組み合わせから、確認すべき兆候を抽出します。</p>
+        </div>
+        {riichiRiskSignals.length === 0 ? (
+          <p className="empty-state">大きな立直リスクシグナルはありません。</p>
+        ) : (
+          <div className="priority-list">
+            {riichiRiskSignals.map((signal) => (
+              <article className="comment-item" key={signal.id}>
+                <span className={`severity-pill severity-${signal.severity}`}>
+                  {signal.severity === "risk" ? "危" : "注"}
+                </span>
+                <div className="priority-body">
+                  <h3>{signal.title}</h3>
+                  <p>{signal.message}</p>
+                  <p>{signal.focus.join(" / ")}</p>
+                </div>
+              </article>
+            ))}
+          </div>
+        )}
       </section>
 
       <section className="analysis-section">

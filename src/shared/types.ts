@@ -168,6 +168,14 @@ export type RiichiTrendAnalysis = {
   message: string;
 };
 
+export type RiichiRiskSignal = {
+  id: string;
+  title: string;
+  severity: "watch" | "risk";
+  message: string;
+  focus: string[];
+};
+
 export type ImprovementPriority = {
   id: string;
   title: string;

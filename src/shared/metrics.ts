@@ -9,6 +9,7 @@ import type {
   PeriodComparison,
   PeriodAnalysis,
   RankPointAnalysis,
+  RiichiRiskSignal,
   RiichiTrendAnalysis,
   Snapshot,
   SnapshotComparison,
@@ -432,6 +433,72 @@ export function buildRiichiTrendAnalyses(snapshots: Snapshot[]): RiichiTrendAnal
               : "立直トレンドの判定には、同じモードの追加記録が必要です。"
     };
   });
+}
+
+export function buildRiichiRiskSignals(snapshots: Snapshot[]): RiichiRiskSignal[] {
+  const ordered = [...snapshots].sort(byObservedAsc);
+  const latest = ordered.at(-1);
+  if (!latest) return [];
+
+  const recent = buildRiichiTrendAnalyses(ordered).find(
+    (trend) => trend.status !== "insufficient_data"
+  );
+  const recentRiichiRate = recent?.riichi_rate ?? latest.riichi_rate;
+  const recentWinRate = recent?.win_rate ?? latest.win_rate;
+  const recentDealInRate = recent?.deal_in_rate ?? latest.deal_in_rate;
+  const signals: RiichiRiskSignal[] = [];
+
+  if (recentRiichiRate >= 24 && recentWinRate < 20) {
+    signals.push({
+      id: "high-riichi-low-win",
+      title: "高立直率 + 低和了率",
+      severity: "risk",
+      message: `直近期の立直率は${recentRiichiRate.toFixed(2)}%、和了率は${recentWinRate.toFixed(2)}%です。待ちの質や先制でない立直を確認してください。`,
+      focus: ["立直率", "和了率", "待ちの質"]
+    });
+  }
+
+  if (recentRiichiRate >= 24 && recentDealInRate >= 13) {
+    signals.push({
+      id: "high-riichi-high-deal-in",
+      title: "高立直率 + 高放銃率",
+      severity: "risk",
+      message: `直近期の立直率は${recentRiichiRate.toFixed(2)}%、放銃率は${recentDealInRate.toFixed(2)}%です。危険局面の立直判断を確認してください。`,
+      focus: ["立直率", "放銃率", "終盤立直"]
+    });
+  }
+
+  if (recentRiichiRate < 16 && recentWinRate < 22) {
+    signals.push({
+      id: "low-riichi-low-win",
+      title: "低立直率 + 低和了率",
+      severity: "watch",
+      message: `直近期の立直率は${recentRiichiRate.toFixed(2)}%、和了率は${recentWinRate.toFixed(2)}%です。門前手の打点化やリーチ判断が消極的になっていないか確認してください。`,
+      focus: ["立直率", "和了率", "門前手"]
+    });
+  }
+
+  if (latest.avg_win_turn != null && latest.avg_win_turn >= 12.5 && latest.win_rate < 20) {
+    signals.push({
+      id: "late-win-turn-low-win",
+      title: "和了巡目遅め + 低和了率",
+      severity: "watch",
+      message: `平均和了巡は${latest.avg_win_turn.toFixed(2)}巡、和了率は${latest.win_rate.toFixed(2)}%です。手組み速度と立直までの巡目を確認してください。`,
+      focus: ["平均和了巡", "和了率", "手組み速度"]
+    });
+  }
+
+  if (latest.avg_win_score != null && latest.avg_win_score < 6500 && latest.win_rate < 20) {
+    signals.push({
+      id: "low-score-low-win",
+      title: "低打点 + 低和了率",
+      severity: "watch",
+      message: `平均和了点は${latest.avg_win_score}点、和了率は${latest.win_rate.toFixed(2)}%です。立直で打点を作る局面と速度を両方確認してください。`,
+      focus: ["平均和了点", "和了率", "打点作り"]
+    });
+  }
+
+  return signals.slice(0, 4);
 }
 
 export function buildImprovementPriorities(
