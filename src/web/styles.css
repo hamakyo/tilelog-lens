@@ -518,7 +518,8 @@ h2 {
   font-weight: 800;
 }
 
-.quality-ok {
+.quality-ok,
+.quality-good {
   background: var(--color-success-bg);
   color: var(--color-success-text);
 }
@@ -534,7 +535,8 @@ h2 {
   color: var(--color-warning-text);
 }
 
-.quality-volatile {
+.quality-volatile,
+.quality-risk {
   background: var(--color-danger-bg-soft);
   color: var(--color-danger-text);
 }

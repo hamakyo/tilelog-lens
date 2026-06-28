@@ -31,7 +31,8 @@ import {
   buildPeriodComparisons,
   buildPeriodAnalyses,
   buildRankPointAnalysis,
-  buildMetricDistributions
+  buildMetricDistributions,
+  buildRiichiTrendAnalyses
 } from "../../shared/metrics";
 import { buildAnalysisGoalStatuses } from "../../shared/goals";
 import { listDeltas, listSnapshots } from "../lib/api";
@@ -266,6 +267,10 @@ export function AnalysisPage({ navigate }: AnalysisPageProps) {
   );
   const periodAnalyses = useMemo(
     () => buildPeriodAnalyses(modeSnapshots),
+    [modeSnapshots]
+  );
+  const riichiTrendAnalyses = useMemo(
+    () => buildRiichiTrendAnalyses(modeSnapshots),
     [modeSnapshots]
   );
   const periodComparisons = useMemo(
@@ -722,6 +727,51 @@ export function AnalysisPage({ navigate }: AnalysisPageProps) {
               </div>
             ))
           )}
+        </div>
+      </section>
+
+      <section className="analysis-section">
+        <div className="section-heading">
+          <h2>立直トレンド</h2>
+          <p>直近期の立直率と、和了率・放銃率の組み合わせを確認します。</p>
+        </div>
+        <div className="period-grid">
+          {riichiTrendAnalyses.map((trend) => (
+            <article className="period-tile" key={trend.label}>
+              <div className="period-tile-header">
+                <strong>{trend.label}</strong>
+                <span>{trend.actual_matches > 0 ? `${trend.actual_matches}戦` : "-"}</span>
+              </div>
+              <dl className="period-metrics">
+                <div>
+                  <dt>立直率</dt>
+                  <dd>{formatRate(trend.riichi_rate)}</dd>
+                </div>
+                <div>
+                  <dt>和了率</dt>
+                  <dd>{formatRate(trend.win_rate)}</dd>
+                </div>
+                <div>
+                  <dt>放銃率</dt>
+                  <dd>{formatRate(trend.deal_in_rate)}</dd>
+                </div>
+                <div>
+                  <dt>バランス</dt>
+                  <dd>{formatDecimal(trend.balance_gap)}</dd>
+                </div>
+              </dl>
+              <p className="period-empty">{trend.message}</p>
+              <span className={`quality-pill quality-${trend.status}`}>
+                {trend.status === "good"
+                  ? "良好"
+                  : trend.status === "watch"
+                    ? "注意"
+                    : trend.status === "risk"
+                      ? "危険"
+                      : "不足"}
+              </span>
+            </article>
+          ))}
         </div>
       </section>
 

@@ -11,6 +11,7 @@ import {
   buildMetricDistributions,
   buildPeriodComparisons,
   buildPeriodAnalyses,
+  buildRiichiTrendAnalyses,
   buildRankPointAnalysis,
   buildSnapshotComparison
 } from "../src/shared/metrics";
@@ -134,6 +135,44 @@ describe("metrics", () => {
       actual_matches: 100,
       period_win_rate: 30,
       quality: "ok"
+    });
+  });
+
+  it("builds riichi trend analyses from recent cumulative deltas", () => {
+    const trends = buildRiichiTrendAnalyses([
+      makeSnapshot({
+        id: 1,
+        observed_at_utc: "2026-06-01T00:00:00.000Z",
+        matches: 100,
+        win_rate: 20,
+        deal_in_rate: 10,
+        riichi_rate: 20,
+        first_rate: 25,
+        second_rate: 25,
+        third_rate: 25,
+        fourth_rate: 25
+      }),
+      makeSnapshot({
+        id: 2,
+        observed_at_utc: "2026-06-02T00:00:00.000Z",
+        matches: 150,
+        win_rate: 19.33,
+        deal_in_rate: 12,
+        riichi_rate: 24,
+        first_rate: 25,
+        second_rate: 25,
+        third_rate: 25,
+        fourth_rate: 25
+      })
+    ]);
+
+    expect(trends[0]).toMatchObject({
+      label: "直近10戦",
+      actual_matches: 50,
+      riichi_rate: 32,
+      win_rate: 18,
+      deal_in_rate: 16,
+      status: "risk"
     });
   });
 

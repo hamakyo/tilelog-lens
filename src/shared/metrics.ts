@@ -9,6 +9,7 @@ import type {
   PeriodComparison,
   PeriodAnalysis,
   RankPointAnalysis,
+  RiichiTrendAnalysis,
   Snapshot,
   SnapshotComparison,
   SnapshotComparisonMetric,
@@ -392,6 +393,45 @@ export function buildPeriodAnalyses(
   }
 
   return analyses;
+}
+
+export function buildRiichiTrendAnalyses(snapshots: Snapshot[]): RiichiTrendAnalysis[] {
+  return buildPeriodAnalyses(snapshots, [10, 50, 100]).map((period) => {
+    const riichiRate = period.period_riichi_rate ?? null;
+    const winRate = period.period_win_rate ?? null;
+    const dealInRate = period.period_deal_in_rate ?? null;
+    const balanceGap =
+      riichiRate == null || winRate == null || dealInRate == null
+        ? null
+        : round2(winRate - dealInRate - Math.max(0, riichiRate - 20) * 0.2);
+    const status: RiichiTrendAnalysis["status"] =
+      period.quality === "insufficient_data" || riichiRate == null || winRate == null || dealInRate == null
+        ? "insufficient_data"
+        : (riichiRate >= 24 && (winRate < 20 || dealInRate >= 13)) ||
+            (balanceGap != null && balanceGap < 3)
+          ? "risk"
+          : riichiRate >= 22 && (winRate < 21 || dealInRate >= 12)
+            ? "watch"
+            : "good";
+
+    return {
+      label: period.label,
+      actual_matches: period.actual_matches,
+      riichi_rate: riichiRate,
+      win_rate: winRate,
+      deal_in_rate: dealInRate,
+      balance_gap: balanceGap,
+      status,
+      message:
+        status === "good"
+          ? "直近期の立直率と攻守のバランスは大きく崩れていません。"
+          : status === "watch"
+            ? "立直率と和了率・放銃率の組み合わせに注意が必要です。"
+            : status === "risk"
+              ? "立直が和了率低下または放銃増加と同時に出ている可能性があります。"
+              : "立直トレンドの判定には、同じモードの追加記録が必要です。"
+    };
+  });
 }
 
 export function buildImprovementPriorities(

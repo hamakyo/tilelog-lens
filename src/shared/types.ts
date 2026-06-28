@@ -157,6 +157,17 @@ export type PeriodAnalysis = {
   quality: "ok" | "limited_data" | "insufficient_data";
 };
 
+export type RiichiTrendAnalysis = {
+  label: string;
+  actual_matches: number;
+  riichi_rate: number | null;
+  win_rate: number | null;
+  deal_in_rate: number | null;
+  balance_gap: number | null;
+  status: "good" | "watch" | "risk" | "insufficient_data";
+  message: string;
+};
+
 export type ImprovementPriority = {
   id: string;
   title: string;
