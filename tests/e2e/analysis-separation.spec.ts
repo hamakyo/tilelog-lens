@@ -1,4 +1,10 @@
-import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
+import {
+  expect,
+  test,
+  type APIRequestContext,
+  type Page,
+  type TestInfo
+} from "@playwright/test";
 import { randomInt } from "node:crypto";
 
 type SnapshotFixture = {
@@ -100,6 +106,13 @@ async function expectNoHorizontalOverflow(page: Page): Promise<void> {
     return document.documentElement.scrollWidth > document.documentElement.clientWidth;
   });
   expect(hasOverflow).toBe(false);
+}
+
+function expectDesktopProject(testInfo: TestInfo): void {
+  test.skip(
+    testInfo.project.name !== "desktop-chrome",
+    "sidebar collapse is a desktop-only interaction"
+  );
 }
 
 test("/ shows latest summary, major trends, and navigation to detailed analysis", async ({
@@ -252,4 +265,29 @@ test("sidebar navigates to /analysis", async ({ page }) => {
 
   await expect(page).toHaveURL(/\/analysis(?:\?tab=overview)?$/);
   await expect(page.getByRole("heading", { name: "詳細分析" })).toBeVisible();
+});
+
+test("desktop sidebar can be collapsed and restored", async ({ page }, testInfo) => {
+  expectDesktopProject(testInfo);
+
+  await page.goto("/");
+  const shell = page.locator(".app-shell");
+  const detailLabel = page.locator(".sidebar nav a span", { hasText: "詳細分析" });
+
+  await expect(shell).not.toHaveClass(/sidebar-collapsed/);
+  await expect(detailLabel).toBeVisible();
+
+  await page.getByRole("button", { name: "メニューを閉じる" }).click();
+  await expect(shell).toHaveClass(/sidebar-collapsed/);
+  await expect(detailLabel).toBeHidden();
+  await expect(
+    page.getByRole("navigation", { name: "メインナビゲーション" }).getByRole("link", { name: "詳細分析" })
+  ).toBeVisible();
+
+  await page.reload();
+  await expect(shell).toHaveClass(/sidebar-collapsed/);
+
+  await page.getByRole("button", { name: "メニューを開く" }).click();
+  await expect(shell).not.toHaveClass(/sidebar-collapsed/);
+  await expect(detailLabel).toBeVisible();
 });

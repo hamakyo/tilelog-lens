@@ -6,6 +6,8 @@ import GitCompareArrows from "lucide-react/dist/esm/icons/git-compare-arrows.js"
 import History from "lucide-react/dist/esm/icons/history.js";
 import LayoutDashboard from "lucide-react/dist/esm/icons/layout-dashboard.js";
 import List from "lucide-react/dist/esm/icons/list.js";
+import PanelLeftClose from "lucide-react/dist/esm/icons/panel-left-close.js";
+import PanelLeftOpen from "lucide-react/dist/esm/icons/panel-left-open.js";
 import Settings from "lucide-react/dist/esm/icons/settings.js";
 import ShieldCheck from "lucide-react/dist/esm/icons/shield-check.js";
 import Server from "lucide-react/dist/esm/icons/server.js";
@@ -47,12 +49,31 @@ const navItems: NavItem[] = [
   { path: "/settings", label: "設定", icon: Settings }
 ];
 
+const sidebarCollapsedStorageKey = "tilelog-lens:sidebar-collapsed";
+
 function getPath(): string {
   return window.location.pathname || "/";
 }
 
+function loadSidebarCollapsed(): boolean {
+  try {
+    return window.localStorage.getItem(sidebarCollapsedStorageKey) === "true";
+  } catch {
+    return false;
+  }
+}
+
+function saveSidebarCollapsed(collapsed: boolean): void {
+  try {
+    window.localStorage.setItem(sidebarCollapsedStorageKey, String(collapsed));
+  } catch {
+    // localStorage can be unavailable in hardened browser settings.
+  }
+}
+
 export function App() {
   const [path, setPath] = useState(getPath);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(loadSidebarCollapsed);
   const [themePreference, setThemePreference] = useState<ThemePreference>(() =>
     loadThemePreference()
   );
@@ -83,6 +104,14 @@ export function App() {
     setThemePreference(preference);
   };
 
+  const toggleSidebar = () => {
+    setSidebarCollapsed((current) => {
+      const next = !current;
+      saveSidebarCollapsed(next);
+      return next;
+    });
+  };
+
   const content = useMemo(() => {
     if (path === "/") return <DashboardPage navigate={navigate} />;
     if (path === "/analysis") return <AnalysisPage navigate={navigate} />;
@@ -111,14 +140,29 @@ export function App() {
   }, [path, themePreference]);
 
   return (
-    <div className="app-shell">
+    <div className={`app-shell${sidebarCollapsed ? " sidebar-collapsed" : ""}`}>
       <aside className="sidebar">
-        <div className="brand-block">
-          <BarChart3 size={28} aria-hidden="true" />
-          <div>
-            <strong>TileLog Lens</strong>
-            <span>個人成績トラッカー</span>
+        <div className="sidebar-header">
+          <div className="brand-block">
+            <BarChart3 size={28} aria-hidden="true" />
+            <div>
+              <strong>TileLog Lens</strong>
+              <span>個人成績トラッカー</span>
+            </div>
           </div>
+          <button
+            type="button"
+            className="sidebar-toggle"
+            aria-label={sidebarCollapsed ? "メニューを開く" : "メニューを閉じる"}
+            title={sidebarCollapsed ? "メニューを開く" : "メニューを閉じる"}
+            onClick={toggleSidebar}
+          >
+            {sidebarCollapsed ? (
+              <PanelLeftOpen size={18} aria-hidden="true" />
+            ) : (
+              <PanelLeftClose size={18} aria-hidden="true" />
+            )}
+          </button>
         </div>
         <nav aria-label="メインナビゲーション">
           {navItems.map((item) => {
@@ -131,6 +175,7 @@ export function App() {
               <a
                 key={item.path}
                 href={item.path}
+                aria-label={item.label}
                 className={active ? "active" : ""}
                 onClick={(event) => {
                   event.preventDefault();
