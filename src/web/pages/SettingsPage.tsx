@@ -18,6 +18,18 @@ import {
   resetCustomMetrics,
   saveCustomMetrics
 } from "../lib/customMetrics";
+import {
+  buildPreferencesFromIds,
+  dashboardCardDefinitions,
+  dashboardCardPresetLabels,
+  dashboardCardPresets,
+  loadDashboardCardPreferences,
+  resetDashboardCardPreferences,
+  saveDashboardCardPreferences,
+  type DashboardCardId,
+  type DashboardCardPreference,
+  type DashboardCardPresetId
+} from "../lib/dashboardCards";
 import type { SidebarPreference } from "../lib/sidebar";
 import type { ThemePreference } from "../lib/theme";
 
@@ -59,6 +71,8 @@ export function SettingsPage({
   const [customMetrics, setCustomMetrics] = useState<CustomMetricDefinition[]>(() =>
     loadCustomMetrics()
   );
+  const [dashboardCards, setDashboardCards] =
+    useState<DashboardCardPreference[]>(() => loadDashboardCardPreferences());
   const [customMetricDraft, setCustomMetricDraft] =
     useState<CustomMetricDefinition>(emptyCustomMetricDraft);
   const [message, setMessage] = useState<string | null>(null);
@@ -113,6 +127,44 @@ export function SettingsPage({
     setMessage("カスタム指標を初期値に戻しました。");
   }
 
+  function dashboardCardDefinition(id: DashboardCardId) {
+    return dashboardCardDefinitions.find((definition) => definition.id === id);
+  }
+
+  function toggleDashboardCard(id: DashboardCardId, enabled: boolean) {
+    setDashboardCards((current) =>
+      current.map((card) => (card.id === id ? { ...card, enabled } : card))
+    );
+  }
+
+  function moveDashboardCard(id: DashboardCardId, direction: -1 | 1) {
+    setDashboardCards((current) => {
+      const index = current.findIndex((card) => card.id === id);
+      const nextIndex = index + direction;
+      if (index < 0 || nextIndex < 0 || nextIndex >= current.length) return current;
+
+      const next = [...current];
+      const [item] = next.splice(index, 1);
+      next.splice(nextIndex, 0, item);
+      return next;
+    });
+  }
+
+  function applyDashboardCardPreset(presetId: DashboardCardPresetId) {
+    setDashboardCards(buildPreferencesFromIds(dashboardCardPresets[presetId]));
+    setMessage(`${dashboardCardPresetLabels[presetId]}のカード構成を適用しました。保存すると反映されます。`);
+  }
+
+  function handleSaveDashboardCards() {
+    saveDashboardCardPreferences(dashboardCards);
+    setMessage("ダッシュボードカード設定を保存しました。");
+  }
+
+  function handleResetDashboardCards() {
+    setDashboardCards(resetDashboardCardPreferences());
+    setMessage("ダッシュボードカード設定を初期値に戻しました。");
+  }
+
   return (
     <main className="page-stack">
       <div className="page-header">
@@ -161,6 +213,84 @@ export function SettingsPage({
               {option.label}
             </button>
           ))}
+        </div>
+      </section>
+
+      <section className="settings-panel">
+        <div className="section-heading inline-heading">
+          <h2>ダッシュボードカード</h2>
+          <p>表示するカードと並び順を選択します。</p>
+        </div>
+        <div className="segmented-control" role="group" aria-label="カードプリセット">
+          {(Object.keys(dashboardCardPresets) as DashboardCardPresetId[]).map((presetId) => (
+            <button
+              key={presetId}
+              type="button"
+              onClick={() => applyDashboardCardPreset(presetId)}
+            >
+              {dashboardCardPresetLabels[presetId]}
+            </button>
+          ))}
+        </div>
+        <div className="table-scroll compact-table">
+          <table>
+            <thead>
+              <tr>
+                <th>表示</th>
+                <th>カード</th>
+                <th>説明</th>
+                <th>順序</th>
+              </tr>
+            </thead>
+            <tbody>
+              {dashboardCards.map((card, index) => {
+                const definition = dashboardCardDefinition(card.id);
+                return (
+                  <tr key={card.id}>
+                    <td>
+                      <input
+                        type="checkbox"
+                        checked={card.enabled}
+                        onChange={(event) =>
+                          toggleDashboardCard(card.id, event.target.checked)
+                        }
+                      />
+                    </td>
+                    <td>{definition?.label ?? card.id}</td>
+                    <td>{definition?.description ?? "-"}</td>
+                    <td>
+                      <div className="table-action-row">
+                        <button
+                          type="button"
+                          className="secondary-button compact-button"
+                          disabled={index === 0}
+                          onClick={() => moveDashboardCard(card.id, -1)}
+                        >
+                          上へ
+                        </button>
+                        <button
+                          type="button"
+                          className="secondary-button compact-button"
+                          disabled={index === dashboardCards.length - 1}
+                          onClick={() => moveDashboardCard(card.id, 1)}
+                        >
+                          下へ
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+        <div className="form-actions split-actions">
+          <button type="button" className="secondary-button" onClick={handleResetDashboardCards}>
+            初期値に戻す
+          </button>
+          <button type="button" className="primary-button" onClick={handleSaveDashboardCards}>
+            カード設定を保存
+          </button>
         </div>
       </section>
 

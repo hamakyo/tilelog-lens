@@ -15,6 +15,10 @@ import {
 } from "../../shared/constants";
 import { buildEstimatedDeltas, buildRankPointAnalysis } from "../../shared/metrics";
 import { listDeltas, listSnapshots } from "../lib/api";
+import {
+  loadDashboardCardPreferences,
+  type DashboardCardId
+} from "../lib/dashboardCards";
 import { formatDecimal, formatNumber, formatRate } from "../lib/format";
 import { RankRatePieChart } from "../components/RankRatePieChart";
 import { TrendChart } from "../components/TrendChart";
@@ -29,6 +33,13 @@ type ChartPoint = {
   win_rate: number;
   deal_in_rate: number;
   rank_point_progress: number | null;
+};
+
+type DashboardCardView = {
+  id: DashboardCardId;
+  icon: typeof Gauge;
+  label: string;
+  value: string;
 };
 
 function rankPointMaxForSnapshot(snapshot: Snapshot): number | null {
@@ -80,6 +91,7 @@ export function DashboardPage({ navigate }: DashboardPageProps) {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedMode, setSelectedMode] = useState<Snapshot["game_mode"] | "all">("all");
+  const [cardPreferences] = useState(() => loadDashboardCardPreferences());
 
   useEffect(() => {
     Promise.all([listSnapshots(), listDeltas()])
@@ -123,6 +135,56 @@ export function DashboardPage({ navigate }: DashboardPageProps) {
     [deltas, displaySnapshots, selectedMode]
   );
   const latestDelta = displayDeltas.at(-1);
+  const dashboardCards = useMemo<DashboardCardView[]>(() => {
+    const cardMap: Record<DashboardCardId, DashboardCardView> = {
+      avg_place: {
+        id: "avg_place",
+        icon: Gauge,
+        label: "最新の平均順位",
+        value: latest ? formatDecimal(latest.avg_place) : "-"
+      },
+      win_deal_rate: {
+        id: "win_deal_rate",
+        icon: Activity,
+        label: "最新の和了率 / 放銃率",
+        value: latest
+          ? `${formatRate(latest.win_rate)} / ${formatRate(latest.deal_in_rate)}`
+          : "-"
+      },
+      matches_delta: {
+        id: "matches_delta",
+        icon: ShieldAlert,
+        label: "最新の対戦数差分",
+        value: latestDelta ? formatNumber(latestDelta.matches_delta) : "-"
+      },
+      rank_points: {
+        id: "rank_points",
+        icon: Flag,
+        label: "段位 / 昇格まで",
+        value:
+          rankPointAnalysis?.remaining_points == null
+            ? rankLabel(latest)
+            : `${rankLabel(latest)} / ${formatNumber(rankPointAnalysis.remaining_points)}pt`
+      },
+      fourth_rate: {
+        id: "fourth_rate",
+        icon: ShieldAlert,
+        label: "最新のラス率",
+        value: latest ? formatRate(latest.fourth_rate) : "-"
+      },
+      riichi_rate: {
+        id: "riichi_rate",
+        icon: BarChart3,
+        label: "最新の立直率",
+        value: latest ? formatRate(latest.riichi_rate) : "-"
+      }
+    };
+
+    return cardPreferences
+      .filter((preference) => preference.enabled)
+      .map((preference) => cardMap[preference.id])
+      .filter((card): card is DashboardCardView => card != null);
+  }, [cardPreferences, latest, latestDelta, rankPointAnalysis]);
 
   return (
     <main className="page-stack">
@@ -167,32 +229,16 @@ export function DashboardPage({ navigate }: DashboardPageProps) {
       </section>
 
       <section className="summary-grid">
-        <div className="summary-tile">
-          <Gauge size={20} aria-hidden="true" />
-          <span>最新の平均順位</span>
-          <strong>{latest ? formatDecimal(latest.avg_place) : "-"}</strong>
-        </div>
-        <div className="summary-tile">
-          <Activity size={20} aria-hidden="true" />
-          <span>最新の和了率 / 放銃率</span>
-          <strong>
-            {latest ? `${formatRate(latest.win_rate)} / ${formatRate(latest.deal_in_rate)}` : "-"}
-          </strong>
-        </div>
-        <div className="summary-tile">
-          <ShieldAlert size={20} aria-hidden="true" />
-          <span>最新の対戦数差分</span>
-          <strong>{latestDelta ? formatNumber(latestDelta.matches_delta) : "-"}</strong>
-        </div>
-        <div className="summary-tile">
-          <Flag size={20} aria-hidden="true" />
-          <span>段位 / 昇格まで</span>
-          <strong>
-            {rankPointAnalysis?.remaining_points == null
-              ? rankLabel(latest)
-              : `${rankLabel(latest)} / ${formatNumber(rankPointAnalysis.remaining_points)}pt`}
-          </strong>
-        </div>
+        {dashboardCards.map((card) => {
+          const Icon = card.icon;
+          return (
+            <div className="summary-tile" key={card.id}>
+              <Icon size={20} aria-hidden="true" />
+              <span>{card.label}</span>
+              <strong>{card.value}</strong>
+            </div>
+          );
+        })}
       </section>
 
       <section className="analysis-section dashboard-focus">

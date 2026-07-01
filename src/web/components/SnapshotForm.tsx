@@ -107,6 +107,15 @@ type OcrDiffItem = {
   changedAfterOcr: boolean;
 };
 
+type PreviousSnapshotDiffItem = {
+  field: keyof SnapshotFormValues;
+  label: string;
+  previousValue: string;
+  currentValue: string;
+  deltaValue: string;
+  level: "normal" | "watch" | "risk";
+};
+
 const fieldLabels: Record<keyof SnapshotFormValues, string> = {
   observed_date: "日付",
   observed_time: "時刻",
@@ -412,6 +421,112 @@ function numericValue(values: SnapshotFormValues, field: keyof SnapshotFormValue
   return Number.isFinite(numberValue) ? numberValue : null;
 }
 
+function signedNumber(value: number, digits = 2): string {
+  const fixed = value.toFixed(digits);
+  return value > 0 ? `+${fixed}` : fixed;
+}
+
+function formatPreviousDiffValue(field: keyof SnapshotFormValues, value: number): string {
+  if (field === "matches") return `${Math.round(value)}戦`;
+  if (field === "rank_points") return `${Math.round(value)}pt`;
+  if (field === "avg_win_score") return `${Math.round(value)}点`;
+  if (field === "avg_place" || field === "avg_win_turn") return value.toFixed(2);
+  if (rateFormFields.includes(field)) return `${value.toFixed(2)}%`;
+  return value.toString();
+}
+
+function formatPreviousDeltaValue(field: keyof SnapshotFormValues, delta: number): string {
+  if (field === "matches") return `${delta >= 0 ? "+" : ""}${Math.round(delta)}戦`;
+  if (field === "rank_points") return `${delta >= 0 ? "+" : ""}${Math.round(delta)}pt`;
+  if (field === "avg_win_score") return `${delta >= 0 ? "+" : ""}${Math.round(delta)}点`;
+  if (field === "avg_place" || field === "avg_win_turn") return signedNumber(delta);
+  if (rateFormFields.includes(field)) return `${signedNumber(delta)}pt`;
+  return signedNumber(delta);
+}
+
+function previousDiffLevel(field: keyof SnapshotFormValues, delta: number): PreviousSnapshotDiffItem["level"] {
+  const absoluteDelta = Math.abs(delta);
+  if (field === "matches") {
+    if (delta < 0 || delta > 400) return "risk";
+    if (delta === 0 || delta > 120) return "watch";
+    return "normal";
+  }
+  if (field === "avg_place") {
+    if (absoluteDelta >= 0.2) return "risk";
+    if (absoluteDelta >= 0.1) return "watch";
+    return "normal";
+  }
+  if (field === "rank_points") {
+    if (absoluteDelta >= 600) return "risk";
+    if (absoluteDelta >= 300) return "watch";
+    return "normal";
+  }
+  if (field === "avg_win_score") {
+    if (absoluteDelta >= 1500) return "risk";
+    if (absoluteDelta >= 800) return "watch";
+    return "normal";
+  }
+  if (field === "avg_win_turn") {
+    if (absoluteDelta >= 1.5) return "risk";
+    if (absoluteDelta >= 0.8) return "watch";
+    return "normal";
+  }
+  if (rateFormFields.includes(field)) {
+    if (absoluteDelta >= 5) return "risk";
+    if (absoluteDelta >= 2.5) return "watch";
+  }
+  return "normal";
+}
+
+function snapshotNumberValue(
+  snapshot: Snapshot,
+  field: keyof SnapshotFormValues
+): number | null {
+  const value = snapshot[field as keyof Snapshot];
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+function buildPreviousSnapshotDiffItems(
+  previousSnapshot: Snapshot | undefined,
+  values: SnapshotFormValues
+): PreviousSnapshotDiffItem[] {
+  if (!previousSnapshot) return [];
+
+  const fields: Array<keyof SnapshotFormValues> = [
+    "matches",
+    "rank_points",
+    "avg_place",
+    "first_rate",
+    "second_rate",
+    "third_rate",
+    "fourth_rate",
+    "win_rate",
+    "deal_in_rate",
+    "call_rate",
+    "riichi_rate",
+    "avg_win_score",
+    "avg_win_turn"
+  ];
+
+  return fields.flatMap((field) => {
+    const previousValue = snapshotNumberValue(previousSnapshot, field);
+    const currentValue = numericValue(values, field);
+    if (previousValue == null || currentValue == null) return [];
+
+    const delta = currentValue - previousValue;
+    return [
+      {
+        field,
+        label: fieldLabels[field],
+        previousValue: formatPreviousDiffValue(field, previousValue),
+        currentValue: formatPreviousDiffValue(field, currentValue),
+        deltaValue: formatPreviousDeltaValue(field, delta),
+        level: previousDiffLevel(field, delta)
+      }
+    ];
+  });
+}
+
 function confidenceClass(confidence: OcrConfidenceLevel): string {
   if (confidence === "高") return "high";
   if (confidence === "中") return "medium";
@@ -557,6 +672,7 @@ export function SnapshotForm({
   );
   const [selectedPresetId, setSelectedPresetId] = useState("");
   const [presetName, setPresetName] = useState("");
+  const [importReviewConfirmed, setImportReviewConfirmed] = useState(false);
 
   useEffect(() => {
     setValues(toValues(initialSnapshot));
@@ -621,6 +737,45 @@ export function SnapshotForm({
     () => buildOcrDiffItems(ocrBaselineValues, lastOcrFields, values),
     [lastOcrFields, ocrBaselineValues, values]
   );
+  const previousSnapshotDiffItems = useMemo(
+    () => buildPreviousSnapshotDiffItems(previousSnapshot, values),
+    [previousSnapshot, values]
+  );
+  const importReviewRiskCount = useMemo(
+    () =>
+      previousSnapshotDiffItems.filter((item) => item.level === "risk").length +
+      duplicateCandidates.length +
+      ocrDiffItems.filter((item) => item.changedAfterOcr).length,
+    [duplicateCandidates.length, ocrDiffItems, previousSnapshotDiffItems]
+  );
+  const needsImportReview =
+    hasRequiredStats(values) &&
+    (previousSnapshotDiffItems.length > 0 ||
+      duplicateCandidates.length > 0 ||
+      ocrDiffItems.length > 0);
+  const importReviewSignature = useMemo(
+    () =>
+      JSON.stringify({
+        previous: previousSnapshotDiffItems.map((item) => [
+          item.field,
+          item.currentValue,
+          item.deltaValue,
+          item.level
+        ]),
+        duplicateIds: duplicateCandidates.map((candidate) => candidate.snapshot_id),
+        ocr: ocrDiffItems.map((item) => [
+          item.field,
+          item.ocrValue,
+          item.currentValue,
+          item.changedAfterOcr
+        ])
+      }),
+    [duplicateCandidates, ocrDiffItems, previousSnapshotDiffItems]
+  );
+
+  useEffect(() => {
+    setImportReviewConfirmed(false);
+  }, [importReviewSignature]);
 
   const setField =
     (field: keyof SnapshotFormValues) =>
@@ -773,6 +928,11 @@ export function SnapshotForm({
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (needsImportReview && !importReviewConfirmed) {
+      setMessage("保存前確認の内容を確認してチェックを入れてください。");
+      return;
+    }
+
     setBusy(true);
     setMessage(null);
     setServerWarnings([]);
