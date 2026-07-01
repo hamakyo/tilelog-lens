@@ -18,17 +18,26 @@ import {
   resetCustomMetrics,
   saveCustomMetrics
 } from "../lib/customMetrics";
+import type { SidebarPreference } from "../lib/sidebar";
 import type { ThemePreference } from "../lib/theme";
 
 type SettingsPageProps = {
   themePreference: ThemePreference;
   onThemePreferenceChange: (preference: ThemePreference) => void;
+  sidebarPreference: SidebarPreference;
+  onSidebarPreferenceChange: (preference: SidebarPreference) => void;
 };
 
 const themeOptions: Array<{ value: ThemePreference; label: string }> = [
   { value: "light", label: "ライト" },
   { value: "dark", label: "ダーク" },
   { value: "system", label: "デバイス準拠" }
+];
+
+const sidebarOptions: Array<{ value: SidebarPreference; label: string }> = [
+  { value: "expanded", label: "通常" },
+  { value: "collapsed", label: "コンパクト" },
+  { value: "auto", label: "自動" }
 ];
 
 const emptyCustomMetricDraft: CustomMetricDefinition = {
@@ -42,7 +51,9 @@ const emptyCustomMetricDraft: CustomMetricDefinition = {
 
 export function SettingsPage({
   themePreference,
-  onThemePreferenceChange
+  onThemePreferenceChange,
+  sidebarPreference,
+  onSidebarPreferenceChange
 }: SettingsPageProps) {
   const [goals, setGoals] = useState<AnalysisGoal[]>(() => loadAnalysisGoals());
   const [customMetrics, setCustomMetrics] = useState<CustomMetricDefinition[]>(() =>
@@ -126,6 +137,26 @@ export function SettingsPage({
               className={themePreference === option.value ? "active" : ""}
               aria-pressed={themePreference === option.value}
               onClick={() => onThemePreferenceChange(option.value)}
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
+      </section>
+
+      <section className="settings-panel">
+        <div className="section-heading inline-heading">
+          <h2>サイドバー</h2>
+          <p>PC表示のメニュー幅を選択します。</p>
+        </div>
+        <div className="segmented-control" role="group" aria-label="サイドバー">
+          {sidebarOptions.map((option) => (
+            <button
+              key={option.value}
+              type="button"
+              className={sidebarPreference === option.value ? "active" : ""}
+              aria-pressed={sidebarPreference === option.value}
+              onClick={() => onSidebarPreferenceChange(option.value)}
             >
               {option.label}
             </button>

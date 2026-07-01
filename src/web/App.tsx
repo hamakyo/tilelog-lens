@@ -29,6 +29,14 @@ import {
   saveThemePreference,
   type ThemePreference
 } from "./lib/theme";
+import {
+  loadSidebarCollapsed,
+  loadSidebarPreference,
+  resolveSidebarCollapsed,
+  saveSidebarCollapsed,
+  saveSidebarPreference,
+  type SidebarPreference
+} from "./lib/sidebar";
 
 type NavItem = {
   path: string;
@@ -49,31 +57,17 @@ const navItems: NavItem[] = [
   { path: "/settings", label: "設定", icon: Settings }
 ];
 
-const sidebarCollapsedStorageKey = "tilelog-lens:sidebar-collapsed";
-
 function getPath(): string {
   return window.location.pathname || "/";
 }
 
-function loadSidebarCollapsed(): boolean {
-  try {
-    return window.localStorage.getItem(sidebarCollapsedStorageKey) === "true";
-  } catch {
-    return false;
-  }
-}
-
-function saveSidebarCollapsed(collapsed: boolean): void {
-  try {
-    window.localStorage.setItem(sidebarCollapsedStorageKey, String(collapsed));
-  } catch {
-    // localStorage can be unavailable in hardened browser settings.
-  }
-}
-
 export function App() {
   const [path, setPath] = useState(getPath);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(loadSidebarCollapsed);
+  const [sidebarPreference, setSidebarPreference] = useState<SidebarPreference>(() =>
+    loadSidebarPreference()
+  );
+  const [autoSidebarCollapsed, setAutoSidebarCollapsed] =
+    useState(loadSidebarCollapsed);
   const [themePreference, setThemePreference] = useState<ThemePreference>(() =>
     loadThemePreference()
   );
@@ -104,12 +98,24 @@ export function App() {
     setThemePreference(preference);
   };
 
+  const updateSidebarPreference = (preference: SidebarPreference) => {
+    saveSidebarPreference(preference);
+    setSidebarPreference(preference);
+  };
+
+  const sidebarCollapsed = resolveSidebarCollapsed(
+    sidebarPreference,
+    autoSidebarCollapsed
+  );
+
   const toggleSidebar = () => {
-    setSidebarCollapsed((current) => {
-      const next = !current;
+    const next = !sidebarCollapsed;
+    if (sidebarPreference === "auto") {
+      setAutoSidebarCollapsed(next);
       saveSidebarCollapsed(next);
-      return next;
-    });
+      return;
+    }
+    updateSidebarPreference(next ? "collapsed" : "expanded");
   };
 
   const content = useMemo(() => {
@@ -127,6 +133,8 @@ export function App() {
         <SettingsPage
           themePreference={themePreference}
           onThemePreferenceChange={updateThemePreference}
+          sidebarPreference={sidebarPreference}
+          onSidebarPreferenceChange={updateSidebarPreference}
         />
       );
     }
@@ -137,7 +145,7 @@ export function App() {
     }
 
     return <DashboardPage navigate={navigate} />;
-  }, [path, themePreference]);
+  }, [path, themePreference, sidebarPreference]);
 
   return (
     <div className={`app-shell${sidebarCollapsed ? " sidebar-collapsed" : ""}`}>

@@ -291,3 +291,36 @@ test("desktop sidebar can be collapsed and restored", async ({ page }, testInfo)
   await expect(shell).not.toHaveClass(/sidebar-collapsed/);
   await expect(detailLabel).toBeVisible();
 });
+
+test("desktop sidebar width can be selected from settings", async ({
+  page
+}, testInfo) => {
+  expectDesktopProject(testInfo);
+
+  await page.goto("/settings");
+  const shell = page.locator(".app-shell");
+  const sidebarGroup = page.getByRole("group", { name: "サイドバー" });
+
+  await sidebarGroup.getByRole("button", { name: "コンパクト" }).click();
+  await expect(shell).toHaveClass(/sidebar-collapsed/);
+  await expect(sidebarGroup.getByRole("button", { name: "コンパクト" })).toHaveAttribute(
+    "aria-pressed",
+    "true"
+  );
+
+  await page.reload();
+  await expect(shell).toHaveClass(/sidebar-collapsed/);
+
+  await sidebarGroup.getByRole("button", { name: "通常" }).click();
+  await expect(shell).not.toHaveClass(/sidebar-collapsed/);
+  await expect(sidebarGroup.getByRole("button", { name: "通常" })).toHaveAttribute(
+    "aria-pressed",
+    "true"
+  );
+
+  await sidebarGroup.getByRole("button", { name: "自動" }).click();
+  await expect(sidebarGroup.getByRole("button", { name: "自動" })).toHaveAttribute(
+    "aria-pressed",
+    "true"
+  );
+});
