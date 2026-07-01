@@ -6,6 +6,7 @@ import GitCompareArrows from "lucide-react/dist/esm/icons/git-compare-arrows.js"
 import History from "lucide-react/dist/esm/icons/history.js";
 import LayoutDashboard from "lucide-react/dist/esm/icons/layout-dashboard.js";
 import List from "lucide-react/dist/esm/icons/list.js";
+import CalendarDays from "lucide-react/dist/esm/icons/calendar-days.js";
 import PanelLeftClose from "lucide-react/dist/esm/icons/panel-left-close.js";
 import PanelLeftOpen from "lucide-react/dist/esm/icons/panel-left-open.js";
 import Settings from "lucide-react/dist/esm/icons/settings.js";
@@ -19,6 +20,7 @@ import { ImportPage } from "./pages/ImportPage";
 import { ImportHistoryPage } from "./pages/ImportHistoryPage";
 import { ComparePage } from "./pages/ComparePage";
 import { QualityPage } from "./pages/QualityPage";
+import { ReportsPage } from "./pages/ReportsPage";
 import { SettingsPage } from "./pages/SettingsPage";
 import { SnapshotEditPage } from "./pages/SnapshotEditPage";
 import { SnapshotListPage } from "./pages/SnapshotListPage";
@@ -47,6 +49,7 @@ type NavItem = {
 const navItems: NavItem[] = [
   { path: "/", label: "ダッシュボード", icon: LayoutDashboard },
   { path: "/analysis", label: "詳細分析", icon: BarChart3 },
+  { path: "/reports", label: "レポート", icon: CalendarDays },
   { path: "/import", label: "インポート", icon: FilePlus2 },
   { path: "/import-history", label: "取込履歴", icon: History },
   { path: "/snapshots", label: "記録一覧", icon: List },
@@ -121,6 +124,7 @@ export function App() {
   const content = useMemo(() => {
     if (path === "/") return <DashboardPage navigate={navigate} />;
     if (path === "/analysis") return <AnalysisPage navigate={navigate} />;
+    if (path === "/reports") return <ReportsPage />;
     if (path === "/import") return <ImportPage />;
     if (path === "/import-history") return <ImportHistoryPage />;
     if (path === "/snapshots") return <SnapshotListPage navigate={navigate} />;
