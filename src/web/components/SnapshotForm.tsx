@@ -1422,6 +1422,126 @@ export function SnapshotForm({
         </div>
       </section>
 
+      {needsImportReview ? (
+        <section className="import-review-panel" aria-labelledby="import-review-title">
+          <div className="section-heading inline-heading">
+            <div>
+              <h2 id="import-review-title">保存前確認</h2>
+              <p>
+                OCR結果、前回同モードとの差分、重複候補を確認してから保存します。
+              </p>
+            </div>
+            <span className={`code-pill ${importReviewRiskCount > 0 ? "pill-warning" : "pill-ok"}`}>
+              {importReviewRiskCount > 0 ? `要確認 ${importReviewRiskCount}件` : "大きな差分なし"}
+            </span>
+          </div>
+
+          {previousSnapshot ? (
+            <div className="review-block">
+              <h3>
+                前回値との差分: {previousSnapshot.observed_date} {previousSnapshot.observed_time}
+              </h3>
+              <div className="table-scroll compact-table">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>項目</th>
+                      <th>前回</th>
+                      <th>今回</th>
+                      <th>差分</th>
+                      <th>状態</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {previousSnapshotDiffItems.map((item) => (
+                      <tr key={item.field}>
+                        <td>{item.label}</td>
+                        <td>{item.previousValue}</td>
+                        <td>{item.currentValue}</td>
+                        <td>{item.deltaValue}</td>
+                        <td>
+                          <span
+                            className={`code-pill ${
+                              item.level === "risk"
+                                ? "pill-warning"
+                                : item.level === "watch"
+                                  ? "pill-muted"
+                                  : "pill-ok"
+                            }`}
+                          >
+                            {item.level === "risk"
+                              ? "要確認"
+                              : item.level === "watch"
+                                ? "注意"
+                                : "通常"}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          ) : null}
+
+          {ocrDiffItems.length > 0 ? (
+            <div className="review-block">
+              <h3>OCR結果の確認</h3>
+              <div className="review-chip-grid">
+                <div>
+                  <span>OCR入力</span>
+                  <strong>{ocrDiffItems.length}項目</strong>
+                </div>
+                <div>
+                  <span>手修正</span>
+                  <strong>{ocrDiffItems.filter((item) => item.changedAfterOcr).length}項目</strong>
+                </div>
+                <div>
+                  <span>未入力必須</span>
+                  <strong>{ocrMissingRequired.length}項目</strong>
+                </div>
+              </div>
+              {ocrDiffItems.some((item) => item.changedAfterOcr) ? (
+                <ul className="review-list">
+                  {ocrDiffItems
+                    .filter((item) => item.changedAfterOcr)
+                    .map((item) => (
+                      <li key={item.field}>
+                        {item.label}: OCR {item.ocrValue} → 現在 {item.currentValue}
+                      </li>
+                    ))}
+                </ul>
+              ) : (
+                <p>OCR値から手修正された項目はありません。</p>
+              )}
+            </div>
+          ) : null}
+
+          {duplicateCandidates.length > 0 ? (
+            <div className="review-block">
+              <h3>重複候補</h3>
+              <ul className="review-list">
+                {duplicateCandidates.slice(0, 5).map((candidate) => (
+                  <li key={`review-${candidate.snapshot_id}-${candidate.reason}`}>
+                    #{candidate.snapshot_id} {candidate.observed_date} {candidate.observed_time}:{" "}
+                    {candidate.message}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+
+          <label className="review-confirm-check">
+            <input
+              type="checkbox"
+              checked={importReviewConfirmed}
+              onChange={(event) => setImportReviewConfirmed(event.target.checked)}
+            />
+            <span>保存前確認の内容を確認しました。</span>
+          </label>
+        </section>
+      ) : null}
+
       {warnings.length > 0 ? (
         <div className="warning-list" role="status">
           {warnings.map((warning, index) => (
@@ -1436,7 +1556,11 @@ export function SnapshotForm({
       {message ? <p className="form-message">{message}</p> : null}
 
       <div className="form-actions">
-        <button type="submit" className="primary-button" disabled={busy}>
+        <button
+          type="submit"
+          className="primary-button"
+          disabled={busy || (needsImportReview && !importReviewConfirmed)}
+        >
           <Save size={18} aria-hidden="true" />
           <span>{busy ? "保存中" : submitLabel}</span>
         </button>

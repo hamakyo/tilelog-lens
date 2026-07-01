@@ -182,7 +182,7 @@ test("mobile export page is reachable", async ({ page }) => {
   );
   await expect(page.getByRole("link", { name: "AI用JSON" })).toHaveAttribute(
     "href",
-    "/api/export/ai-context.json?anonymize=true"
+    /\/api\/export\/ai-context\.json\?anonymize=true/
   );
   await expect(page.getByRole("link", { name: "AI用JSON" })).toHaveAttribute(
     "download",

@@ -940,6 +940,11 @@ tr:last-child td {
   color: var(--color-warning-text);
 }
 
+.code-pill.pill-muted {
+  background: var(--color-neutral-bg);
+  color: var(--color-muted-strong);
+}
+
 .compact-table table {
   min-width: 620px;
 }
@@ -953,6 +958,12 @@ table input[type="checkbox"] {
 .compact-button {
   min-height: 30px;
   padding: 5px 10px;
+}
+
+.table-action-row {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 6px;
 }
 
 .row-actions {
@@ -1115,6 +1126,77 @@ textarea:focus {
   border-radius: 8px;
   background: var(--color-surface);
   padding: 12px;
+}
+
+.import-review-panel {
+  display: grid;
+  gap: 14px;
+  border: 1px solid var(--color-warning-text);
+  border-radius: 8px;
+  background: var(--color-warning-bg-soft);
+  padding: 14px;
+}
+
+.review-block {
+  display: grid;
+  gap: 8px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: var(--color-surface);
+  padding: 12px;
+}
+
+.review-block h3 {
+  margin: 0;
+  color: var(--color-text);
+  font-size: 14px;
+}
+
+.review-block p {
+  margin: 0;
+  color: var(--color-muted-strong);
+  font-size: 13px;
+}
+
+.review-chip-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.review-chip-grid div {
+  display: grid;
+  gap: 2px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 10px;
+}
+
+.review-chip-grid span {
+  color: var(--color-muted);
+  font-size: 12px;
+}
+
+.review-chip-grid strong {
+  color: var(--color-text);
+  font-size: 18px;
+}
+
+.review-list {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding-left: 18px;
+  color: var(--color-muted-strong);
+  font-size: 13px;
+}
+
+.review-confirm-check {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  justify-self: start;
+  font-weight: 800;
 }
 
 .inline-heading {
