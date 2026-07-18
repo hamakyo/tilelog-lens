@@ -426,6 +426,176 @@ h2 {
   color: var(--color-primary-text);
 }
 
+.analysis-filter-actions,
+.analysis-quick-filters {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.analysis-conclusion {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 14px 24px;
+  border-left: 4px solid var(--color-border-strong);
+  background: var(--color-surface-subtle);
+  padding: 18px 20px;
+}
+
+.analysis-conclusion.conclusion-good {
+  border-left-color: var(--color-success-text);
+}
+
+.analysis-conclusion.conclusion-watch {
+  border-left-color: var(--color-warning-text);
+}
+
+.analysis-conclusion.conclusion-risk {
+  border-left-color: var(--color-danger-text);
+}
+
+.analysis-conclusion-main {
+  display: grid;
+  gap: 5px;
+}
+
+.analysis-conclusion-main h2,
+.analysis-conclusion-main p,
+.analysis-evidence-list {
+  margin: 0;
+}
+
+.analysis-conclusion-main h2 {
+  font-size: 20px;
+}
+
+.analysis-conclusion-main > p:last-child,
+.analysis-evidence-list {
+  color: var(--color-muted-strong);
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.analysis-scope-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.analysis-evidence-list {
+  display: grid;
+  gap: 4px;
+  padding-left: 18px;
+}
+
+.analysis-conclusion-actions {
+  align-self: end;
+}
+
+.analysis-filter-actions {
+  justify-content: flex-end;
+}
+
+.analysis-view-toolbar {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) auto minmax(220px, 1.2fr) auto 34px;
+  align-items: end;
+  gap: 8px;
+}
+
+.analysis-view-toolbar .compact-button {
+  min-height: 38px;
+}
+
+.experiment-create-panel {
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: var(--color-surface-subtle);
+  padding: 12px 14px;
+}
+
+.experiment-create-panel summary {
+  color: var(--color-text);
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.experiment-create-panel[open] summary {
+  margin-bottom: 14px;
+}
+
+.experiment-form-grid {
+  grid-template-columns: minmax(220px, 1.4fr) repeat(3, minmax(130px, 1fr)) auto;
+  align-items: end;
+}
+
+.experiment-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.experiment-item {
+  display: grid;
+  gap: 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: var(--color-surface);
+  padding: 14px;
+}
+
+.experiment-item .period-tile-header > div {
+  display: grid;
+  gap: 3px;
+}
+
+.experiment-item .period-tile-header p {
+  margin: 0;
+  color: var(--color-muted);
+  font-size: 12px;
+}
+
+.experiment-metrics {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.experiment-metrics dd {
+  font-size: 16px;
+}
+
+.experiment-progress {
+  height: 8px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--color-neutral-bg);
+}
+
+.experiment-progress span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--color-primary);
+}
+
+.experiment-actions {
+  justify-content: flex-start;
+}
+
+.analysis-quick-filters > span {
+  color: var(--color-muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.filter-detail-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
 .analysis-tab-bar {
   display: flex;
   flex-wrap: wrap;
@@ -1612,6 +1782,75 @@ footer {
   .action-row .primary-button,
   .action-row .secondary-button {
     flex: 1 1 150px;
+  }
+
+  .analysis-filter-panel {
+    gap: 12px;
+  }
+
+  .analysis-conclusion {
+    grid-template-columns: 1fr;
+    padding: 16px;
+  }
+
+  .analysis-scope-row,
+  .analysis-conclusion-actions {
+    justify-content: flex-start;
+  }
+
+  .analysis-conclusion-actions .primary-button,
+  .analysis-conclusion-actions .secondary-button {
+    flex: 1 1 130px;
+  }
+
+  .analysis-filter-panel .inline-heading {
+    align-items: flex-start;
+  }
+
+  .analysis-filter-actions {
+    justify-content: flex-start;
+  }
+
+  .analysis-view-toolbar {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .analysis-view-toolbar label {
+    grid-column: 1 / -1;
+  }
+
+  .experiment-form-grid,
+  .experiment-list,
+  .experiment-metrics {
+    grid-template-columns: 1fr;
+  }
+
+  .analysis-summary-grid {
+    display: flex;
+    overflow-x: auto;
+    scroll-snap-type: x proximity;
+    padding-bottom: 4px;
+  }
+
+  .analysis-summary-grid .summary-tile {
+    flex: 0 0 min(250px, calc(100vw - 54px));
+    min-height: 88px;
+    scroll-snap-align: start;
+  }
+
+  .analysis-tab-bar {
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    background: var(--color-background);
+    padding-top: 8px;
+  }
+
+  .analysis-tab-bar button {
+    flex: 1 0 76px;
+    padding-inline: 10px;
   }
 
   .form-grid,

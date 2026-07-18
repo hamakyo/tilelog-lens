@@ -3,7 +3,12 @@ import Activity from "lucide-react/dist/esm/icons/activity.js";
 import Flag from "lucide-react/dist/esm/icons/flag.js";
 import Gauge from "lucide-react/dist/esm/icons/gauge.js";
 import ShieldAlert from "lucide-react/dist/esm/icons/shield-alert.js";
-import type { AnalysisGoal, EstimatedDelta, Snapshot } from "../../shared/types";
+import SlidersHorizontal from "lucide-react/dist/esm/icons/sliders-horizontal.js";
+import Save from "lucide-react/dist/esm/icons/save.js";
+import Trash2 from "lucide-react/dist/esm/icons/trash-2.js";
+import Plus from "lucide-react/dist/esm/icons/plus.js";
+import type { AnalysisGoal, Snapshot } from "../../shared/types";
+import { buildAnalysisConclusion } from "../../shared/analysisConclusion";
 import {
   GAME_MODE_LABELS,
   GAME_MODES,
@@ -40,9 +45,26 @@ import {
   buildStabilityScore
 } from "../../shared/metrics";
 import { buildAnalysisGoalStatuses, buildGoalGapComments } from "../../shared/goals";
-import { listDeltas, listSnapshots } from "../lib/api";
+import { listSnapshots } from "../lib/api";
 import { loadAnalysisGoals } from "../lib/analysisGoals";
 import { loadCustomMetrics } from "../lib/customMetrics";
+import {
+  deleteAnalysisView,
+  loadAnalysisViews,
+  upsertAnalysisView,
+  type AnalysisViewChartMetric,
+  type AnalysisViewFilters,
+  type AnalysisViewTab
+} from "../lib/analysisViews";
+import {
+  analysisExperimentMetricDefinitions,
+  buildAnalysisExperimentProgress,
+  deleteAnalysisExperiment,
+  loadAnalysisExperiments,
+  setAnalysisExperimentStatus,
+  startAnalysisExperiment,
+  type AnalysisExperimentMetric
+} from "../lib/analysisExperiments";
 import { formatDateTime, formatDecimal, formatNumber, formatRate } from "../lib/format";
 import { TrendChart } from "../components/TrendChart";
 
@@ -50,15 +72,7 @@ type AnalysisPageProps = {
   navigate: (path: string) => void;
 };
 
-type DashboardFilterForm = {
-  observedDateFrom: string;
-  observedDateTo: string;
-  minMatches: string;
-  maxMatches: string;
-  minWinRate: string;
-  maxDealInRate: string;
-  maxAvgPlace: string;
-};
+type DashboardFilterForm = AnalysisViewFilters;
 
 type ChartPoint = {
   label: string;
@@ -74,9 +88,9 @@ type ChartPoint = {
   rank_point_progress: number | null;
 };
 
-type ChartMetricKey = Exclude<keyof ChartPoint, "label">;
+type ChartMetricKey = AnalysisViewChartMetric;
 
-type AnalysisTab = "overview" | "riichi" | "improvement" | "detail";
+type AnalysisTab = AnalysisViewTab;
 
 const analysisTabs: Array<{ id: AnalysisTab; label: string }> = [
   { id: "overview", label: "概要" },
@@ -86,6 +100,10 @@ const analysisTabs: Array<{ id: AnalysisTab; label: string }> = [
 ];
 
 const analysisTabStorageKey = "tilelog-lens:analysis-tab";
+
+const analysisExperimentMetrics = Object.keys(
+  analysisExperimentMetricDefinitions
+) as AnalysisExperimentMetric[];
 
 const chartMetricOptions: Array<{
   key: ChartMetricKey;
@@ -203,6 +221,17 @@ function optionalNumber(value: string): number | null {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
+function initialFiltersExpanded(): boolean {
+  if (typeof window === "undefined" || typeof window.matchMedia !== "function") return true;
+  return !window.matchMedia("(max-width: 640px)").matches;
+}
+
+function dateDaysBefore(date: string, days: number): string {
+  const value = new Date(`${date}T00:00:00Z`);
+  value.setUTCDate(value.getUTCDate() - Math.max(0, days - 1));
+  return value.toISOString().slice(0, 10);
+}
+
 function analysisTabPanelClass(tab: AnalysisTab, activeTab: AnalysisTab): string {
   return `analysis-tab-panel${activeTab === tab ? " active" : ""}`;
 }
@@ -247,7 +276,6 @@ function persistAnalysisTab(tab: AnalysisTab): void {
 
 export function AnalysisPage({ navigate }: AnalysisPageProps) {
   const [snapshots, setSnapshots] = useState<Snapshot[]>([]);
-  const [deltas, setDeltas] = useState<EstimatedDelta[]>([]);
   const [analysisGoals, setAnalysisGoals] = useState<AnalysisGoal[]>(() =>
     loadAnalysisGoals()
   );
@@ -256,7 +284,7 @@ export function AnalysisPage({ navigate }: AnalysisPageProps) {
   );
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [selectedMode, setSelectedMode] = useState<Snapshot["game_mode"] | "all">("all");
+  const [selectedMode, setSelectedMode] = useState<Snapshot["game_mode"] | null>(null);
   const [filterForm, setFilterForm] =
     useState<DashboardFilterForm>(emptyDashboardFilters);
   const [selectedChartMetrics, setSelectedChartMetrics] = useState<ChartMetricKey[]>([
@@ -265,14 +293,30 @@ export function AnalysisPage({ navigate }: AnalysisPageProps) {
     "deal_in_rate"
   ]);
   const [activeTab, setActiveTab] = useState<AnalysisTab>(loadInitialAnalysisTab);
+  const [filtersExpanded, setFiltersExpanded] = useState(initialFiltersExpanded);
+  const [savedViews, setSavedViews] = useState(loadAnalysisViews);
+  const [selectedViewId, setSelectedViewId] = useState("");
+  const [viewName, setViewName] = useState("");
+  const [viewMessage, setViewMessage] = useState<string | null>(null);
+  const [analysisExperiments, setAnalysisExperiments] = useState(loadAnalysisExperiments);
+  const [experimentDraft, setExperimentDraft] = useState({
+    title: "",
+    metric: "deal_in_rate" as AnalysisExperimentMetric,
+    targetValue: "12",
+    targetMatches: "50"
+  });
+  const [experimentMessage, setExperimentMessage] = useState<string | null>(null);
 
   useEffect(() => {
     setAnalysisGoals(loadAnalysisGoals());
     setCustomMetrics(loadCustomMetrics());
-    Promise.all([listSnapshots(), listDeltas()])
-      .then(([snapshotResult, deltaResult]) => {
+    listSnapshots()
+      .then((snapshotResult) => {
         setSnapshots(snapshotResult.items);
-        setDeltas(deltaResult.items);
+        const latestSnapshot = [...snapshotResult.items].sort((a, b) =>
+          b.observed_at_utc.localeCompare(a.observed_at_utc)
+        )[0];
+        setSelectedMode((current) => current ?? latestSnapshot?.game_mode ?? null);
       })
       .catch((caught) => setError(caught instanceof Error ? caught.message : "読み込みに失敗しました。"))
       .finally(() => setLoading(false));
@@ -286,9 +330,15 @@ export function AnalysisPage({ navigate }: AnalysisPageProps) {
     () => GAME_MODES.filter((mode) => snapshots.some((snapshot) => snapshot.game_mode === mode)),
     [snapshots]
   );
+  const modeScopedSnapshots = useMemo(
+    () =>
+      selectedMode == null
+        ? []
+        : snapshots.filter((snapshot) => snapshot.game_mode === selectedMode),
+    [selectedMode, snapshots]
+  );
   const analysisFilters = useMemo<AnalysisFilterInput>(
     () => ({
-      game_mode: selectedMode,
       observed_date_from: filterForm.observedDateFrom || undefined,
       observed_date_to: filterForm.observedDateTo || undefined,
       min_matches: optionalNumber(filterForm.minMatches),
@@ -297,25 +347,42 @@ export function AnalysisPage({ navigate }: AnalysisPageProps) {
       max_deal_in_rate: optionalNumber(filterForm.maxDealInRate),
       max_avg_place: optionalNumber(filterForm.maxAvgPlace)
     }),
-    [filterForm, selectedMode]
+    [filterForm]
   );
   const displaySnapshots = useMemo(
-    () => filterSnapshotsForAnalysis(snapshots, analysisFilters),
-    [analysisFilters, snapshots]
+    () => filterSnapshotsForAnalysis(modeScopedSnapshots, analysisFilters),
+    [analysisFilters, modeScopedSnapshots]
   );
   const filterSummary = useMemo(
-    () => buildAnalysisFilterSummary(snapshots, displaySnapshots, analysisFilters),
-    [analysisFilters, displaySnapshots, snapshots]
+    () => buildAnalysisFilterSummary(modeScopedSnapshots, displaySnapshots, analysisFilters),
+    [analysisFilters, displaySnapshots, modeScopedSnapshots]
+  );
+  const latestAvailableDate = useMemo(
+    () =>
+      modeScopedSnapshots.reduce(
+        (latestDate, snapshot) =>
+          snapshot.observed_date > latestDate ? snapshot.observed_date : latestDate,
+        ""
+      ),
+    [modeScopedSnapshots]
+  );
+  const activeDatePreset = useMemo(() => {
+    if (!filterForm.observedDateFrom && !filterForm.observedDateTo) return "all";
+    if (!latestAvailableDate || filterForm.observedDateTo !== latestAvailableDate) return "custom";
+    if (filterForm.observedDateFrom === dateDaysBefore(latestAvailableDate, 30)) return "30";
+    if (filterForm.observedDateFrom === dateDaysBefore(latestAvailableDate, 90)) return "90";
+    return "custom";
+  }, [filterForm.observedDateFrom, filterForm.observedDateTo, latestAvailableDate]);
+  const latestModeSnapshot = useMemo(
+    () =>
+      [...modeScopedSnapshots].sort((a, b) =>
+        b.observed_at_utc.localeCompare(a.observed_at_utc)
+      )[0],
+    [modeScopedSnapshots]
   );
   const latest = displaySnapshots[0];
-  const latestMode = latest?.game_mode ?? (selectedMode === "all" ? null : selectedMode);
-  const modeSnapshots = useMemo(
-    () =>
-      latestMode
-        ? displaySnapshots.filter((snapshot) => snapshot.game_mode === latestMode)
-        : displaySnapshots,
-    [displaySnapshots, latestMode]
-  );
+  const latestMode = selectedMode;
+  const modeSnapshots = displaySnapshots;
   const chartData = useMemo(() => toChartPoints(displaySnapshots), [displaySnapshots]);
   const selectedChartLines = useMemo(
     () =>
@@ -401,13 +468,159 @@ export function AnalysisPage({ navigate }: AnalysisPageProps) {
     [customMetrics, latest]
   );
   const displayDeltas = useMemo(
-    () =>
-      filterSummary.active_filter_count === 0
-        ? deltas
-        : buildEstimatedDeltas(displaySnapshots),
-    [deltas, displaySnapshots, filterSummary.active_filter_count]
+    () => buildEstimatedDeltas(displaySnapshots),
+    [displaySnapshots]
   );
   const latestDelta = displayDeltas[displayDeltas.length - 1];
+  const visibleExperiments = useMemo(
+    () =>
+      analysisExperiments
+        .filter((experiment) => experiment.game_mode === selectedMode)
+        .map((experiment) => ({
+          experiment,
+          progress: buildAnalysisExperimentProgress(experiment, snapshots)
+        }))
+        .sort((a, b) => {
+          if (a.experiment.status !== b.experiment.status) {
+            return a.experiment.status === "active" ? -1 : 1;
+          }
+          return b.experiment.created_at.localeCompare(a.experiment.created_at);
+        }),
+    [analysisExperiments, selectedMode, snapshots]
+  );
+  const analysisConclusion = useMemo(
+    () =>
+      buildAnalysisConclusion({
+        snapshot_count: displaySnapshots.length,
+        latest_matches_delta: latestDelta?.matches_delta ?? null,
+        improvement_priorities: improvementPriorities,
+        regression_factors: regressionFactors,
+        focus_recommendations: focusRecommendations
+      }),
+    [
+      displaySnapshots.length,
+      focusRecommendations,
+      improvementPriorities,
+      latestDelta?.matches_delta,
+      regressionFactors
+    ]
+  );
+
+  function applyDatePreset(days: number | null): void {
+    setFilterForm((current) => ({
+      ...current,
+      observedDateFrom:
+        days != null && latestAvailableDate ? dateDaysBefore(latestAvailableDate, days) : "",
+      observedDateTo: days != null ? latestAvailableDate : ""
+    }));
+  }
+
+  function showAnalysisTab(tab: AnalysisTab): void {
+    setActiveTab(tab);
+    window.requestAnimationFrame(() => {
+      document.getElementById(`analysis-${tab}`)?.scrollIntoView({
+        behavior: "smooth",
+        block: "start"
+      });
+    });
+  }
+
+  function applySelectedView(): void {
+    const view = savedViews.find((candidate) => candidate.id === selectedViewId);
+    if (!view) return;
+    setSelectedMode(view.game_mode);
+    setFilterForm(view.filters);
+    setActiveTab(view.tab);
+    setSelectedChartMetrics(view.chart_metrics);
+    setViewName(view.name);
+    setViewMessage(`「${view.name}」を適用しました。`);
+  }
+
+  function saveCurrentView(): void {
+    const name = viewName.trim();
+    if (!name || !selectedMode) {
+      setViewMessage("ビュー名とゲームモードを確認してください。");
+      return;
+    }
+    const saved = upsertAnalysisView(
+      savedViews,
+      {
+        name,
+        game_mode: selectedMode,
+        filters: filterForm,
+        tab: activeTab,
+        chart_metrics: selectedChartMetrics
+      },
+      selectedViewId || undefined
+    );
+    setSavedViews(saved.items);
+    setSelectedViewId(saved.item.id);
+    setViewName(saved.item.name);
+    setViewMessage(`「${saved.item.name}」を保存しました。`);
+  }
+
+  function removeSelectedView(): void {
+    if (!selectedViewId) return;
+    const selected = savedViews.find((view) => view.id === selectedViewId);
+    setSavedViews(deleteAnalysisView(savedViews, selectedViewId));
+    setSelectedViewId("");
+    setViewName("");
+    setViewMessage(selected ? `「${selected.name}」を削除しました。` : null);
+  }
+
+  function startExperiment(): void {
+    const title = experimentDraft.title.trim();
+    const targetValue = Number(experimentDraft.targetValue);
+    const targetMatches = Number(experimentDraft.targetMatches);
+    const definition = analysisExperimentMetricDefinitions[experimentDraft.metric];
+    const targetValueValid =
+      Number.isFinite(targetValue) &&
+      (definition.unit === "rate"
+        ? targetValue >= 0 && targetValue <= 100
+        : definition.unit === "place"
+          ? targetValue >= 1 && targetValue <= 4
+          : targetValue >= 0);
+
+    if (
+      !title ||
+      !latestModeSnapshot ||
+      !targetValueValid ||
+      !Number.isInteger(targetMatches) ||
+      targetMatches < 1 ||
+      targetMatches > 10000
+    ) {
+      setExperimentMessage("施策名、目標値、評価対戦数を確認してください。");
+      return;
+    }
+
+    try {
+      const started = startAnalysisExperiment(
+        analysisExperiments,
+        {
+          title,
+          metric: experimentDraft.metric,
+          target_value: targetValue,
+          target_matches: targetMatches
+        },
+        latestModeSnapshot
+      );
+      setAnalysisExperiments(started.items);
+      setExperimentDraft((current) => ({ ...current, title: "" }));
+      setExperimentMessage(`「${started.item.title}」を開始しました。`);
+    } catch (caught) {
+      setExperimentMessage(
+        caught instanceof Error ? caught.message : "改善施策を開始できませんでした。"
+      );
+    }
+  }
+
+  function updateExperimentStatus(id: string, status: "active" | "completed"): void {
+    setAnalysisExperiments(setAnalysisExperimentStatus(analysisExperiments, id, status));
+  }
+
+  function removeExperiment(id: string): void {
+    setAnalysisExperiments(deleteAnalysisExperiment(analysisExperiments, id));
+  }
 
   return (
     <main className="page-stack">
@@ -426,13 +639,6 @@ export function AnalysisPage({ navigate }: AnalysisPageProps) {
       {loading ? <p className="empty-state">成績を読み込んでいます...</p> : null}
 
       <section className="filter-bar" aria-label="ゲームモード切替">
-        <button
-          type="button"
-          className={selectedMode === "all" ? "active" : ""}
-          onClick={() => setSelectedMode("all")}
-        >
-          すべて
-        </button>
         {availableModes.map((mode) => (
           <button
             key={mode}
@@ -441,6 +647,70 @@ export function AnalysisPage({ navigate }: AnalysisPageProps) {
             onClick={() => setSelectedMode(mode)}
           >
             {GAME_MODE_LABELS[mode]}
+          </button>
+        ))}
+      </section>
+
+      <section
+        className={`analysis-conclusion conclusion-${analysisConclusion.status}`}
+        aria-labelledby="analysis-conclusion-title"
+      >
+        <div className="analysis-conclusion-main">
+          <p className="eyebrow">今回の結論</p>
+          <h2 id="analysis-conclusion-title">{analysisConclusion.title}</h2>
+          <p>{analysisConclusion.summary}</p>
+        </div>
+        <div className="analysis-scope-row" aria-label="分析対象">
+          <span className="code-pill">
+            {selectedMode ? GAME_MODE_LABELS[selectedMode] : "モード未選択"}
+          </span>
+          <span className="code-pill pill-muted">{displaySnapshots.length}件</span>
+          {latestDelta ? (
+            <span
+              className={`quality-pill ${
+                latestDelta.quality === "ok" ? "quality-ok" : "quality-limited_data"
+              }`}
+            >
+              推定 {latestDelta.matches_delta}戦
+            </span>
+          ) : null}
+        </div>
+        {analysisConclusion.evidence.length > 0 ? (
+          <ul className="analysis-evidence-list">
+            {analysisConclusion.evidence.map((evidence) => (
+              <li key={evidence}>{evidence}</li>
+            ))}
+          </ul>
+        ) : null}
+        <div className="action-row analysis-conclusion-actions">
+          <button
+            type="button"
+            className="primary-button"
+            onClick={() => showAnalysisTab(analysisConclusion.target_tab)}
+          >
+            根拠を見る
+          </button>
+          <button
+            type="button"
+            className="secondary-button"
+            onClick={() => navigate("/snapshots")}
+          >
+            関連記録を見る
+          </button>
+        </div>
+      </section>
+
+      <section className="analysis-tab-bar" role="tablist" aria-label="詳細分析カテゴリ">
+        {analysisTabs.map((tab) => (
+          <button
+            key={tab.id}
+            type="button"
+            role="tab"
+            aria-selected={activeTab === tab.id}
+            className={activeTab === tab.id ? "active" : ""}
+            onClick={() => showAnalysisTab(tab.id)}
+          >
+            {tab.label}
           </button>
         ))}
       </section>
@@ -456,18 +726,107 @@ export function AnalysisPage({ navigate }: AnalysisPageProps) {
                 : " 条件は未指定です。"}
             </p>
           </div>
+          <div className="analysis-filter-actions">
+            {filterSummary.active_filter_count > 0 ? (
+              <button
+                type="button"
+                className="secondary-button compact-button"
+                onClick={() => setFilterForm(emptyDashboardFilters)}
+              >
+                条件をリセット
+              </button>
+            ) : null}
+            <button
+              type="button"
+              className="secondary-button compact-button filter-detail-toggle"
+              aria-expanded={filtersExpanded}
+              onClick={() => setFiltersExpanded((current) => !current)}
+            >
+              <SlidersHorizontal size={16} aria-hidden="true" />
+              <span>{filtersExpanded ? "詳細条件を閉じる" : "詳細条件"}</span>
+            </button>
+          </div>
+        </div>
+        <div className="analysis-quick-filters">
+          <span>期間</span>
+          <div className="filter-bar" aria-label="分析期間プリセット">
+            <button
+              type="button"
+              className={activeDatePreset === "all" ? "active" : ""}
+              onClick={() => applyDatePreset(null)}
+            >
+              全期間
+            </button>
+            <button
+              type="button"
+              className={activeDatePreset === "30" ? "active" : ""}
+              onClick={() => applyDatePreset(30)}
+            >
+              直近30日
+            </button>
+            <button
+              type="button"
+              className={activeDatePreset === "90" ? "active" : ""}
+              onClick={() => applyDatePreset(90)}
+            >
+              直近90日
+            </button>
+          </div>
+        </div>
+        <div className="analysis-view-toolbar">
+          <label>
+            <span>保存済みビュー</span>
+            <select
+              value={selectedViewId}
+              onChange={(event) => {
+                const nextId = event.target.value;
+                setSelectedViewId(nextId);
+                setViewName(savedViews.find((view) => view.id === nextId)?.name ?? "");
+              }}
+            >
+              <option value="">新規ビュー</option>
+              {savedViews.map((view) => (
+                <option key={view.id} value={view.id}>
+                  {view.name}
+                </option>
+              ))}
+            </select>
+          </label>
           <button
             type="button"
-            className="secondary-button"
-            onClick={() => {
-              setSelectedMode("all");
-              setFilterForm(emptyDashboardFilters);
-            }}
+            className="secondary-button compact-button"
+            disabled={!selectedViewId}
+            onClick={applySelectedView}
           >
-            条件をリセット
+            適用
+          </button>
+          <label>
+            <span>ビュー名</span>
+            <input
+              type="text"
+              maxLength={40}
+              value={viewName}
+              placeholder="例: 東風戦・ラス回避"
+              onChange={(event) => setViewName(event.target.value)}
+            />
+          </label>
+          <button type="button" className="primary-button compact-button" onClick={saveCurrentView}>
+            <Save size={16} aria-hidden="true" />
+            <span>保存</span>
+          </button>
+          <button
+            type="button"
+            className="icon-button danger"
+            aria-label="選択中のビューを削除"
+            title="選択中のビューを削除"
+            disabled={!selectedViewId}
+            onClick={removeSelectedView}
+          >
+            <Trash2 size={16} aria-hidden="true" />
           </button>
         </div>
-        <div className="form-grid analysis-filter-grid">
+        {viewMessage ? <p className="form-message">{viewMessage}</p> : null}
+        {filtersExpanded ? <div className="form-grid analysis-filter-grid">
           <label>
             <span>開始日</span>
             <input
@@ -570,10 +929,11 @@ export function AnalysisPage({ navigate }: AnalysisPageProps) {
               }
             />
           </label>
-        </div>
+        </div> : null}
       </section>
 
-      <section className="summary-grid">
+      <div id="analysis-overview" className={analysisTabPanelClass("overview", activeTab)}>
+      <section className="summary-grid analysis-summary-grid">
         <div className="summary-tile">
           <Gauge size={20} aria-hidden="true" />
           <span>最新の平均順位</span>
@@ -601,23 +961,6 @@ export function AnalysisPage({ navigate }: AnalysisPageProps) {
           </strong>
         </div>
       </section>
-
-      <section className="analysis-tab-bar" role="tablist" aria-label="詳細分析カテゴリ">
-        {analysisTabs.map((tab) => (
-          <button
-            key={tab.id}
-            type="button"
-            role="tab"
-            aria-selected={activeTab === tab.id}
-            className={activeTab === tab.id ? "active" : ""}
-            onClick={() => setActiveTab(tab.id)}
-          >
-            {tab.label}
-          </button>
-        ))}
-      </section>
-
-      <div className={analysisTabPanelClass("overview", activeTab)}>
       <section className="analysis-section">
         <div className="section-heading">
           <h2>分析目標</h2>
@@ -880,7 +1223,7 @@ export function AnalysisPage({ navigate }: AnalysisPageProps) {
       </section>
       </div>
 
-      <div className={analysisTabPanelClass("riichi", activeTab)}>
+      <div id="analysis-riichi" className={analysisTabPanelClass("riichi", activeTab)}>
       <section className="analysis-section">
         <div className="section-heading">
           <h2>立直トレンド</h2>
@@ -952,7 +1295,7 @@ export function AnalysisPage({ navigate }: AnalysisPageProps) {
       </section>
       </div>
 
-      <div className={analysisTabPanelClass("detail", activeTab)}>
+      <div id="analysis-detail" className={analysisTabPanelClass("detail", activeTab)}>
       <section className="analysis-section">
         <div className="section-heading">
           <h2>指標分布</h2>
@@ -1086,7 +1429,168 @@ export function AnalysisPage({ navigate }: AnalysisPageProps) {
       </section>
       </div>
 
-      <div className={analysisTabPanelClass("improvement", activeTab)}>
+      <div id="analysis-improvement" className={analysisTabPanelClass("improvement", activeTab)}>
+      <section className="analysis-section">
+        <div className="section-heading">
+          <h2>改善施策トラッカー</h2>
+          <p>{selectedMode ? GAME_MODE_LABELS[selectedMode] : "ゲームモード未選択"}</p>
+        </div>
+        <details className="experiment-create-panel">
+          <summary>新しい施策を開始</summary>
+          <div className="form-grid experiment-form-grid">
+            <label>
+              <span>施策名</span>
+              <input
+                type="text"
+                maxLength={60}
+                value={experimentDraft.title}
+                placeholder="例: 押し引き基準を見直す"
+                onChange={(event) =>
+                  setExperimentDraft((current) => ({ ...current, title: event.target.value }))
+                }
+              />
+            </label>
+            <label>
+              <span>評価指標</span>
+              <select
+                value={experimentDraft.metric}
+                onChange={(event) =>
+                  setExperimentDraft((current) => ({
+                    ...current,
+                    metric: event.target.value as AnalysisExperimentMetric
+                  }))
+                }
+              >
+                {analysisExperimentMetrics.map((metric) => (
+                  <option key={metric} value={metric}>
+                    {analysisExperimentMetricDefinitions[metric].label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              <span>目標値</span>
+              <input
+                type="number"
+                step="0.01"
+                value={experimentDraft.targetValue}
+                onChange={(event) =>
+                  setExperimentDraft((current) => ({
+                    ...current,
+                    targetValue: event.target.value
+                  }))
+                }
+              />
+            </label>
+            <label>
+              <span>評価対戦数</span>
+              <input
+                type="number"
+                min="1"
+                max="10000"
+                step="1"
+                value={experimentDraft.targetMatches}
+                onChange={(event) =>
+                  setExperimentDraft((current) => ({
+                    ...current,
+                    targetMatches: event.target.value
+                  }))
+                }
+              />
+            </label>
+            <button type="button" className="primary-button" onClick={startExperiment}>
+              <Plus size={16} aria-hidden="true" />
+              <span>開始</span>
+            </button>
+          </div>
+        </details>
+        {experimentMessage ? <p className="form-message">{experimentMessage}</p> : null}
+        {visibleExperiments.length === 0 ? (
+          <p className="empty-state">このモードの改善施策はありません。</p>
+        ) : (
+          <div className="experiment-list">
+            {visibleExperiments.map(({ experiment, progress }) => {
+              const definition = analysisExperimentMetricDefinitions[experiment.metric];
+              const statusLabel =
+                experiment.status === "completed"
+                  ? "完了"
+                  : progress.achieved
+                    ? "目標到達"
+                    : progress.quality === "ready"
+                      ? "進行中"
+                      : "要確認";
+              return (
+                <article className="experiment-item" key={experiment.id}>
+                  <div className="period-tile-header">
+                    <div>
+                      <strong>{experiment.title}</strong>
+                      <p>{definition.label}</p>
+                    </div>
+                    <span
+                      className={`quality-pill ${
+                        experiment.status === "completed" || progress.achieved
+                          ? "quality-ok"
+                          : progress.quality === "ready"
+                            ? "quality-watch"
+                            : "quality-insufficient_data"
+                      }`}
+                    >
+                      {statusLabel}
+                    </span>
+                  </div>
+                  <dl className="period-metrics experiment-metrics">
+                    <div>
+                      <dt>開始値</dt>
+                      <dd>{metricUnitValue(experiment.baseline_value, definition.unit)}</dd>
+                    </div>
+                    <div>
+                      <dt>現在値</dt>
+                      <dd>{metricUnitValue(progress.current_value, definition.unit)}</dd>
+                    </div>
+                    <div>
+                      <dt>目標</dt>
+                      <dd>{metricUnitValue(experiment.target_value, definition.unit)}</dd>
+                    </div>
+                    <div>
+                      <dt>評価対戦数</dt>
+                      <dd>
+                        {formatNumber(progress.matches_delta)} / {formatNumber(experiment.target_matches)}
+                      </dd>
+                    </div>
+                  </dl>
+                  <div className="experiment-progress" aria-label="評価対戦数の進捗">
+                    <span style={{ width: `${progress.matches_progress_rate}%` }} />
+                  </div>
+                  <div className="action-row experiment-actions">
+                    <button
+                      type="button"
+                      className="secondary-button compact-button"
+                      onClick={() =>
+                        updateExperimentStatus(
+                          experiment.id,
+                          experiment.status === "active" ? "completed" : "active"
+                        )
+                      }
+                    >
+                      {experiment.status === "active" ? "完了にする" : "再開"}
+                    </button>
+                    <button
+                      type="button"
+                      className="icon-button danger"
+                      aria-label={`${experiment.title}を削除`}
+                      title={`${experiment.title}を削除`}
+                      onClick={() => removeExperiment(experiment.id)}
+                    >
+                      <Trash2 size={16} aria-hidden="true" />
+                    </button>
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+        )}
+      </section>
+
       <section className="analysis-section">
         <div className="section-heading">
           <h2>改善優先度</h2>

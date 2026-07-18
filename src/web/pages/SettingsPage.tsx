@@ -297,7 +297,7 @@ export function SettingsPage({
       <section className="settings-panel">
         <div className="section-heading inline-heading">
           <h2>分析目標</h2>
-          <p>ダッシュボードで最新値との達成状況を表示します。</p>
+          <p>詳細分析で最新値との達成状況を表示します。</p>
         </div>
         <div className="table-scroll compact-table">
           <table>
@@ -353,7 +353,7 @@ export function SettingsPage({
       <section className="settings-panel">
         <div className="section-heading inline-heading">
           <h2>カスタム指標</h2>
-          <p>許可済みの指標同士を組み合わせて、ダッシュボードに表示します。</p>
+          <p>許可済みの指標同士を組み合わせて、詳細分析に表示します。</p>
         </div>
         <div className="form-grid custom-metric-grid">
           <label>

@@ -242,6 +242,47 @@ test("/analysis restores selected analysis tab", async ({ page, request }) => {
   }
 });
 
+test("/analysis saves a reusable view and starts an improvement experiment", async ({
+  page,
+  request
+}) => {
+  const baseMinute = fixtureBaseMinute();
+  const snapshots: SnapshotFixture[] = [];
+
+  try {
+    snapshots.push(await createSnapshot(request, baseMinute, 0, 100));
+    snapshots.push(await createSnapshot(request, baseMinute, 1, 112));
+
+    await page.goto("/analysis");
+
+    await expect(page.getByText("今回の結論", { exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: "直近30日" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "すべて", exact: true })).toHaveCount(0);
+
+    await page.getByLabel("ビュー名").fill("東風戦・ラス回避");
+    await page.getByRole("button", { name: "保存", exact: true }).click();
+    await expect(page.getByText("「東風戦・ラス回避」を保存しました。")).toBeVisible();
+
+    await page.reload();
+    await page.getByLabel("保存済みビュー").selectOption({ label: "東風戦・ラス回避" });
+    await page.getByRole("button", { name: "適用", exact: true }).click();
+    await expect(page.getByText("「東風戦・ラス回避」を適用しました。")).toBeVisible();
+
+    await page.getByRole("tab", { name: "改善" }).click();
+    await page.getByText("新しい施策を開始", { exact: true }).click();
+    await page.getByLabel("施策名").fill("押し引き基準を見直す");
+    await page.getByLabel("目標値").fill("9");
+    await page.getByLabel("評価対戦数").fill("50");
+    await page.getByRole("button", { name: "開始", exact: true }).click();
+
+    await expect(page.getByText("「押し引き基準を見直す」を開始しました。")).toBeVisible();
+    await expect(page.getByText("押し引き基準を見直す", { exact: true })).toBeVisible();
+    await expectNoHorizontalOverflow(page);
+  } finally {
+    await deleteSnapshots(request, snapshots);
+  }
+});
+
 test("dashboard button navigates to /analysis", async ({ page, request }) => {
   const baseMinute = fixtureBaseMinute();
   const snapshots: SnapshotFixture[] = [];
