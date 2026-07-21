@@ -33,11 +33,16 @@ function observedAt(baseMinute: number, offsetMinutes: number): {
   };
 }
 
-function snapshotPayload(baseMinute: number, offsetMinutes: number, matches: number) {
+function snapshotPayload(
+  baseMinute: number,
+  offsetMinutes: number,
+  matches: number,
+  gameMode: "east" | "south" | "three_player" | "other" = "east"
+) {
   return {
     ...observedAt(baseMinute, offsetMinutes),
     timezone: "Asia/Tokyo",
-    game_mode: "east",
+    game_mode: gameMode,
     player_name: `=E2E Analysis ${baseMinute}`,
     player_id: `e2e-analysis-${baseMinute}-${offsetMinutes}`,
     rank_name: "雀士",
@@ -74,9 +79,10 @@ async function createSnapshot(
   request: APIRequestContext,
   baseMinute: number,
   offsetMinutes: number,
-  matches: number
+  matches: number,
+  gameMode: "east" | "south" | "three_player" | "other" = "east"
 ): Promise<SnapshotFixture> {
-  const payload = snapshotPayload(baseMinute, offsetMinutes, matches);
+  const payload = snapshotPayload(baseMinute, offsetMinutes, matches, gameMode);
   const response = await request.post("/api/snapshots", { data: payload });
   expect(response.status()).toBe(201);
 
@@ -261,40 +267,150 @@ test("/analysis restores selected analysis tab", async ({ page, request }) => {
 test("/analysis saves a reusable view and starts an improvement experiment", async ({
   page,
   request
-}) => {
+}, testInfo) => {
+  test.skip(
+    testInfo.project.name !== "desktop-chrome",
+    "D1 preference sync only needs one browser project"
+  );
   const baseMinute = fixtureBaseMinute();
   const snapshots: SnapshotFixture[] = [];
+  const viewIds: string[] = [];
+  const experimentIds: string[] = [];
+  const viewName = `三人戦・ラス回避-${baseMinute}`;
+  const experimentTitle = `押し引き基準-${baseMinute}`;
 
   try {
-    snapshots.push(await createSnapshot(request, baseMinute, 0, 100));
-    snapshots.push(await createSnapshot(request, baseMinute, 1, 112));
+    const [staleSnapshotsResponse, staleViewsResponse, staleExperimentsResponse] =
+      await Promise.all([
+        request.get("/api/snapshots?game_mode=three_player&limit=500"),
+        request.get("/api/analysis/views"),
+        request.get("/api/analysis/experiments")
+      ]);
+    const staleSnapshots = (await staleSnapshotsResponse.json()) as {
+      items: Array<{ id: number; player_id: string | null }>;
+    };
+    const staleViews = (await staleViewsResponse.json()) as {
+      items: Array<{ id: string; name: string }>;
+    };
+    const staleExperiments = (await staleExperimentsResponse.json()) as {
+      items: Array<{ id: string; title: string }>;
+    };
+    await Promise.all([
+      ...staleSnapshots.items
+        .filter((snapshot) => snapshot.player_id?.startsWith("e2e-analysis-"))
+        .map((snapshot) => request.delete(`/api/snapshots/${snapshot.id}`)),
+      ...staleViews.items
+        .filter((view) => view.name.startsWith("三人戦・ラス回避"))
+        .map((view) => request.delete(`/api/analysis/views/${encodeURIComponent(view.id)}`)),
+      ...staleExperiments.items
+        .filter(
+          (experiment) =>
+            experiment.title.startsWith("押し引き基準-") ||
+            experiment.title === "押し引き基準を見直す"
+        )
+        .map((experiment) =>
+          request.delete(`/api/analysis/experiments/${encodeURIComponent(experiment.id)}`)
+        )
+    ]);
+
+    snapshots.push(await createSnapshot(request, baseMinute, 0, 100, "three_player"));
+    snapshots.push(await createSnapshot(request, baseMinute, 1, 112, "three_player"));
 
     await page.goto("/analysis");
+    await page.getByRole("button", { name: "三人戦", exact: true }).click();
 
     await expect(page.getByText("今回の結論", { exact: true })).toBeVisible();
     await expect(page.getByRole("button", { name: "直近30日" })).toBeVisible();
     await expect(page.getByRole("button", { name: "すべて", exact: true })).toHaveCount(0);
 
-    await page.getByLabel("ビュー名").fill("東風戦・ラス回避");
+    await page.getByLabel("ビュー名").fill(viewName);
     await page.getByRole("button", { name: "保存", exact: true }).click();
-    await expect(page.getByText("「東風戦・ラス回避」を保存しました。")).toBeVisible();
+    await expect(page.getByText(`「${viewName}」を保存しました。`)).toBeVisible();
+    const viewsResponse = await request.get("/api/analysis/views");
+    const views = (await viewsResponse.json()) as { items: Array<{ id: string; name: string }> };
+    const storedView = views.items.find((view) => view.name === viewName);
+    expect(storedView).toBeDefined();
+    if (storedView) viewIds.push(storedView.id);
 
+    await page.evaluate(() => {
+      window.localStorage.removeItem("tilelog-lens:analysis-views");
+      window.localStorage.removeItem("tilelog-lens:analysis-experiments");
+    });
     await page.reload();
-    await page.getByLabel("保存済みビュー").selectOption({ label: "東風戦・ラス回避" });
+    await page.getByLabel("保存済みビュー").selectOption({ label: viewName });
     await page.getByRole("button", { name: "適用", exact: true }).click();
-    await expect(page.getByText("「東風戦・ラス回避」を適用しました。")).toBeVisible();
+    await expect(page.getByText(`「${viewName}」を適用しました。`)).toBeVisible();
+    if (storedView) {
+      const deletedView = await request.delete(
+        `/api/analysis/views/${encodeURIComponent(storedView.id)}`
+      );
+      expect(deletedView.status()).toBe(200);
+      viewIds.splice(viewIds.indexOf(storedView.id), 1);
+      await page.reload();
+      await expect(
+        page.getByLabel("保存済みビュー").getByRole("option", {
+          name: viewName
+        })
+      ).toHaveCount(0);
+    }
 
+    await page.getByRole("button", { name: "三人戦", exact: true }).click();
     await page.getByRole("tab", { name: "改善" }).click();
     await page.getByText("新しい施策を開始", { exact: true }).click();
-    await page.getByLabel("施策名").fill("押し引き基準を見直す");
+    await page.getByLabel("施策名").fill(experimentTitle);
     await page.getByLabel("目標値").fill("9");
     await page.getByLabel("評価対戦数").fill("50");
     await page.getByRole("button", { name: "開始", exact: true }).click();
 
-    await expect(page.getByText("「押し引き基準を見直す」を開始しました。")).toBeVisible();
-    await expect(page.getByText("押し引き基準を見直す", { exact: true })).toBeVisible();
+    await expect(page.getByText(`「${experimentTitle}」を開始しました。`)).toBeVisible();
+    await expect(page.getByText(experimentTitle, { exact: true })).toBeVisible();
+    const experimentsResponse = await request.get("/api/analysis/experiments");
+    const experiments = (await experimentsResponse.json()) as {
+      items: Array<{
+        id: string;
+        title: string;
+        baseline_snapshot_id: number | null;
+        baseline_value: number;
+        baseline_matches: number;
+      }>;
+    };
+    const storedExperiment = experiments.items.find(
+      (experiment) => experiment.title === experimentTitle
+    );
+    expect(storedExperiment).toBeDefined();
+    if (storedExperiment) {
+      experimentIds.push(storedExperiment.id);
+      const baselineIndex = snapshots.findIndex(
+        (snapshot) => snapshot.id === storedExperiment.baseline_snapshot_id
+      );
+      expect(baselineIndex).toBeGreaterThanOrEqual(0);
+      const baselineValue = storedExperiment.baseline_value;
+      const baselineMatches = storedExperiment.baseline_matches;
+      const deleted = await request.delete(`/api/snapshots/${snapshots[baselineIndex].id}`);
+      expect(deleted.status()).toBe(200);
+      snapshots.splice(baselineIndex, 1);
+
+      const afterDeleteResponse = await request.get("/api/analysis/experiments");
+      const afterDelete = (await afterDeleteResponse.json()) as typeof experiments;
+      const preserved = afterDelete.items.find(
+        (experiment) => experiment.id === storedExperiment.id
+      );
+      expect(preserved).toMatchObject({
+        baseline_snapshot_id: null,
+        baseline_value: baselineValue,
+        baseline_matches: baselineMatches
+      });
+    }
     await expectNoHorizontalOverflow(page);
   } finally {
+    await Promise.all(
+      viewIds.map((id) => request.delete(`/api/analysis/views/${encodeURIComponent(id)}`))
+    );
+    await Promise.all(
+      experimentIds.map((id) =>
+        request.delete(`/api/analysis/experiments/${encodeURIComponent(id)}`)
+      )
+    );
     await deleteSnapshots(request, snapshots);
   }
 });

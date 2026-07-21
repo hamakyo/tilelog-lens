@@ -137,6 +137,9 @@ Recommended optional fields:
 ### 6.5 Snapshot list
 
 The app must provide a snapshot list sorted by `observed_at_utc DESC` by default.
+The list API must support stable cursor pagination ordered by `observed_at_utc, id`.
+Existing `limit` and `offset` clients remain supported. Invalid cursors return
+`400 { "error": "invalid_cursor" }`.
 
 List columns:
 
@@ -185,6 +188,11 @@ The analytics page must show at least:
 
 The app should clearly label period values as estimates because source screenshots contain cumulative rounded rates.
 
+Long-term style must be evaluated separately from recent state. Analysis uses a
+game-mode-specific profile whose initial status is `provisional`. A `risk`
+conclusion requires both the long-term and recent evaluations to be risky; low
+priority findings are displayed as long-term goals instead of alerts.
+
 ### 6.8 Period delta estimation
 
 For consecutive snapshots A and B:
@@ -198,6 +206,14 @@ Validation:
 - `matches_delta` must be positive for normal chronological progress.
 - If `matches_delta` is zero, show as same-match update and do not compute period rates.
 - If `matches_delta` is negative, mark as invalid order, different mode, reset, or OCR/input error.
+
+For target windows such as 10, 50, and 100 matches:
+
+- choose the baseline minimizing `abs(actual_matches - target_matches)` and prefer the newer observation on ties;
+- use an exact label at up to 10% error and an approximate label at up to 25% error;
+- return `insufficient_data` without estimated metrics above 25% error or below 10 actual matches;
+- deduplicate windows that selected the same baseline, keeping the smaller error and then the smaller target;
+- expose the calculation method, estimated flag, actual matches, window error, confidence, and sample strength.
 
 ### 6.9 CSV export
 
@@ -236,6 +252,9 @@ The JSON must include:
 - estimated deltas
 - notes
 - analysis request object
+- analysis engine version `2.0.0`
+- long-term/recent analysis assessment and provisional profile metadata
+- estimation method, actual window size, error rate, confidence, and sample strength
 
 Default export must anonymize player name and player ID unless the owner explicitly disables anonymization.
 
@@ -254,6 +273,18 @@ Notes are useful for AI analysis, but the UI must warn the owner not to include 
 MVP stores one optional note directly on `stat_snapshots.note`. A separate
 `play_notes` table is reserved for future richer note-taking features and is
 not part of the initial migration.
+
+### 6.12 Analysis preferences
+
+- Saved analysis views and improvement experiments are stored in D1.
+- Limits are 20 saved views and 30 experiments and are validated server-side.
+- Initial migration from localStorage merges records by ID, keeps the newer
+  `updated_at`, and prefers D1 on ties.
+- D1 is authoritative during normal use; localStorage is only a display cache.
+- After an initial-sync marker is stored on a device, subsequent page loads read
+  D1 without re-uploading stale cache entries.
+- Deleting a baseline snapshot sets `baseline_snapshot_id` to null while keeping
+  the captured baseline values.
 
 ## 7. Validation requirements
 
@@ -329,6 +360,8 @@ The app must maintain the following constraints:
 - Clear migrations under `migrations/`.
 - Small Hono route modules.
 - Tests for validation, derived metrics, CSV escaping, and JSON export shape.
+- Pull requests run six Desktop Chrome smoke scenarios; the full browser/mobile
+  E2E suite remains available for manual execution.
 
 ### 9.4 Accessibility
 

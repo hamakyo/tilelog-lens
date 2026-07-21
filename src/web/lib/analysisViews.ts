@@ -1,55 +1,24 @@
 import { GAME_MODES } from "../../shared/constants";
 import type { GameMode } from "../../shared/types";
+import {
+  analysisViewChartMetrics as chartMetrics,
+  analysisViewTabs as tabs,
+  type AnalysisViewChartMetric,
+  type AnalysisViewDraft,
+  type AnalysisViewFilters,
+  type AnalysisViewTab,
+  type SavedAnalysisView
+} from "../../shared/analysisPreferences";
 
-export type AnalysisViewTab = "overview" | "riichi" | "improvement" | "detail";
-
-export type AnalysisViewChartMetric =
-  | "avg_place"
-  | "win_rate"
-  | "deal_in_rate"
-  | "attack_defense_gap"
-  | "call_rate"
-  | "riichi_rate"
-  | "top_two_rate"
-  | "bottom_two_rate"
-  | "rank_point_progress";
-
-export type AnalysisViewFilters = {
-  observedDateFrom: string;
-  observedDateTo: string;
-  minMatches: string;
-  maxMatches: string;
-  minWinRate: string;
-  maxDealInRate: string;
-  maxAvgPlace: string;
-};
-
-export type SavedAnalysisView = {
-  id: string;
-  name: string;
-  game_mode: GameMode;
-  filters: AnalysisViewFilters;
-  tab: AnalysisViewTab;
-  chart_metrics: AnalysisViewChartMetric[];
-  created_at: string;
-  updated_at: string;
-};
-
-export type AnalysisViewDraft = Omit<SavedAnalysisView, "id" | "created_at" | "updated_at">;
+export type {
+  AnalysisViewChartMetric,
+  AnalysisViewDraft,
+  AnalysisViewFilters,
+  AnalysisViewTab,
+  SavedAnalysisView
+} from "../../shared/analysisPreferences";
 
 const storageKey = "tilelog-lens:analysis-views";
-const tabs: AnalysisViewTab[] = ["overview", "riichi", "improvement", "detail"];
-const chartMetrics: AnalysisViewChartMetric[] = [
-  "avg_place",
-  "win_rate",
-  "deal_in_rate",
-  "attack_defense_gap",
-  "call_rate",
-  "riichi_rate",
-  "top_two_rate",
-  "bottom_two_rate",
-  "rank_point_progress"
-];
 const filterKeys: Array<keyof AnalysisViewFilters> = [
   "observedDateFrom",
   "observedDateTo",

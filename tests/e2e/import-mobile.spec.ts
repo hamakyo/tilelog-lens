@@ -49,6 +49,13 @@ async function fillRequiredStats(page: Page, observedTime = "21:34"): Promise<vo
   await page.getByLabel("立直率").fill("26.07");
 }
 
+async function confirmImportReviewIfNeeded(page: Page): Promise<void> {
+  const confirmation = page.getByRole("checkbox", {
+    name: "保存前確認の内容を確認しました。"
+  });
+  if (await confirmation.isVisible()) await confirmation.check();
+}
+
 function assertNoImagePayload(value: unknown): void {
   const stack = [value];
   while (stack.length > 0) {
@@ -126,6 +133,7 @@ test("local screenshot metadata is read but image is not uploaded", async ({ pag
     });
   });
 
+  await confirmImportReviewIfNeeded(page);
   await page.getByRole("button", { name: "記録を保存" }).click();
   await expect(page.getByText("記録を保存しました。")).toBeVisible();
   expect(postedJson).not.toBeNull();
@@ -146,13 +154,13 @@ test("HH:mm is required on mobile", async ({ page }) => {
   });
 
   const timeInput = page.getByLabel("時刻");
-  await page.getByRole("button", { name: "記録を保存" }).click();
   expect(
     await timeInput.evaluate((input) => (input as HTMLInputElement).validity.valueMissing)
   ).toBe(true);
   expect(requestCount).toBe(0);
 
   await timeInput.fill("21:34");
+  await confirmImportReviewIfNeeded(page);
   const requestPromise = page.waitForRequest("**/api/snapshots");
   await page.getByRole("button", { name: "記録を保存" }).click();
   const request = await requestPromise;

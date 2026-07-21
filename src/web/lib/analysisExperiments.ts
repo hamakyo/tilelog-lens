@@ -1,31 +1,17 @@
 import { GAME_MODES } from "../../shared/constants";
 import type { GameMode, Snapshot } from "../../shared/types";
+import {
+  analysisExperimentMetrics as metrics,
+  type AnalysisExperiment,
+  type AnalysisExperimentMetric,
+  type AnalysisExperimentStatus
+} from "../../shared/analysisPreferences";
 
-export type AnalysisExperimentMetric =
-  | "avg_place"
-  | "win_rate"
-  | "deal_in_rate"
-  | "fourth_rate"
-  | "riichi_rate"
-  | "rank_points";
-
-export type AnalysisExperimentStatus = "active" | "completed";
-
-export type AnalysisExperiment = {
-  id: string;
-  title: string;
-  game_mode: GameMode;
-  metric: AnalysisExperimentMetric;
-  target_value: number;
-  target_matches: number;
-  baseline_snapshot_id: number;
-  baseline_value: number;
-  baseline_matches: number;
-  baseline_observed_at_utc: string;
-  status: AnalysisExperimentStatus;
-  created_at: string;
-  completed_at: string | null;
-};
+export type {
+  AnalysisExperiment,
+  AnalysisExperimentMetric,
+  AnalysisExperimentStatus
+} from "../../shared/analysisPreferences";
 
 export type AnalysisExperimentProgress = {
   current_value: number | null;
@@ -49,10 +35,6 @@ export const analysisExperimentMetricDefinitions: Record<
 };
 
 const storageKey = "tilelog-lens:analysis-experiments";
-const metrics = Object.keys(
-  analysisExperimentMetricDefinitions
-) as AnalysisExperimentMetric[];
-
 function metricValue(snapshot: Snapshot, metric: AnalysisExperimentMetric): number | null {
   const value = snapshot[metric];
   return typeof value === "number" && Number.isFinite(value) ? value : null;
@@ -74,7 +56,7 @@ function sanitizeExperiment(value: unknown): AnalysisExperiment | null {
     typeof value.target_matches !== "number" ||
     !Number.isInteger(value.target_matches) ||
     value.target_matches < 1 ||
-    typeof value.baseline_snapshot_id !== "number" ||
+    (value.baseline_snapshot_id !== null && typeof value.baseline_snapshot_id !== "number") ||
     typeof value.baseline_value !== "number" ||
     !Number.isFinite(value.baseline_value) ||
     typeof value.baseline_matches !== "number" ||
@@ -82,7 +64,8 @@ function sanitizeExperiment(value: unknown): AnalysisExperiment | null {
     typeof value.baseline_observed_at_utc !== "string" ||
     (value.status !== "active" && value.status !== "completed") ||
     typeof value.created_at !== "string" ||
-    (value.completed_at !== null && typeof value.completed_at !== "string")
+    (value.completed_at !== null && typeof value.completed_at !== "string") ||
+    (value.updated_at != null && typeof value.updated_at !== "string")
   ) {
     return null;
   }
@@ -94,13 +77,17 @@ function sanitizeExperiment(value: unknown): AnalysisExperiment | null {
     metric: value.metric as AnalysisExperimentMetric,
     target_value: value.target_value,
     target_matches: value.target_matches,
-    baseline_snapshot_id: value.baseline_snapshot_id,
+    baseline_snapshot_id: value.baseline_snapshot_id as number | null,
     baseline_value: value.baseline_value,
     baseline_matches: value.baseline_matches,
     baseline_observed_at_utc: value.baseline_observed_at_utc,
     status: value.status,
     created_at: value.created_at,
-    completed_at: value.completed_at as string | null
+    completed_at: value.completed_at as string | null,
+    updated_at:
+      typeof value.updated_at === "string"
+        ? value.updated_at
+        : (value.completed_at as string | null) ?? value.created_at
   };
 }
 
@@ -153,7 +140,8 @@ export function startAnalysisExperiment(
     baseline_observed_at_utc: baseline.observed_at_utc,
     status: "active",
     created_at: new Date().toISOString(),
-    completed_at: null
+    completed_at: null,
+    updated_at: new Date().toISOString()
   };
   const items = [item, ...experiments].slice(0, 30);
   saveAnalysisExperiments(items);
@@ -165,12 +153,14 @@ export function setAnalysisExperimentStatus(
   id: string,
   status: AnalysisExperimentStatus
 ): AnalysisExperiment[] {
+  const now = new Date().toISOString();
   const items = experiments.map((experiment) =>
     experiment.id === id
       ? {
           ...experiment,
           status,
-          completed_at: status === "completed" ? new Date().toISOString() : null
+          completed_at: status === "completed" ? now : null,
+          updated_at: now
         }
       : experiment
   );

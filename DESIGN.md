@@ -25,7 +25,9 @@ Cloudflare Worker
 
 Cloudflare D1
   ├─ stat_snapshots
-  └─ play_notes (future, not in MVP migration)
+  ├─ import_events / snapshot_revisions
+  ├─ analysis_saved_views
+  └─ analysis_experiments
 ```
 
 No screenshot storage service is used in MVP. R2 is intentionally omitted.
@@ -219,7 +221,19 @@ CREATE INDEX idx_stat_snapshots_source_hash
   ON stat_snapshots(source_image_sha256);
 ```
 
-### 5.2 Future notes table: `play_notes`
+### 5.2 Analysis preferences
+
+`analysis_saved_views` stores reusable mode, filter, tab, and chart selections.
+`analysis_experiments` stores the metric target and a captured baseline. Its
+`baseline_snapshot_id` foreign key uses `ON DELETE SET NULL`; denormalized
+baseline values remain available after the source snapshot is deleted.
+
+The API enforces limits of 20 views and 30 experiments. During initial sync,
+UPSERT statements update only when the incoming `updated_at` is newer, so D1
+wins equal-timestamp conflicts. A per-device migration marker prevents later
+page loads from re-uploading stale cache entries; normal loads use the GET APIs.
+
+### 5.3 Future notes table: `play_notes`
 
 MVP stores one optional note directly on `stat_snapshots.note`.
 A separate `play_notes` table is reserved for future richer note-taking
@@ -376,6 +390,7 @@ Query parameters:
 - `limit` default 100
 - `offset` default 0
 - `order` `asc|desc`, default `desc`
+- `cursor` optional opaque cursor for stable `(observed_at_utc, id)` pagination
 
 Returns:
 
@@ -385,7 +400,8 @@ Returns:
   "pagination": {
     "limit": 100,
     "offset": 0,
-    "total": 241
+    "total": 241,
+    "next_cursor": null
   }
 }
 ```
@@ -393,6 +409,9 @@ Returns:
 ### 8.3 `POST /api/snapshots`
 
 Input: snapshot create JSON.
+
+The snapshot INSERT, ID lookup by the unique observation key, and import-history
+INSERT execute in one `D1Database.batch()` call.
 
 Returns:
 
@@ -415,6 +434,8 @@ Rules:
 
 - full update preferred for MVP.
 - derive `observed_at_utc` server-side again when date/time changes.
+- execute the snapshot UPDATE and revision INSERT in one batch when values change.
+- do not create a revision for a no-op update.
 
 ### 8.6 `DELETE /api/snapshots/:id`
 
@@ -482,6 +503,19 @@ Content-Type: application/json; charset=utf-8
 Content-Disposition: attachment; filename="tilelog-ai-context.json"
 ```
 
+The export keeps `schema_version: "1.0"` and adds `analysis_engine` version
+`2.0.0`, `analysis_assessment`, provisional profile metadata, and estimation
+confidence fields. An analysis-page export accepts the same serialized
+`AnalysisScope` used by the UI.
+
+### 8.10 Analysis preference endpoints
+
+- `POST /api/analysis/sync`
+- `GET/POST/PUT/DELETE /api/analysis/views`
+- `GET/POST/PUT/DELETE /api/analysis/experiments`
+
+All mutation payloads pass the JSON-only request guard and shared Zod schemas.
+
 ## 9. Derived metrics
 
 For each snapshot:
@@ -509,6 +543,16 @@ period_rate = period_count / matches_delta * 100;
 Show caveat:
 
 > Period values are estimates because source screenshots expose cumulative rates rounded to two decimal places.
+
+Target-window analysis chooses the candidate nearest to the requested match
+count. Error up to 10% is exact-label quality, up to 25% is approximate, and
+larger error is insufficient. Sample strength is `reference` for 10-24 actual
+matches, `trend` for 25-99, and `assessment` for 100 or more. Effective
+confidence is the lower of window quality and sample strength.
+
+Style classification accepts an arbitrary metric set, game mode, and sample
+strength. Long-term and recent styles are combined into `AnalysisAssessment`;
+mode thresholds are versioned profiles and initially marked `provisional`.
 
 ## 10. Frontend design
 

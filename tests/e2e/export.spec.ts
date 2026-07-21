@@ -241,3 +241,69 @@ test("AI JSON preview shows analysis section counts", async ({
     await deleteSnapshots(request, snapshots);
   }
 });
+
+test("analysis UI and scoped AI JSON use the same 501 D1 snapshots", async ({
+  page,
+  request
+}, testInfo) => {
+  expectDesktopProject(testInfo);
+  test.setTimeout(120_000);
+
+  const baseMinute = exportBaseMinute();
+  const snapshots: SnapshotExportFixture[] = [];
+
+  try {
+    for (let offset = 0; offset < 501; offset += 10) {
+      const chunk = await Promise.all(
+        Array.from({ length: Math.min(10, 501 - offset) }, async (_, index) => {
+          const currentOffset = offset + index;
+          const payload = {
+            ...snapshotPayload(baseMinute, currentOffset, 100 + currentOffset),
+            game_mode: "south"
+          };
+          const response = await request.post("/api/snapshots", { data: payload });
+          expect(response.status()).toBe(201);
+          const body = (await response.json()) as { item: { id: number } };
+          return {
+            id: body.item.id,
+            observed_date: payload.observed_date,
+            observed_time: payload.observed_time,
+            matches: payload.matches
+          };
+        })
+      );
+      snapshots.push(...chunk);
+    }
+
+    await page.goto("/analysis");
+    await page.getByRole("button", { name: "半荘戦", exact: true }).click();
+    await expect(page.getByText("501件中 501件を分析対象にしています。")).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "直近の状態を確認してください" })
+    ).toBeVisible();
+
+    const first = snapshots[0];
+    const last = snapshots.at(-1);
+    expect(last).toBeDefined();
+    const params = new URLSearchParams({
+      anonymize: "true",
+      game_mode: "south",
+      observed_date_from: first.observed_date,
+      observed_date_to: last?.observed_date ?? first.observed_date
+    });
+    const response = await request.get(`/api/export/ai-context.json?${params.toString()}`);
+    expect(response.status()).toBe(200);
+    const body = (await response.json()) as {
+      summary: { snapshot_count: number };
+      snapshots: Array<{ id: number }>;
+      analysis_assessment: { current_alert: string } | null;
+    };
+    expect(body.summary.snapshot_count).toBe(501);
+    expect(body.snapshots).toHaveLength(501);
+    expect(body.analysis_assessment?.current_alert).toBe("watch");
+  } finally {
+    for (let offset = 0; offset < snapshots.length; offset += 10) {
+      await deleteSnapshots(request, snapshots.slice(offset, offset + 10));
+    }
+  }
+});

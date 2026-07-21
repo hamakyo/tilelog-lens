@@ -6,6 +6,11 @@ import type {
   SnapshotRevision,
   ValidationWarning
 } from "../../shared/types";
+import type {
+  AnalysisExperiment,
+  AnalysisViewDraft,
+  SavedAnalysisView
+} from "../../shared/analysisPreferences";
 
 export type SnapshotListResponse = {
   items: Snapshot[];
@@ -157,4 +162,62 @@ export function createImportEvent(
     },
     body: JSON.stringify(input)
   });
+}
+
+export function syncAnalysisPreferences(input: {
+  views: SavedAnalysisView[];
+  experiments: AnalysisExperiment[];
+}): Promise<{ views: SavedAnalysisView[]; experiments: AnalysisExperiment[] }> {
+  return apiJson("/api/analysis/sync", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input)
+  });
+}
+
+export async function listAnalysisPreferences(): Promise<{
+  views: SavedAnalysisView[];
+  experiments: AnalysisExperiment[];
+}> {
+  const [views, experiments] = await Promise.all([
+    apiJson<{ items: SavedAnalysisView[] }>("/api/analysis/views"),
+    apiJson<{ items: AnalysisExperiment[] }>("/api/analysis/experiments")
+  ]);
+  return { views: views.items, experiments: experiments.items };
+}
+
+export function saveAnalysisViewRemote(
+  view: SavedAnalysisView
+): Promise<{ item: SavedAnalysisView }> {
+  const draft: AnalysisViewDraft = {
+    name: view.name,
+    game_mode: view.game_mode,
+    filters: view.filters,
+    tab: view.tab,
+    chart_metrics: view.chart_metrics
+  };
+  return apiJson(`/api/analysis/views/${encodeURIComponent(view.id)}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(draft)
+  });
+}
+
+export function deleteAnalysisViewRemote(id: string): Promise<{ ok: true }> {
+  return apiJson(`/api/analysis/views/${encodeURIComponent(id)}`, { method: "DELETE" });
+}
+
+export function saveAnalysisExperimentRemote(
+  experiment: AnalysisExperiment
+): Promise<{ item: AnalysisExperiment }> {
+  const { id: _id, created_at: _createdAt, updated_at: _updatedAt, ...draft } = experiment;
+  return apiJson(`/api/analysis/experiments/${encodeURIComponent(experiment.id)}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(draft)
+  });
+}
+
+export function deleteAnalysisExperimentRemote(id: string): Promise<{ ok: true }> {
+  return apiJson(`/api/analysis/experiments/${encodeURIComponent(id)}`, { method: "DELETE" });
 }

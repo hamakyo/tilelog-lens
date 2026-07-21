@@ -56,7 +56,7 @@ import { loadAnalysisGoals } from "../lib/analysisGoals";
 import { loadCustomMetrics } from "../lib/customMetrics";
 import {
   deleteAnalysisView,
-  loadAnalysisViews,
+  saveAnalysisViews,
   upsertAnalysisView,
   type AnalysisViewChartMetric,
   type AnalysisViewFilters,
@@ -66,7 +66,7 @@ import {
   analysisExperimentMetricDefinitions,
   buildAnalysisExperimentProgress,
   deleteAnalysisExperiment,
-  loadAnalysisExperiments,
+  saveAnalysisExperiments,
   setAnalysisExperimentStatus,
   startAnalysisExperiment,
   type AnalysisExperimentMetric
@@ -76,6 +76,13 @@ import { TrendChart } from "../components/TrendChart";
 import { useAnalysisData } from "../features/analysis/hooks/useAnalysisData";
 import { AnalysisConclusionPanel } from "../features/analysis/components/AnalysisConclusionPanel";
 import { PeriodAnalysisCards } from "../features/analysis/components/PeriodAnalysisCards";
+import { useAnalysisPreferences } from "../features/analysis/hooks/useAnalysisPreferences";
+import {
+  deleteAnalysisExperimentRemote,
+  deleteAnalysisViewRemote,
+  saveAnalysisExperimentRemote,
+  saveAnalysisViewRemote
+} from "../lib/api";
 
 type AnalysisPageProps = {
   navigate: (path: string) => void;
@@ -285,6 +292,14 @@ function persistAnalysisTab(tab: AnalysisTab): void {
 
 export function AnalysisPage({ navigate }: AnalysisPageProps) {
   const { snapshots, selectedMode, setSelectedMode, error, loading } = useAnalysisData();
+  const {
+    savedViews,
+    setSavedViews,
+    analysisExperiments,
+    setAnalysisExperiments,
+    syncError: preferenceSyncError,
+    syncing: preferencesSyncing
+  } = useAnalysisPreferences();
   const [analysisGoals, setAnalysisGoals] = useState<AnalysisGoal[]>(() =>
     loadAnalysisGoals()
   );
@@ -300,11 +315,9 @@ export function AnalysisPage({ navigate }: AnalysisPageProps) {
   ]);
   const [activeTab, setActiveTab] = useState<AnalysisTab>(loadInitialAnalysisTab);
   const [filtersExpanded, setFiltersExpanded] = useState(initialFiltersExpanded);
-  const [savedViews, setSavedViews] = useState(loadAnalysisViews);
   const [selectedViewId, setSelectedViewId] = useState("");
   const [viewName, setViewName] = useState("");
   const [viewMessage, setViewMessage] = useState<string | null>(null);
-  const [analysisExperiments, setAnalysisExperiments] = useState(loadAnalysisExperiments);
   const [experimentDraft, setExperimentDraft] = useState({
     title: "",
     metric: "deal_in_rate" as AnalysisExperimentMetric,
@@ -550,7 +563,7 @@ export function AnalysisPage({ navigate }: AnalysisPageProps) {
     setViewMessage(`「${view.name}」を適用しました。`);
   }
 
-  function saveCurrentView(): void {
+  async function saveCurrentView(): Promise<void> {
     const name = viewName.trim();
     if (!name || !selectedMode) {
       setViewMessage("ビュー名とゲームモードを確認してください。");
@@ -567,22 +580,38 @@ export function AnalysisPage({ navigate }: AnalysisPageProps) {
       },
       selectedViewId || undefined
     );
-    setSavedViews(saved.items);
-    setSelectedViewId(saved.item.id);
-    setViewName(saved.item.name);
-    setViewMessage(`「${saved.item.name}」を保存しました。`);
+    try {
+      const result = await saveAnalysisViewRemote(saved.item);
+      const items = saved.items.map((view) =>
+        view.id === result.item.id ? result.item : view
+      );
+      setSavedViews(items);
+      saveAnalysisViews(items);
+      setSelectedViewId(result.item.id);
+      setViewName(result.item.name);
+      setViewMessage(`「${result.item.name}」を保存しました。`);
+    } catch (caught) {
+      setSavedViews(savedViews);
+      saveAnalysisViews(savedViews);
+      setViewMessage(caught instanceof Error ? caught.message : "ビューを保存できませんでした。");
+    }
   }
 
-  function removeSelectedView(): void {
+  async function removeSelectedView(): Promise<void> {
     if (!selectedViewId) return;
     const selected = savedViews.find((view) => view.id === selectedViewId);
-    setSavedViews(deleteAnalysisView(savedViews, selectedViewId));
-    setSelectedViewId("");
-    setViewName("");
-    setViewMessage(selected ? `「${selected.name}」を削除しました。` : null);
+    try {
+      await deleteAnalysisViewRemote(selectedViewId);
+      setSavedViews(deleteAnalysisView(savedViews, selectedViewId));
+      setSelectedViewId("");
+      setViewName("");
+      setViewMessage(selected ? `「${selected.name}」を削除しました。` : null);
+    } catch (caught) {
+      setViewMessage(caught instanceof Error ? caught.message : "ビューを削除できませんでした。");
+    }
   }
 
-  function startExperiment(): void {
+  async function startExperiment(): Promise<void> {
     const title = experimentDraft.title.trim();
     const targetValue = Number(experimentDraft.targetValue);
     const targetMatches = Number(experimentDraft.targetMatches);
@@ -618,22 +647,48 @@ export function AnalysisPage({ navigate }: AnalysisPageProps) {
         },
         latestModeSnapshot
       );
-      setAnalysisExperiments(started.items);
+      const result = await saveAnalysisExperimentRemote(started.item);
+      const items = started.items.map((experiment) =>
+        experiment.id === result.item.id ? result.item : experiment
+      );
+      setAnalysisExperiments(items);
+      saveAnalysisExperiments(items);
       setExperimentDraft((current) => ({ ...current, title: "" }));
       setExperimentMessage(`「${started.item.title}」を開始しました。`);
     } catch (caught) {
+      setAnalysisExperiments(analysisExperiments);
+      saveAnalysisExperiments(analysisExperiments);
       setExperimentMessage(
         caught instanceof Error ? caught.message : "改善施策を開始できませんでした。"
       );
     }
   }
 
-  function updateExperimentStatus(id: string, status: "active" | "completed"): void {
-    setAnalysisExperiments(setAnalysisExperimentStatus(analysisExperiments, id, status));
+  async function updateExperimentStatus(id: string, status: "active" | "completed"): Promise<void> {
+    const items = setAnalysisExperimentStatus(analysisExperiments, id, status);
+    const changed = items.find((experiment) => experiment.id === id);
+    if (!changed) return;
+    try {
+      const result = await saveAnalysisExperimentRemote(changed);
+      const storedItems = items.map((experiment) =>
+        experiment.id === id ? result.item : experiment
+      );
+      setAnalysisExperiments(storedItems);
+      saveAnalysisExperiments(storedItems);
+    } catch (caught) {
+      setAnalysisExperiments(analysisExperiments);
+      saveAnalysisExperiments(analysisExperiments);
+      setExperimentMessage(caught instanceof Error ? caught.message : "施策を更新できませんでした。");
+    }
   }
 
-  function removeExperiment(id: string): void {
-    setAnalysisExperiments(deleteAnalysisExperiment(analysisExperiments, id));
+  async function removeExperiment(id: string): Promise<void> {
+    try {
+      await deleteAnalysisExperimentRemote(id);
+      setAnalysisExperiments(deleteAnalysisExperiment(analysisExperiments, id));
+    } catch (caught) {
+      setExperimentMessage(caught instanceof Error ? caught.message : "施策を削除できませんでした。");
+    }
   }
 
   return (
@@ -650,6 +705,7 @@ export function AnalysisPage({ navigate }: AnalysisPageProps) {
       </div>
 
       {error ? <p className="error-banner">{error}</p> : null}
+      {preferenceSyncError ? <p className="error-banner">{preferenceSyncError}</p> : null}
       {loading ? <p className="empty-state">成績を読み込んでいます...</p> : null}
 
       <section className="filter-bar" aria-label="ゲームモード切替">
@@ -785,7 +841,7 @@ export function AnalysisPage({ navigate }: AnalysisPageProps) {
               onChange={(event) => setViewName(event.target.value)}
             />
           </label>
-          <button type="button" className="primary-button compact-button" onClick={saveCurrentView}>
+          <button type="button" className="primary-button compact-button" disabled={preferencesSyncing} onClick={saveCurrentView}>
             <Save size={16} aria-hidden="true" />
             <span>保存</span>
           </button>
@@ -794,7 +850,7 @@ export function AnalysisPage({ navigate }: AnalysisPageProps) {
             className="icon-button danger"
             aria-label="選択中のビューを削除"
             title="選択中のビューを削除"
-            disabled={!selectedViewId}
+            disabled={!selectedViewId || preferencesSyncing}
             onClick={removeSelectedView}
           >
             <Trash2 size={16} aria-hidden="true" />
@@ -1441,7 +1497,7 @@ export function AnalysisPage({ navigate }: AnalysisPageProps) {
                 }
               />
             </label>
-            <button type="button" className="primary-button" onClick={startExperiment}>
+            <button type="button" className="primary-button" disabled={preferencesSyncing} onClick={startExperiment}>
               <Plus size={16} aria-hidden="true" />
               <span>開始</span>
             </button>
