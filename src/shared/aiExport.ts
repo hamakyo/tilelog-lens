@@ -1,23 +1,31 @@
 import { APP_NAME, GAME_NAME } from "./constants";
 import {
-  buildDataQualityWarnings,
-  buildDataQualityReport,
-  buildAnalysisComments,
   buildDerivedMetrics,
-  buildEstimatedDeltas,
-  buildImprovementPriorities,
-  buildPeriodComparisons,
-  buildPeriodAnalyses,
   buildRankPointAnalysis,
   buildMetricDistributions,
-  buildRiichiTrendAnalyses,
-  buildRiichiRiskSignals,
-  buildAttackStyleClassification,
-  buildAnalysisAssessment,
-  buildRecentRegressionFactors,
-  buildFocusRecommendations,
   buildStabilityScore
 } from "./metrics";
+import {
+  buildEstimatedDeltas,
+  buildPeriodAnalyses,
+  buildPeriodComparisons
+} from "./analysis/periodMetrics";
+import {
+  buildAnalysisAssessment,
+  buildAttackStyleClassification,
+  buildRiichiRiskSignals,
+  buildRiichiTrendAnalyses
+} from "./analysis/styleClassification";
+import {
+  buildAnalysisComments,
+  buildFocusRecommendations,
+  buildImprovementPriorities,
+  buildRecentRegressionFactors
+} from "./analysis/improvement";
+import {
+  buildDataQualityReport,
+  buildDataQualityWarnings
+} from "./analysis/dataQuality";
 import { DEFAULT_ANALYSIS_GOALS, buildAnalysisGoalStatuses, buildGoalGapComments } from "./goals";
 import type { AiContext, Snapshot } from "./types";
 

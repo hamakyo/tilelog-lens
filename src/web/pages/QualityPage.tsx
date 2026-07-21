@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import ShieldCheck from "lucide-react/dist/esm/icons/shield-check.js";
 import { GAME_MODE_LABELS } from "../../shared/constants";
 import { summarizeDataQualityIssues } from "../../shared/dataQuality";
-import { buildDataQualityReport } from "../../shared/metrics";
+import { buildDataQualityReport } from "../../shared/analysis/dataQuality";
 import type { DataQualityIssue, Snapshot } from "../../shared/types";
 import { listAllSnapshots } from "../lib/api";
 import { formatDateTime } from "../lib/format";

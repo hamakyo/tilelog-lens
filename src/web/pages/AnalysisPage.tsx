@@ -7,7 +7,6 @@ import SlidersHorizontal from "lucide-react/dist/esm/icons/sliders-horizontal.js
 import Save from "lucide-react/dist/esm/icons/save.js";
 import Trash2 from "lucide-react/dist/esm/icons/trash-2.js";
 import Plus from "lucide-react/dist/esm/icons/plus.js";
-import Download from "lucide-react/dist/esm/icons/download.js";
 import type { AnalysisGoal, Snapshot } from "../../shared/types";
 import { buildAnalysisConclusion } from "../../shared/analysisConclusion";
 import {
@@ -32,22 +31,27 @@ import {
 import { detectOutlierSignals } from "../../shared/outliers";
 import { buildTagAnalyses } from "../../shared/tags";
 import {
-  buildEstimatedDeltas,
-  buildImprovementPriorities,
-  buildAnalysisComments,
-  buildPeriodComparisons,
-  buildPeriodAnalyses,
   buildRankPointAnalysis,
   buildMetricDistributions,
-  buildRiichiTrendAnalyses,
-  buildRiichiRiskSignals,
-  buildAnalysisAssessment,
-  buildRecentRegressionFactors,
-  buildFocusRecommendations,
   buildStabilityScore
 } from "../../shared/metrics";
+import {
+  buildEstimatedDeltas,
+  buildPeriodAnalyses,
+  buildPeriodComparisons
+} from "../../shared/analysis/periodMetrics";
+import {
+  buildAnalysisAssessment,
+  buildRiichiRiskSignals,
+  buildRiichiTrendAnalyses
+} from "../../shared/analysis/styleClassification";
+import {
+  buildAnalysisComments,
+  buildFocusRecommendations,
+  buildImprovementPriorities,
+  buildRecentRegressionFactors
+} from "../../shared/analysis/improvement";
 import { buildAnalysisGoalStatuses, buildGoalGapComments } from "../../shared/goals";
-import { listAllSnapshots } from "../lib/api";
 import { loadAnalysisGoals } from "../lib/analysisGoals";
 import { loadCustomMetrics } from "../lib/customMetrics";
 import {
@@ -69,6 +73,9 @@ import {
 } from "../lib/analysisExperiments";
 import { formatDateTime, formatDecimal, formatNumber, formatRate } from "../lib/format";
 import { TrendChart } from "../components/TrendChart";
+import { useAnalysisData } from "../features/analysis/hooks/useAnalysisData";
+import { AnalysisConclusionPanel } from "../features/analysis/components/AnalysisConclusionPanel";
+import { PeriodAnalysisCards } from "../features/analysis/components/PeriodAnalysisCards";
 
 type AnalysisPageProps = {
   navigate: (path: string) => void;
@@ -277,16 +284,13 @@ function persistAnalysisTab(tab: AnalysisTab): void {
 }
 
 export function AnalysisPage({ navigate }: AnalysisPageProps) {
-  const [snapshots, setSnapshots] = useState<Snapshot[]>([]);
+  const { snapshots, selectedMode, setSelectedMode, error, loading } = useAnalysisData();
   const [analysisGoals, setAnalysisGoals] = useState<AnalysisGoal[]>(() =>
     loadAnalysisGoals()
   );
   const [customMetrics, setCustomMetrics] = useState<CustomMetricDefinition[]>(() =>
     loadCustomMetrics()
   );
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [selectedMode, setSelectedMode] = useState<Snapshot["game_mode"] | null>(null);
   const [filterForm, setFilterForm] =
     useState<DashboardFilterForm>(emptyDashboardFilters);
   const [selectedChartMetrics, setSelectedChartMetrics] = useState<ChartMetricKey[]>([
@@ -312,16 +316,6 @@ export function AnalysisPage({ navigate }: AnalysisPageProps) {
   useEffect(() => {
     setAnalysisGoals(loadAnalysisGoals());
     setCustomMetrics(loadCustomMetrics());
-    listAllSnapshots()
-      .then((snapshotResult) => {
-        setSnapshots(snapshotResult.items);
-        const latestSnapshot = [...snapshotResult.items].sort((a, b) =>
-          b.observed_at_utc.localeCompare(a.observed_at_utc)
-        )[0];
-        setSelectedMode((current) => current ?? latestSnapshot?.game_mode ?? null);
-      })
-      .catch((caught) => setError(caught instanceof Error ? caught.message : "読み込みに失敗しました。"))
-      .finally(() => setLoading(false));
   }, []);
 
   useEffect(() => {
@@ -671,62 +665,15 @@ export function AnalysisPage({ navigate }: AnalysisPageProps) {
         ))}
       </section>
 
-      <section
-        className={`analysis-conclusion conclusion-${analysisConclusion.status}`}
-        aria-labelledby="analysis-conclusion-title"
-      >
-        <div className="analysis-conclusion-main">
-          <p className="eyebrow">今回の結論</p>
-          <h2 id="analysis-conclusion-title">{analysisConclusion.title}</h2>
-          <p>{analysisConclusion.summary}</p>
-        </div>
-        <div className="analysis-scope-row" aria-label="分析対象">
-          <span className="code-pill">
-            {selectedMode ? GAME_MODE_LABELS[selectedMode] : "モード未選択"}
-          </span>
-          <span className="code-pill pill-muted">{displaySnapshots.length}件</span>
-          {latestDelta ? (
-            <span
-              className={`quality-pill ${
-                latestDelta.quality === "ok" ? "quality-ok" : "quality-limited_data"
-              }`}
-            >
-              推定 {latestDelta.matches_delta}戦
-            </span>
-          ) : null}
-        </div>
-        {analysisConclusion.evidence.length > 0 ? (
-          <ul className="analysis-evidence-list">
-            {analysisConclusion.evidence.map((evidence) => (
-              <li key={evidence}>{evidence}</li>
-            ))}
-          </ul>
-        ) : null}
-        <div className="action-row analysis-conclusion-actions">
-          <button
-            type="button"
-            className="primary-button"
-            onClick={() => showAnalysisTab(analysisConclusion.target_tab)}
-          >
-            根拠を見る
-          </button>
-          <button
-            type="button"
-            className="secondary-button"
-            onClick={() => navigate("/snapshots")}
-          >
-            関連記録を見る
-          </button>
-          <a
-            className="secondary-button"
-            href={scopedAiExportPath}
-            download="tilelog-ai-context.json"
-          >
-            <Download size={18} aria-hidden="true" />
-            <span>現在の条件でAI JSON</span>
-          </a>
-        </div>
-      </section>
+      <AnalysisConclusionPanel
+        conclusion={analysisConclusion}
+        selectedMode={selectedMode}
+        snapshotCount={displaySnapshots.length}
+        latestDelta={latestDelta}
+        aiExportPath={scopedAiExportPath}
+        onShowEvidence={() => showAnalysisTab(analysisConclusion.target_tab)}
+        onShowSnapshots={() => navigate("/snapshots")}
+      />
 
       <section className="analysis-tab-bar" role="tablist" aria-label="詳細分析カテゴリ">
         {analysisTabs.map((tab) => (
@@ -1214,51 +1161,7 @@ export function AnalysisPage({ navigate }: AnalysisPageProps) {
         )}
       </section>
 
-      <section className="analysis-section">
-        <div className="section-heading">
-          <h2>直近期間</h2>
-          <p>{latestMode ? GAME_MODE_LABELS[latestMode] : "すべて"}</p>
-        </div>
-        <div className="period-grid">
-          {visiblePeriodAnalyses.length === 0 ? (
-            <p className="empty-state">適切な基準記録なし</p>
-          ) : (
-            visiblePeriodAnalyses.map((period) => (
-              <div className="period-tile" key={period.label}>
-                <div className="period-tile-header">
-                  <strong>{period.label}</strong>
-                  <span>{period.actual_matches > 0 ? `${period.actual_matches}戦` : "-"}</span>
-                </div>
-                <dl className="period-metrics">
-                    <div>
-                      <dt>平均順位</dt>
-                      <dd>{formatDecimal(period.period_avg_place)}</dd>
-                    </div>
-                    <div>
-                      <dt>和了率</dt>
-                      <dd>{formatRate(period.period_win_rate)}</dd>
-                    </div>
-                    <div>
-                      <dt>放銃率</dt>
-                      <dd>{formatRate(period.period_deal_in_rate)}</dd>
-                    </div>
-                    <div>
-                      <dt>攻守差</dt>
-                      <dd>{formatDecimal(period.attack_defense_gap)}</dd>
-                    </div>
-                </dl>
-                <span className={`quality-pill quality-${period.quality}`}>
-                  {period.quality === "ok"
-                    ? "良好"
-                    : period.quality === "limited_data"
-                      ? "概算"
-                      : "不足"}
-                </span>
-              </div>
-            ))
-          )}
-        </div>
-      </section>
+      <PeriodAnalysisCards periods={visiblePeriodAnalyses} gameMode={latestMode} />
       </div>
 
       <div id="analysis-riichi" className={analysisTabPanelClass("riichi", activeTab)}>

@@ -19,7 +19,7 @@ import { getConsistencyWarnings } from "../../shared/schema";
 import {
   buildDataQualityWarnings,
   buildDuplicateSnapshotCandidates
-} from "../../shared/metrics";
+} from "../../shared/analysis/dataQuality";
 import {
   fileLastModifiedIso,
   getImageDimensions,
