@@ -103,7 +103,7 @@ async function fillSnapshotForm(page: Page, baseMinute: number) {
   await page.getByLabel("立直率").fill("19");
 }
 
-test("import requires explicit review when previous snapshot differences exist", async ({
+test("@smoke import requires explicit review when previous snapshot differences exist", async ({
   page,
   request
 }) => {
@@ -124,6 +124,51 @@ test("import requires explicit review when previous snapshot differences exist",
 
     await page.getByLabel("保存前確認の内容を確認しました。").check();
     await expect(saveButton).toBeEnabled();
+  } finally {
+    await deleteSnapshots(request, snapshots);
+  }
+});
+
+test("@smoke imports a confirmed snapshot", async ({ page, request }) => {
+  const baseMinute = randomInt(0, minuteRange);
+  const snapshots: SnapshotFixture[] = [];
+
+  try {
+    snapshots.push(await createSnapshot(request, baseMinute, 0, 100));
+    await page.goto("/import");
+    await fillSnapshotForm(page, baseMinute);
+    await page.getByLabel("保存前確認の内容を確認しました。").check();
+    await page.getByRole("button", { name: "記録を保存" }).click();
+    await expect(page.getByText("記録を保存しました。")).toBeVisible();
+
+    const listResponse = await request.get("/api/snapshots?limit=500&order=desc");
+    const list = (await listResponse.json()) as { items: Array<SnapshotFixture & { id: number }> };
+    const observed = observedAt(baseMinute, 1);
+    const created = list.items.find(
+      (item) => item.observed_date === observed.observed_date && item.observed_time === observed.observed_time
+    );
+    expect(created).toBeDefined();
+    if (created) snapshots.push(created);
+  } finally {
+    await deleteSnapshots(request, snapshots);
+  }
+});
+
+test("@smoke edits a record and stores its revision", async ({ page, request }) => {
+  const baseMinute = randomInt(0, minuteRange);
+  const snapshots: SnapshotFixture[] = [];
+
+  try {
+    const snapshot = await createSnapshot(request, baseMinute, 0, 100);
+    snapshots.push(snapshot);
+    await page.goto(`/snapshots/${snapshot.id}`);
+    await page.getByLabel("対戦数").fill("101");
+    const confirmation = page.getByLabel("保存前確認の内容を確認しました。");
+    if (await confirmation.isVisible()) await confirmation.check();
+    await page.getByRole("button", { name: "記録を更新" }).click();
+    await expect(page.getByText("記録を保存しました。")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "変更履歴" })).toBeVisible();
+    await expect(page.getByRole("cell", { name: "matches" })).toBeVisible();
   } finally {
     await deleteSnapshots(request, snapshots);
   }

@@ -115,7 +115,7 @@ function expectDesktopProject(testInfo: TestInfo): void {
   );
 }
 
-test("/ shows latest summary, major trends, and navigation to detailed analysis", async ({
+test("@smoke / shows latest summary, major trends, and navigation to detailed analysis", async ({
   page,
   request
 }) => {
@@ -189,7 +189,7 @@ test("/analysis shows detailed analysis blocks", async ({ page, request }) => {
     await expect(page.getByRole("tab", { name: "改善" })).toBeVisible();
     await expect(page.getByRole("tab", { name: "詳細" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "分析目標" })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "攻撃タイプ" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "長期スタイルと直近状態" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "直近期間" })).toBeVisible();
 
     await page.getByRole("tab", { name: "立直" }).click();
@@ -212,6 +212,22 @@ test("/analysis shows detailed analysis blocks", async ({ page, request }) => {
     await expect(page.getByRole("heading", { name: "期間比較" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "期間差分の推定" })).toBeVisible();
     await expectNoHorizontalOverflow(page);
+  } finally {
+    await deleteSnapshots(request, snapshots);
+  }
+});
+
+test("@smoke /analysis applies performance filters", async ({ page, request }) => {
+  const baseMinute = fixtureBaseMinute();
+  const snapshots: SnapshotFixture[] = [];
+
+  try {
+    snapshots.push(await createSnapshot(request, baseMinute, 0, 100));
+    snapshots.push(await createSnapshot(request, baseMinute, 1, 120));
+    await page.goto("/analysis");
+    await page.getByLabel("対戦数 下限").fill("110");
+    await expect(page.getByLabel("対戦数 下限")).toHaveValue("110");
+    await expect(page.getByText(/有効な条件: 1件/)).toBeVisible();
   } finally {
     await deleteSnapshots(request, snapshots);
   }

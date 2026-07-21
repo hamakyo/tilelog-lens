@@ -42,3 +42,48 @@ jobs:
 
       - name: Build
         run: pnpm run build
+
+  e2e-smoke:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Chromium
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Run smoke E2E
+        run: pnpm run test:e2e:smoke
+
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-smoke-report
+          path: playwright-report/
+          if-no-files-found: ignore
+          retention-days: 7
+
+      - name: Upload smoke test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-smoke-results
+          path: test-results/
+          if-no-files-found: ignore
+          retention-days: 7

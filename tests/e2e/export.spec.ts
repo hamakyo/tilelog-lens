@@ -155,7 +155,7 @@ test("export CSV endpoints return real D1 data with download headers", async ({
   }
 });
 
-test("AI JSON export returns real D1 data with privacy metadata and download headers", async ({
+test("@smoke AI JSON export returns real D1 data with privacy metadata and download headers", async ({
   request
 }, testInfo) => {
   expectDesktopProject(testInfo);
