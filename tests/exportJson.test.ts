@@ -59,6 +59,18 @@ describe("AI JSON export", () => {
     ]);
 
     expect(context.period_analyses.length).toBeGreaterThan(0);
+    expect(context.analysis_engine).toMatchObject({
+      version: "2.0.0",
+      profile_id: "mahjong-soul-east-provisional",
+      profile_version: "1.0.0",
+      profile_status: "provisional"
+    });
+    expect(context.analysis_assessment?.long_term_style).not.toBeNull();
+    expect(context.period_analyses[0]).toMatchObject({
+      calculation_method: "difference_of_rounded_cumulative_rates",
+      is_estimated: true,
+      confidence: expect.any(String)
+    });
     expect(context.summary).toMatchObject({
       snapshot_count: 2,
       latest_observed_at_utc: "2026-06-02T00:00:00.000Z",

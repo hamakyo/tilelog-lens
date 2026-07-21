@@ -1,11 +1,13 @@
 import type {
   AnalysisComment,
+  AnalysisAssessment,
   AttackStyleClassification,
   DataQualityIssue,
   DerivedMetric,
   DuplicateSnapshotCandidate,
   EstimatedDelta,
   FocusRecommendation,
+  GameMode,
   ImprovementPriority,
   MetricDistribution,
   PeriodComparison,
@@ -22,6 +24,7 @@ import type {
   ValidationWarning
 } from "./types";
 import { RANK_LEVELS, RANK_POINT_MAX_BY_RANK_AND_LEVEL } from "./constants";
+import { getAnalysisProfile } from "./analysisProfiles";
 
 function round2(value: number): number {
   return Math.round(value * 100) / 100;
@@ -157,7 +160,8 @@ function priority(
     action,
     metric,
     current_value: round2(currentValue),
-    target_value: targetValue
+    target_value: targetValue,
+    category: roundedScore < 35 ? "long_term_goal" : "current_alert"
   };
 }
 
@@ -573,15 +577,23 @@ export function buildRiichiRiskSignals(snapshots: Snapshot[]): RiichiRiskSignal[
   return signals.slice(0, 4);
 }
 
-export function buildAttackStyleClassification(
-  snapshots: Snapshot[]
-): AttackStyleClassification | null {
-  const latest = [...snapshots].sort(byObservedAsc).at(-1);
-  if (!latest) return null;
+export type AttackStyleMetrics = Pick<
+  Snapshot,
+  "matches" | "win_rate" | "deal_in_rate" | "call_rate" | "riichi_rate"
+>;
 
-  const attackDefenseGap = latest.win_rate - latest.deal_in_rate;
+export function classifyAttackStyle(
+  metrics: AttackStyleMetrics,
+  gameMode: GameMode
+): AttackStyleClassification {
+  const thresholds = getAnalysisProfile(gameMode).thresholds;
+  const attackDefenseGap = metrics.win_rate - metrics.deal_in_rate;
 
-  if (latest.deal_in_rate >= 13 && (latest.riichi_rate >= 23 || latest.call_rate >= 35)) {
+  if (
+    metrics.deal_in_rate >= thresholds.over_push_deal_in &&
+    (metrics.riichi_rate >= thresholds.over_push_riichi ||
+      metrics.call_rate >= thresholds.over_push_call)
+  ) {
     return {
       type: "over_push",
       label: "押しすぎ",
@@ -591,7 +603,11 @@ export function buildAttackStyleClassification(
     };
   }
 
-  if (latest.win_rate < 20 && latest.riichi_rate < 17 && latest.call_rate < 30) {
+  if (
+    metrics.win_rate < thresholds.under_attack_win &&
+    metrics.riichi_rate < thresholds.under_attack_riichi &&
+    metrics.call_rate < thresholds.under_attack_call
+  ) {
     return {
       type: "under_attack",
       label: "攻撃不足",
@@ -601,33 +617,48 @@ export function buildAttackStyleClassification(
     };
   }
 
-  if (latest.riichi_rate >= 23 && latest.call_rate < 32) {
+  if (
+    metrics.riichi_rate >= thresholds.riichi_focused_riichi &&
+    metrics.call_rate < thresholds.riichi_focused_call_max
+  ) {
     return {
       type: "riichi_focused",
       label: "立直寄り",
-      status: attackDefenseGap >= 8 ? "good" : "watch",
+      status:
+        attackDefenseGap >= thresholds.favorable_attack_defense_gap
+          ? "good"
+          : "watch",
       summary:
-        attackDefenseGap >= 8
+        attackDefenseGap >= thresholds.favorable_attack_defense_gap
           ? "門前立直寄りで、攻守差も確保できています。"
           : "立直寄りですが攻守差が小さめです。立直後の放銃と和了率を確認してください。",
       focus: ["立直率", "攻守差", "放銃率"]
     };
   }
 
-  if (latest.call_rate >= 35 && latest.riichi_rate < 22) {
+  if (
+    metrics.call_rate >= thresholds.call_focused_call &&
+    metrics.riichi_rate < thresholds.call_focused_riichi_max
+  ) {
     return {
       type: "call_focused",
       label: "副露寄り",
-      status: latest.deal_in_rate <= 12 ? "good" : "watch",
+      status:
+        metrics.deal_in_rate <= thresholds.favorable_call_deal_in
+          ? "good"
+          : "watch",
       summary:
-        latest.deal_in_rate <= 12
+        metrics.deal_in_rate <= thresholds.favorable_call_deal_in
           ? "副露寄りですが放銃率は抑えられています。仕掛けの守備移行は大きく崩れていません。"
           : "副露寄りで放銃率がやや高めです。仕掛け後の押し引きを確認してください。",
       focus: ["副露率", "放銃率", "和了率"]
     };
   }
 
-  if (latest.deal_in_rate <= 10.5 && latest.win_rate < 21) {
+  if (
+    metrics.deal_in_rate <= thresholds.defensive_deal_in &&
+    metrics.win_rate < thresholds.defensive_win_max
+  ) {
     return {
       type: "defensive",
       label: "守備寄り",
@@ -643,6 +674,97 @@ export function buildAttackStyleClassification(
     status: "good",
     summary: "立直率・副露率・攻守差のバランスは大きく偏っていません。",
     focus: ["立直率", "副露率", "攻守差"]
+  };
+}
+
+export function buildAttackStyleClassification(
+  snapshots: Snapshot[]
+): AttackStyleClassification | null {
+  const latest = [...snapshots].sort(byObservedAsc).at(-1);
+  return latest ? classifyAttackStyle(latest, latest.game_mode) : null;
+}
+
+function selectRecentPeriod(periods: PeriodAnalysis[]): PeriodAnalysis | null {
+  const usable = periods.filter((period) => period.quality !== "insufficient_data");
+  const fiftyMatchPeriod = usable.find((period) => period.target_matches === 50);
+  if (fiftyMatchPeriod) return fiftyMatchPeriod;
+
+  const confidenceRank: Record<PeriodAnalysis["confidence"], number> = {
+    high: 2,
+    medium: 1,
+    low: 0
+  };
+  return (
+    [...usable].sort(
+      (a, b) =>
+        confidenceRank[b.confidence] - confidenceRank[a.confidence] ||
+        Math.abs(a.actual_matches - 50) - Math.abs(b.actual_matches - 50) ||
+        a.target_matches - b.target_matches
+    )[0] ?? null
+  );
+}
+
+function periodAttackStyleMetrics(period: PeriodAnalysis): AttackStyleMetrics | null {
+  if (
+    period.period_win_rate == null ||
+    period.period_deal_in_rate == null ||
+    period.period_call_rate == null ||
+    period.period_riichi_rate == null
+  ) {
+    return null;
+  }
+  return {
+    matches: period.actual_matches,
+    win_rate: period.period_win_rate,
+    deal_in_rate: period.period_deal_in_rate,
+    call_rate: period.period_call_rate,
+    riichi_rate: period.period_riichi_rate
+  };
+}
+
+export function buildAnalysisAssessment(snapshots: Snapshot[]): AnalysisAssessment | null {
+  const ordered = [...snapshots].sort(byObservedAsc);
+  const latest = ordered.at(-1);
+  if (!latest) return null;
+
+  const profile = getAnalysisProfile(latest.game_mode);
+  const longTermStyle = classifyAttackStyle(latest, latest.game_mode);
+  const recentPeriod = selectRecentPeriod(buildPeriodAnalyses(ordered));
+  const recentMetrics = recentPeriod ? periodAttackStyleMetrics(recentPeriod) : null;
+  const recentStyle = recentMetrics
+    ? classifyAttackStyle(recentMetrics, latest.game_mode)
+    : null;
+  const severityRank: Record<AttackStyleClassification["status"], number> = {
+    good: 0,
+    watch: 1,
+    risk: 2
+  };
+  const trendStatus: AnalysisAssessment["trend_status"] = !recentStyle
+    ? "insufficient_data"
+    : severityRank[recentStyle.status] < severityRank[longTermStyle.status]
+      ? "improving"
+      : severityRank[recentStyle.status] > severityRank[longTermStyle.status]
+        ? "worsening"
+        : "stable";
+  const currentAlert: AnalysisAssessment["current_alert"] = !recentStyle
+    ? "insufficient_data"
+    : longTermStyle.status === "risk" && recentStyle.status === "risk"
+      ? "risk"
+      : recentStyle.status === "good"
+        ? "good"
+        : "watch";
+
+  return {
+    long_term_style: longTermStyle,
+    recent_style: recentStyle,
+    trend_status: trendStatus,
+    current_alert: currentAlert,
+    recent_period: recentPeriod,
+    profile: {
+      id: profile.id,
+      version: profile.version,
+      status: profile.status
+    }
   };
 }
 

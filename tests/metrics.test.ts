@@ -5,6 +5,7 @@ import {
   buildDataQualityWarnings,
   buildDataQualityReport,
   buildAnalysisComments,
+  buildAnalysisAssessment,
   buildAttackStyleClassification,
   buildDuplicateSnapshotCandidates,
   buildEstimatedDeltas,
@@ -338,6 +339,43 @@ describe("metrics", () => {
     ).toMatchObject({
       type: "under_attack",
       status: "watch"
+    });
+  });
+
+  it("separates a risky long-term style from a good recent period", () => {
+    const assessment = buildAnalysisAssessment([
+      makeSnapshot({
+        id: 1,
+        game_mode: "east",
+        observed_at_utc: "2026-06-01T00:00:00.000Z",
+        matches: 100,
+        win_rate: 20,
+        deal_in_rate: 14,
+        call_rate: 36,
+        riichi_rate: 25
+      }),
+      makeSnapshot({
+        id: 2,
+        game_mode: "east",
+        observed_at_utc: "2026-06-02T00:00:00.000Z",
+        matches: 150,
+        win_rate: 22,
+        deal_in_rate: 13.33,
+        call_rate: 35.33,
+        riichi_rate: 24
+      })
+    ]);
+
+    expect(assessment).toMatchObject({
+      long_term_style: { type: "over_push", status: "risk" },
+      recent_style: { type: "balanced", status: "good" },
+      trend_status: "improving",
+      current_alert: "good",
+      profile: {
+        id: "mahjong-soul-east-provisional",
+        version: "1.0.0",
+        status: "provisional"
+      }
     });
   });
 

@@ -13,6 +13,7 @@ import {
   buildRiichiTrendAnalyses,
   buildRiichiRiskSignals,
   buildAttackStyleClassification,
+  buildAnalysisAssessment,
   buildRecentRegressionFactors,
   buildFocusRecommendations,
   buildStabilityScore
@@ -32,7 +33,8 @@ const metricsDescription: Record<string, string> = {
   rank_point_progress: "段位ポイントをポイント上限で割った進捗。",
   riichi_trends: "直近期の立直率と、和了率・放銃率の組み合わせ評価。",
   riichi_risk_signals: "立直率と攻守指標の組み合わせから抽出した確認ポイント。",
-  attack_style: "立直率・副露率・和了率・放銃率から分類した攻撃傾向。",
+  attack_style: "立直率・副露率・和了率・放銃率から分類した長期の攻撃傾向。",
+  analysis_assessment: "累積値による長期スタイルと、推定期間値による直近状態を分離した評価。",
   regression_factors: "直近10件とその前10件を比較した悪化要因ランキング。",
   focus_recommendations: "現在の数値から次に確認すると効果が大きい観点。",
   stability_score: "分析対象内の指標ばらつきから見た安定性評価。",
@@ -159,6 +161,7 @@ export function buildAiContext(
   const riichiTrends = buildRiichiTrendAnalyses(latestModeSnapshots);
   const riichiRiskSignals = buildRiichiRiskSignals(latestModeSnapshots);
   const attackStyle = buildAttackStyleClassification(latestModeSnapshots);
+  const analysisAssessment = buildAnalysisAssessment(latestModeSnapshots);
   const analysisComments = buildAnalysisComments(latestModeSnapshots);
   const improvementPriorities = buildImprovementPriorities(latestModeSnapshots);
   const regressionFactors = buildRecentRegressionFactors(latestModeSnapshots);
@@ -192,6 +195,13 @@ export function buildAiContext(
       source_images_stored: false
     },
     metrics_description: metricsDescription,
+    analysis_engine: {
+      version: "2.0.0",
+      profile_id: analysisAssessment?.profile.id ?? null,
+      profile_version: analysisAssessment?.profile.version ?? null,
+      profile_status: analysisAssessment?.profile.status ?? null
+    },
+    analysis_assessment: analysisAssessment,
     summary,
     snapshots: sanitizedSnapshots,
     derived_metrics: derivedMetrics,

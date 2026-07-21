@@ -39,7 +39,7 @@ import {
   buildMetricDistributions,
   buildRiichiTrendAnalyses,
   buildRiichiRiskSignals,
-  buildAttackStyleClassification,
+  buildAnalysisAssessment,
   buildRecentRegressionFactors,
   buildFocusRecommendations,
   buildStabilityScore
@@ -415,8 +415,8 @@ export function AnalysisPage({ navigate }: AnalysisPageProps) {
     () => buildRiichiRiskSignals(modeSnapshots),
     [modeSnapshots]
   );
-  const attackStyle = useMemo(
-    () => buildAttackStyleClassification(modeSnapshots),
+  const analysisAssessment = useMemo(
+    () => buildAnalysisAssessment(modeSnapshots),
     [modeSnapshots]
   );
   const periodComparisons = useMemo(
@@ -503,10 +503,12 @@ export function AnalysisPage({ navigate }: AnalysisPageProps) {
         latest_matches_delta: latestDelta?.matches_delta ?? null,
         improvement_priorities: improvementPriorities,
         regression_factors: regressionFactors,
-        focus_recommendations: focusRecommendations
+        focus_recommendations: focusRecommendations,
+        assessment: analysisAssessment
       }),
     [
       displaySnapshots.length,
+      analysisAssessment,
       focusRecommendations,
       improvementPriorities,
       latestDelta?.matches_delta,
@@ -1157,26 +1159,40 @@ export function AnalysisPage({ navigate }: AnalysisPageProps) {
 
       <section className="analysis-section">
         <div className="section-heading">
-          <h2>攻撃タイプ</h2>
-          <p>立直率・副露率・和了率・放銃率から現在の傾向を分類します。</p>
+          <h2>長期スタイルと直近状態</h2>
+          <p>累積値と推定期間値を分けて評価します。</p>
         </div>
-        {!attackStyle ? (
+        {!analysisAssessment ? (
           <p className="empty-state">攻撃タイプの判定には記録が必要です。</p>
         ) : (
-          <article className="comment-item">
-            <span className={`severity-pill severity-${attackStyle.status}`}>
-              {attackStyle.status === "good"
-                ? "良"
-                : attackStyle.status === "watch"
-                  ? "注"
-                  : "危"}
-            </span>
-            <div className="priority-body">
-              <h3>{attackStyle.label}</h3>
-              <p>{attackStyle.summary}</p>
-              <p>{attackStyle.focus.join(" / ")}</p>
-            </div>
-          </article>
+          <div className="priority-list">
+            {[
+              { title: "長期スタイル", style: analysisAssessment.long_term_style },
+              { title: analysisAssessment.recent_period?.label ?? "直近状態", style: analysisAssessment.recent_style }
+            ].map(({ title, style }) =>
+              style ? (
+                <article className="comment-item" key={title}>
+                  <span className={`severity-pill severity-${style.status}`}>
+                    {style.status === "good" ? "良" : style.status === "watch" ? "注" : "危"}
+                  </span>
+                  <div className="priority-body">
+                    <h3>{title}: {style.label}</h3>
+                    <p>{style.summary}</p>
+                    <p>{style.focus.join(" / ")}</p>
+                  </div>
+                </article>
+              ) : null
+            )}
+            <p className="form-message">
+              判定基準: 暫定 / 傾向: {analysisAssessment.trend_status === "improving"
+                ? "改善中"
+                : analysisAssessment.trend_status === "worsening"
+                  ? "悪化"
+                  : analysisAssessment.trend_status === "stable"
+                    ? "安定"
+                    : "判定不能"}
+            </p>
+          </div>
         )}
       </section>
 

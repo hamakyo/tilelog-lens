@@ -197,6 +197,19 @@ export type AttackStyleClassification = {
   focus: string[];
 };
 
+export type AnalysisAssessment = {
+  long_term_style: AttackStyleClassification | null;
+  recent_style: AttackStyleClassification | null;
+  trend_status: "improving" | "stable" | "worsening" | "insufficient_data";
+  current_alert: "good" | "watch" | "risk" | "insufficient_data";
+  recent_period: PeriodAnalysis | null;
+  profile: {
+    id: string;
+    version: string;
+    status: "provisional";
+  };
+};
+
 export type RegressionFactor = {
   key: string;
   label: string;
@@ -235,6 +248,7 @@ export type ImprovementPriority = {
   metric: string;
   current_value: number;
   target_value: number;
+  category: "current_alert" | "long_term_goal";
 };
 
 export type RankPointAnalysis = {
@@ -415,6 +429,13 @@ export type AiContext = {
     source_images_stored: false;
   };
   metrics_description: Record<string, string>;
+  analysis_engine: {
+    version: "2.0.0";
+    profile_id: string | null;
+    profile_version: string | null;
+    profile_status: "provisional" | null;
+  };
+  analysis_assessment: AnalysisAssessment | null;
   summary: AiContextSummary;
   snapshots: Snapshot[];
   derived_metrics: DerivedMetric[];

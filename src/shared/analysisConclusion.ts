@@ -1,4 +1,5 @@
 import type {
+  AnalysisAssessment,
   FocusRecommendation,
   ImprovementPriority,
   RegressionFactor
@@ -18,6 +19,7 @@ export type AnalysisConclusionInput = {
   improvement_priorities: ImprovementPriority[];
   regression_factors: RegressionFactor[];
   focus_recommendations: FocusRecommendation[];
+  assessment?: AnalysisAssessment | null;
 };
 
 function fixed(value: number | null): string {
@@ -47,7 +49,74 @@ export function buildAnalysisConclusion(
     };
   }
 
-  const priority = input.improvement_priorities[0];
+  if (input.assessment) {
+    const assessment = input.assessment;
+    const recent = assessment.recent_style;
+    const longTerm = assessment.long_term_style;
+    const recentPeriod = assessment.recent_period;
+
+    if (!recent || assessment.current_alert === "insufficient_data") {
+      return {
+        status: "insufficient_data",
+        title: "適切な基準記録がありません",
+        summary: "直近状態を判定できる間隔の記録を追加してください。",
+        evidence: [`${input.snapshot_count}件の記録を対象にしています。`],
+        target_tab: "detail"
+      };
+    }
+
+    if (assessment.current_alert === "risk") {
+      const priority = input.improvement_priorities.find(
+        (item) => item.category === "current_alert"
+      );
+      return {
+        status: "risk",
+        title: priority?.title ?? "長期・直近ともに警戒が必要です",
+        summary: priority?.action ?? recent.summary,
+        evidence: [
+          `長期スタイル: ${longTerm?.label ?? "未判定"}`,
+          `${recentPeriod?.label ?? "直近"}: ${recent.label}`,
+          `判定基準: ${assessment.profile.status === "provisional" ? "暫定" : "確定"}`
+        ],
+        target_tab: "improvement"
+      };
+    }
+
+    if (recent.status === "good") {
+      return {
+        status: "good",
+        title:
+          assessment.trend_status === "improving"
+            ? "直近は改善しています"
+            : "直近の攻守は良好です",
+        summary: recent.summary,
+        evidence: [
+          `長期スタイル: ${longTerm?.label ?? "未判定"}`,
+          `${recentPeriod?.label ?? "直近"}: ${recent.label}`,
+          `${recentPeriod?.actual_matches ?? 0}戦を${recentPeriod?.confidence ?? "low"} confidenceで評価しました。`
+        ],
+        target_tab: "detail"
+      };
+    }
+
+    const priority = input.improvement_priorities.find(
+      (item) => item.category === "current_alert"
+    );
+    return {
+      status: "watch",
+      title: priority?.title ?? "直近の状態を確認してください",
+      summary: priority?.action ?? recent.summary,
+      evidence: [
+        `長期スタイル: ${longTerm?.label ?? "未判定"}`,
+        `${recentPeriod?.label ?? "直近"}: ${recent.label}`
+      ],
+      target_tab: "improvement"
+    };
+  }
+
+  const priority = input.improvement_priorities.find(
+    (item) => item.severity !== "low"
+  );
   if (priority) {
     return {
       status: priority.severity === "high" ? "risk" : "watch",
