@@ -11,7 +11,7 @@ import type {
   Snapshot,
   SnapshotComparisonMetric
 } from "../../shared/types";
-import { listSnapshots } from "../lib/api";
+import { listAllSnapshots } from "../lib/api";
 import { formatDecimal, formatNumber, formatRate } from "../lib/format";
 
 function snapshotLabel(snapshot: Snapshot): string {
@@ -104,7 +104,7 @@ export function ComparePage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    listSnapshots()
+    listAllSnapshots()
       .then((result) => {
         setSnapshots(result.items);
         const ordered = [...result.items].sort((a, b) =>

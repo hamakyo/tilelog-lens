@@ -7,6 +7,10 @@ import type {
 } from "../../shared/types";
 
 export type SnapshotOrder = "asc" | "desc";
+export type SnapshotCursor = {
+  observedAtUtc: string;
+  id: number;
+};
 
 type SnapshotRow = Record<string, string | number | null>;
 
@@ -168,33 +172,65 @@ export async function listSnapshots(
     limit?: number;
     offset?: number;
     order?: SnapshotOrder;
+    cursor?: SnapshotCursor;
   } = {}
-): Promise<{ items: Snapshot[]; total: number }> {
+): Promise<{ items: Snapshot[]; total: number; nextCursor: SnapshotCursor | null }> {
   const limit = Math.min(Math.max(options.limit ?? 100, 1), 500);
   const offset = Math.max(options.offset ?? 0, 0);
   const order = options.order === "asc" ? "ASC" : "DESC";
   const params: Array<string | number> = [];
-  const where = options.gameMode ? "WHERE game_mode = ?" : "";
+  const conditions: string[] = [];
 
   if (options.gameMode) {
+    conditions.push("game_mode = ?");
     params.push(options.gameMode);
   }
 
+  if (options.cursor) {
+    const operator = order === "ASC" ? ">" : "<";
+    conditions.push(
+      `(observed_at_utc ${operator} ? OR (observed_at_utc = ? AND id ${operator} ?))`
+    );
+    params.push(
+      options.cursor.observedAtUtc,
+      options.cursor.observedAtUtc,
+      options.cursor.id
+    );
+  }
+
+  const where = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
+  const paginationClause = options.cursor ? "LIMIT ?" : "LIMIT ? OFFSET ?";
+  const paginationParams = options.cursor ? [limit + 1] : [limit + 1, offset];
+
   const rowsResult = await db
     .prepare(
-      `SELECT ${selectColumns} FROM stat_snapshots ${where} ORDER BY observed_at_utc ${order} LIMIT ? OFFSET ?`
+      `SELECT ${selectColumns} FROM stat_snapshots ${where} ORDER BY observed_at_utc ${order}, id ${order} ${paginationClause}`
     )
-    .bind(...params, limit, offset)
+    .bind(...params, ...paginationParams)
     .all<SnapshotRow>();
 
+  const countParams: Array<string | number> = [];
+  const countWhere = options.gameMode ? "WHERE game_mode = ?" : "";
+  if (options.gameMode) countParams.push(options.gameMode);
   const totalRow = await db
-    .prepare(`SELECT COUNT(*) AS total FROM stat_snapshots ${where}`)
-    .bind(...params)
+    .prepare(`SELECT COUNT(*) AS total FROM stat_snapshots ${countWhere}`)
+    .bind(...countParams)
     .first<{ total: number }>();
 
+  const rows = rowsResult.results ?? [];
+  const pageRows = rows.slice(0, limit);
+  const lastRow = pageRows.at(-1);
+
   return {
-    items: (rowsResult.results ?? []).map(rowToSnapshot),
-    total: Number(totalRow?.total ?? 0)
+    items: pageRows.map(rowToSnapshot),
+    total: Number(totalRow?.total ?? 0),
+    nextCursor:
+      rows.length > limit && lastRow
+        ? {
+            observedAtUtc: stringValue(lastRow, "observed_at_utc"),
+            id: numberValue(lastRow, "id")
+          }
+        : null
   };
 }
 
@@ -231,7 +267,7 @@ export async function getSnapshotById(
   return row ? rowToSnapshot(row) : null;
 }
 
-export async function insertSnapshot(
+export async function insertSnapshotWithImportEvent(
   db: D1Database,
   input: SnapshotCreateInput,
   observedAt: string,
@@ -245,12 +281,44 @@ export async function insertSnapshot(
     timestamp
   ];
 
-  const result = await db
+  const snapshotStatement = db
     .prepare(
       `INSERT INTO stat_snapshots (${insertColumns.join(", ")}) VALUES (${placeholders})`
     )
-    .bind(...values)
-    .run();
+    .bind(...values);
+  const importEventStatement = db
+    .prepare(
+      `INSERT INTO import_events (
+        snapshot_id,
+        status,
+        source_image_sha256,
+        file_name,
+        image_width,
+        image_height,
+        parser_version,
+        extracted_field_count,
+        message,
+        created_at
+      )
+      SELECT id, ?, ?, ?, ?, ?, ?, ?, ?, ?
+      FROM stat_snapshots
+      WHERE game_mode = ? AND observed_at_utc = ?`
+    )
+    .bind(
+      "saved",
+      input.source_image_sha256 ?? null,
+      input.file_name ?? null,
+      input.image_width ?? null,
+      input.image_height ?? null,
+      input.parser_version ?? null,
+      input.import_metadata?.extracted_field_count ?? null,
+      input.import_metadata?.status_message ?? "snapshot_saved",
+      timestamp,
+      input.game_mode,
+      observedAt
+    );
+
+  const [result] = await db.batch([snapshotStatement, importEventStatement]);
 
   const id = Number(result.meta.last_row_id);
   const snapshot = await getSnapshotById(db, id);
@@ -260,12 +328,13 @@ export async function insertSnapshot(
   return snapshot;
 }
 
-export async function updateSnapshot(
+export async function updateSnapshotWithRevision(
   db: D1Database,
   id: number,
   input: SnapshotCreateInput,
   observedAt: string,
-  timestamp: string
+  timestamp: string,
+  previous: Snapshot
 ): Promise<Snapshot | null> {
   const setClause = [...mutableColumns, "updated_at"]
     .map((column) => `${column} = ?`)
@@ -276,10 +345,31 @@ export async function updateSnapshot(
     id
   ];
 
-  const result = await db
+  const updateStatement = db
     .prepare(`UPDATE stat_snapshots SET ${setClause} WHERE id = ?`)
-    .bind(...values)
-    .run();
+    .bind(...values);
+  const changedFields = mutableColumns
+    .filter((column) => column !== "observed_at_utc")
+    .map((column) => ({
+      field: column as keyof Snapshot,
+      before: previous[column] as RevisionValue,
+      after: valueForColumn(input, column, observedAt) as RevisionValue
+    }))
+    .filter((change) => change.before !== change.after);
+  const statements: D1PreparedStatement[] = [updateStatement];
+
+  if (changedFields.length > 0) {
+    statements.push(
+      db
+        .prepare(
+          `INSERT INTO snapshot_revisions (snapshot_id, changed_fields, created_at)
+           VALUES (?, ?, ?)`
+        )
+        .bind(id, JSON.stringify(changedFields), timestamp)
+    );
+  }
+
+  const [result] = await db.batch(statements);
 
   if (result.meta.changes === 0) return null;
   return getSnapshotById(db, id);
@@ -357,37 +447,6 @@ function nullableRowNumber(row: Record<string, string | number | null>, key: str
 function nullableRowString(row: Record<string, string | number | null>, key: string): string | null {
   const value = row[key];
   return value == null ? null : String(value);
-}
-
-export function changedSnapshotFields(
-  before: Snapshot,
-  after: Snapshot
-): SnapshotRevision["changed_fields"] {
-  return mutableColumns
-    .filter((column) => column !== "observed_at_utc")
-    .map((column) => ({
-      field: column as keyof Snapshot,
-      before: before[column] as RevisionValue,
-      after: after[column] as RevisionValue
-    }))
-    .filter((change) => change.before !== change.after);
-}
-
-export async function insertSnapshotRevision(
-  db: D1Database,
-  snapshotId: number,
-  changedFields: SnapshotRevision["changed_fields"],
-  timestamp: string
-): Promise<void> {
-  if (changedFields.length === 0) return;
-
-  await db
-    .prepare(
-      `INSERT INTO snapshot_revisions (snapshot_id, changed_fields, created_at)
-       VALUES (?, ?, ?)`
-    )
-    .bind(snapshotId, JSON.stringify(changedFields), timestamp)
-    .run();
 }
 
 export async function listSnapshotRevisions(

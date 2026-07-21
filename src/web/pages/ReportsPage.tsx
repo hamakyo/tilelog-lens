@@ -8,7 +8,7 @@ import {
   type ReportPeriod
 } from "../../shared/reports";
 import type { Snapshot } from "../../shared/types";
-import { listSnapshots } from "../lib/api";
+import { listAllSnapshots } from "../lib/api";
 import { formatDateTime, formatDecimal, formatNumber, formatRate } from "../lib/format";
 
 const reportPeriodOptions: Array<{ value: ReportPeriod; label: string }> = [
@@ -30,7 +30,7 @@ export function ReportsPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    listSnapshots()
+    listAllSnapshots()
       .then((result) => setSnapshots(result.items))
       .catch((caught) =>
         setError(caught instanceof Error ? caught.message : "読み込みに失敗しました。")

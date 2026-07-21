@@ -33,7 +33,7 @@ import {
   type OcrCalibration,
   type OcrExtractedFields
 } from "../lib/ocr";
-import { createImportEvent, listSnapshots } from "../lib/api";
+import { createImportEvent, listAllSnapshots } from "../lib/api";
 
 type SnapshotFormValues = {
   observed_date: string;
@@ -679,7 +679,7 @@ export function SnapshotForm({
   }, [initialSnapshot]);
 
   useEffect(() => {
-    listSnapshots()
+    listAllSnapshots()
       .then((result) => setExistingSnapshots(result.items))
       .catch(() => setExistingSnapshots([]));
   }, []);

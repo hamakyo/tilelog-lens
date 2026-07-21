@@ -2,9 +2,11 @@ import { useEffect, useState } from "react";
 import Download from "lucide-react/dist/esm/icons/download.js";
 import Edit from "lucide-react/dist/esm/icons/edit.js";
 import Trash2 from "lucide-react/dist/esm/icons/trash-2.js";
+import ChevronLeft from "lucide-react/dist/esm/icons/chevron-left.js";
+import ChevronRight from "lucide-react/dist/esm/icons/chevron-right.js";
 import { GAME_MODE_LABELS } from "../../shared/constants";
 import type { Snapshot } from "../../shared/types";
-import { deleteSnapshot, listSnapshots } from "../lib/api";
+import { deleteSnapshot, listSnapshotPage } from "../lib/api";
 import { formatDecimal, formatRate } from "../lib/format";
 
 type SnapshotListPageProps = {
@@ -12,15 +14,23 @@ type SnapshotListPageProps = {
 };
 
 export function SnapshotListPage({ navigate }: SnapshotListPageProps) {
+  const pageSize = 50;
   const [snapshots, setSnapshots] = useState<Snapshot[]>([]);
+  const [page, setPage] = useState(0);
+  const [total, setTotal] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   async function refresh() {
     setLoading(true);
     try {
-      const result = await listSnapshots();
+      const result = await listSnapshotPage({
+        limit: pageSize,
+        offset: page * pageSize,
+        order: "desc"
+      });
       setSnapshots(result.items);
+      setTotal(result.pagination.total);
       setError(null);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "読み込みに失敗しました。");
@@ -31,7 +41,7 @@ export function SnapshotListPage({ navigate }: SnapshotListPageProps) {
 
   useEffect(() => {
     void refresh();
-  }, []);
+  }, [page]);
 
   async function handleDelete(snapshot: Snapshot) {
     if (!window.confirm(`${snapshot.observed_date} ${snapshot.observed_time} の記録を削除しますか?`)) {
@@ -40,7 +50,8 @@ export function SnapshotListPage({ navigate }: SnapshotListPageProps) {
 
     try {
       await deleteSnapshot(snapshot.id);
-      await refresh();
+      if (snapshots.length === 1 && page > 0) setPage((current) => current - 1);
+      else await refresh();
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "削除に失敗しました。");
     }
@@ -143,6 +154,29 @@ export function SnapshotListPage({ navigate }: SnapshotListPageProps) {
               )}
             </tbody>
           </table>
+        </div>
+        <div className="action-row" aria-label="記録一覧のページ操作">
+          <button
+            type="button"
+            className="icon-button"
+            aria-label="前のページ"
+            title="前のページ"
+            disabled={page === 0}
+            onClick={() => setPage((current) => Math.max(0, current - 1))}
+          >
+            <ChevronLeft size={18} aria-hidden="true" />
+          </button>
+          <span>{total === 0 ? "0件" : `${page * pageSize + 1}-${Math.min((page + 1) * pageSize, total)} / ${total}件`}</span>
+          <button
+            type="button"
+            className="icon-button"
+            aria-label="次のページ"
+            title="次のページ"
+            disabled={(page + 1) * pageSize >= total}
+            onClick={() => setPage((current) => current + 1)}
+          >
+            <ChevronRight size={18} aria-hidden="true" />
+          </button>
         </div>
       </section>
     </main>

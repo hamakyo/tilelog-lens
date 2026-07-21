@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
+  analysisScopeToSearchParams,
   buildAnalysisFilterSummary,
   countActiveAnalysisFilters,
-  filterSnapshotsForAnalysis
+  filterSnapshotsForAnalysis,
+  parseAnalysisScope
 } from "../src/shared/analysisFilters";
 import { makeSnapshot } from "./fixtures";
 
@@ -79,6 +81,30 @@ describe("analysis filters", () => {
       total_count: 3,
       filtered_count: 2,
       active_filter_count: 3
+    });
+  });
+
+  it("round-trips a shared analysis scope through query parameters", () => {
+    const params = analysisScopeToSearchParams({
+      game_mode: "east",
+      observed_date_from: "2026-01-01",
+      observed_date_to: "2026-06-30",
+      min_matches: 100,
+      max_matches: 500,
+      min_win_rate: 20,
+      max_deal_in_rate: 13,
+      max_avg_place: 2.5
+    });
+
+    expect(parseAnalysisScope((name) => params.get(name) ?? undefined)).toEqual({
+      game_mode: "east",
+      observed_date_from: "2026-01-01",
+      observed_date_to: "2026-06-30",
+      min_matches: 100,
+      max_matches: 500,
+      min_win_rate: 20,
+      max_deal_in_rate: 13,
+      max_avg_place: 2.5
     });
   });
 });

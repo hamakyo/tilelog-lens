@@ -1,4 +1,5 @@
 import type { GameMode, Snapshot } from "./types";
+import { GAME_MODES } from "./constants";
 
 export type AnalysisFilterInput = {
   game_mode?: GameMode | "all";
@@ -10,6 +11,46 @@ export type AnalysisFilterInput = {
   max_deal_in_rate?: number | null;
   max_avg_place?: number | null;
 };
+
+export type AnalysisScope = AnalysisFilterInput;
+
+const numericFilterKeys = [
+  "min_matches",
+  "max_matches",
+  "min_win_rate",
+  "max_deal_in_rate",
+  "max_avg_place"
+] as const;
+
+export function analysisScopeToSearchParams(scope: AnalysisScope): URLSearchParams {
+  const params = new URLSearchParams();
+  if (scope.game_mode && scope.game_mode !== "all") params.set("game_mode", scope.game_mode);
+  if (scope.observed_date_from) params.set("observed_date_from", scope.observed_date_from);
+  if (scope.observed_date_to) params.set("observed_date_to", scope.observed_date_to);
+  for (const key of numericFilterKeys) {
+    const value = scope[key];
+    if (value != null && Number.isFinite(value)) params.set(key, String(value));
+  }
+  return params;
+}
+
+export function parseAnalysisScope(
+  query: (name: string) => string | undefined
+): AnalysisScope {
+  const gameMode = query("game_mode");
+  const scope: AnalysisScope = {
+    game_mode: GAME_MODES.includes(gameMode as GameMode) ? (gameMode as GameMode) : "all",
+    observed_date_from: query("observed_date_from") || undefined,
+    observed_date_to: query("observed_date_to") || undefined
+  };
+  for (const key of numericFilterKeys) {
+    const raw = query(key);
+    if (!raw) continue;
+    const value = Number(raw);
+    if (Number.isFinite(value)) scope[key] = value;
+  }
+  return scope;
+}
 
 export type AnalysisFilterSummary = {
   total_count: number;

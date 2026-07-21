@@ -14,7 +14,7 @@ import {
   RANK_POINT_MAX_BY_RANK_AND_LEVEL
 } from "../../shared/constants";
 import { buildEstimatedDeltas, buildRankPointAnalysis } from "../../shared/metrics";
-import { listDeltas, listSnapshots } from "../lib/api";
+import { listAllSnapshots, listDeltas } from "../lib/api";
 import {
   loadDashboardCardPreferences,
   type DashboardCardId
@@ -94,7 +94,7 @@ export function DashboardPage({ navigate }: DashboardPageProps) {
   const [cardPreferences] = useState(() => loadDashboardCardPreferences());
 
   useEffect(() => {
-    Promise.all([listSnapshots(), listDeltas()])
+    Promise.all([listAllSnapshots(), listDeltas()])
       .then(([snapshotResult, deltaResult]) => {
         setSnapshots(snapshotResult.items);
         setDeltas(deltaResult.items);

@@ -4,7 +4,7 @@ import { GAME_MODE_LABELS } from "../../shared/constants";
 import { summarizeDataQualityIssues } from "../../shared/dataQuality";
 import { buildDataQualityReport } from "../../shared/metrics";
 import type { DataQualityIssue, Snapshot } from "../../shared/types";
-import { listSnapshots } from "../lib/api";
+import { listAllSnapshots } from "../lib/api";
 import { formatDateTime } from "../lib/format";
 
 type QualityPageProps = {
@@ -18,7 +18,7 @@ export function QualityPage({ navigate }: QualityPageProps) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    listSnapshots()
+    listAllSnapshots()
       .then((result) => setSnapshots(result.items))
       .catch((caught) => setError(caught instanceof Error ? caught.message : "読み込みに失敗しました。"))
       .finally(() => setLoading(false));

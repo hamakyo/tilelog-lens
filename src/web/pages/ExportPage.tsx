@@ -4,6 +4,7 @@ import Eye from "lucide-react/dist/esm/icons/eye.js";
 import LoaderCircle from "lucide-react/dist/esm/icons/loader-circle.js";
 import Upload from "lucide-react/dist/esm/icons/upload.js";
 import { GAME_MODE_LABELS, GAME_MODES } from "../../shared/constants";
+import { analysisScopeToSearchParams } from "../../shared/analysisFilters";
 import type { AiContext, Snapshot, SnapshotCreateInput } from "../../shared/types";
 import { createSnapshot } from "../lib/api";
 
@@ -79,10 +80,11 @@ export function ExportPage() {
   const [restoreMessage, setRestoreMessage] = useState<string | null>(null);
 
   function exportPath(kind: PreviewKind): string {
-    const params = new URLSearchParams();
-    if (exportGameMode !== "all") params.set("game_mode", exportGameMode);
-    if (exportDateFrom) params.set("observed_date_from", exportDateFrom);
-    if (exportDateTo) params.set("observed_date_to", exportDateTo);
+    const params = analysisScopeToSearchParams({
+      game_mode: exportGameMode as (typeof GAME_MODES)[number] | "all",
+      observed_date_from: exportDateFrom || undefined,
+      observed_date_to: exportDateTo || undefined
+    });
 
     if (kind === "snapshots") return withParams("/api/export/snapshots.csv", params);
     if (kind === "deltas") return withParams("/api/export/deltas.csv", params);

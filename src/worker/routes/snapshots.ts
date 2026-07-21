@@ -7,14 +7,13 @@ import {
   getSnapshotById,
   hasDuplicateImageHash,
   hasDuplicateObservedAt,
-  insertSnapshot,
-  changedSnapshotFields,
-  insertImportEvent,
-  insertSnapshotRevision,
+  insertSnapshotWithImportEvent,
   latestSnapshotBefore,
   listSnapshotRevisions,
   listSnapshots,
-  updateSnapshot
+  updateSnapshotWithRevision,
+  type SnapshotCursor,
+  type SnapshotOrder
 } from "../lib/d1";
 import { logWorkerError } from "../lib/logger";
 import { nowIso, observedAtUtc } from "../lib/time";
@@ -25,6 +24,41 @@ export const snapshotRoutes = new Hono<AppBindings>();
 function parseId(value: string): number | null {
   const id = Number(value);
   return Number.isInteger(id) && id > 0 ? id : null;
+}
+
+function encodeCursor(cursor: SnapshotCursor, order: SnapshotOrder): string {
+  return btoa(JSON.stringify({ observed_at_utc: cursor.observedAtUtc, id: cursor.id, order }))
+    .replaceAll("+", "-")
+    .replaceAll("/", "_")
+    .replace(/=+$/u, "");
+}
+
+function decodeCursor(value: string, order: SnapshotOrder): SnapshotCursor | null {
+  try {
+    const padded = value.replaceAll("-", "+").replaceAll("_", "/").padEnd(
+      Math.ceil(value.length / 4) * 4,
+      "="
+    );
+    const parsed = JSON.parse(atob(padded)) as unknown;
+    if (
+      typeof parsed !== "object" ||
+      parsed == null ||
+      !("observed_at_utc" in parsed) ||
+      !("id" in parsed) ||
+      !("order" in parsed) ||
+      typeof parsed.observed_at_utc !== "string" ||
+      parsed.observed_at_utc.length === 0 ||
+      typeof parsed.id !== "number" ||
+      !Number.isInteger(parsed.id) ||
+      parsed.id <= 0 ||
+      parsed.order !== order
+    ) {
+      return null;
+    }
+    return { observedAtUtc: parsed.observed_at_utc, id: parsed.id };
+  } catch {
+    return null;
+  }
 }
 
 async function buildDbWarnings(
@@ -72,7 +106,13 @@ snapshotRoutes.get("/", async (c) => {
   const gameMode = c.req.query("game_mode");
   const limit = Number(c.req.query("limit") ?? 100);
   const offset = Number(c.req.query("offset") ?? 0);
-  const order = c.req.query("order") === "asc" ? "asc" : "desc";
+  const order: SnapshotOrder = c.req.query("order") === "asc" ? "asc" : "desc";
+  const cursorValue = c.req.query("cursor");
+  const decodedCursor = cursorValue ? decodeCursor(cursorValue, order) : null;
+  if (cursorValue && !decodedCursor) {
+    return c.json({ error: "invalid_cursor" }, 400);
+  }
+  const cursor = decodedCursor ?? undefined;
   const result = await listSnapshots(c.env.DB, {
     gameMode:
       gameMode === "east" ||
@@ -83,7 +123,8 @@ snapshotRoutes.get("/", async (c) => {
         : undefined,
     limit: Number.isFinite(limit) ? limit : 100,
     offset: Number.isFinite(offset) ? offset : 0,
-    order
+    order,
+    cursor
   });
 
   return c.json({
@@ -91,7 +132,8 @@ snapshotRoutes.get("/", async (c) => {
     pagination: {
       limit: Number.isFinite(limit) ? Math.min(Math.max(limit, 1), 500) : 100,
       offset: Number.isFinite(offset) ? Math.max(offset, 0) : 0,
-      total: result.total
+      total: result.total,
+      next_cursor: result.nextCursor ? encodeCursor(result.nextCursor, order) : null
     }
   });
 });
@@ -127,20 +169,10 @@ snapshotRoutes.post("/", async (c) => {
   }
 
   try {
-    const item = await insertSnapshot(c.env.DB, input, observedAt, nowIso());
-    await insertImportEvent(
+    const item = await insertSnapshotWithImportEvent(
       c.env.DB,
-      {
-        snapshotId: item.id,
-        status: "saved",
-        sourceImageSha256: input.source_image_sha256 ?? null,
-        fileName: input.file_name ?? null,
-        imageWidth: input.image_width ?? null,
-        imageHeight: input.image_height ?? null,
-        parserVersion: input.parser_version ?? null,
-        extractedFieldCount: input.import_metadata?.extracted_field_count ?? null,
-        message: input.import_metadata?.status_message ?? "snapshot_saved"
-      },
+      input,
+      observedAt,
       nowIso()
     );
     return c.json({ item, warnings }, 201);
@@ -210,14 +242,15 @@ snapshotRoutes.put("/:id", async (c) => {
   }
 
   try {
-    const item = await updateSnapshot(c.env.DB, id, input, observedAt, nowIso());
-    if (!item) return c.json({ error: "not_found" }, 404);
-    await insertSnapshotRevision(
+    const item = await updateSnapshotWithRevision(
       c.env.DB,
       id,
-      changedSnapshotFields(previous, item),
-      nowIso()
+      input,
+      observedAt,
+      nowIso(),
+      previous
     );
+    if (!item) return c.json({ error: "not_found" }, 404);
     return c.json({ item, warnings });
   } catch (error) {
     const message = error instanceof Error ? error.message : "unknown_error";

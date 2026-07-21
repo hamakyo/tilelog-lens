@@ -7,12 +7,13 @@ import type {
   ValidationWarning
 } from "../../shared/types";
 
-type SnapshotListResponse = {
+export type SnapshotListResponse = {
   items: Snapshot[];
   pagination: {
     limit: number;
     offset: number;
     total: number;
+    next_cursor: string | null;
   };
 };
 
@@ -49,8 +50,48 @@ async function apiJson<T>(path: string, init?: RequestInit): Promise<T> {
   return data as T;
 }
 
-export function listSnapshots(): Promise<SnapshotListResponse> {
-  return apiJson<SnapshotListResponse>("/api/snapshots?limit=500&order=desc");
+export function listSnapshotPage(
+  options: {
+    limit?: number;
+    offset?: number;
+    order?: "asc" | "desc";
+    cursor?: string;
+  } = {}
+): Promise<SnapshotListResponse> {
+  const params = new URLSearchParams({
+    limit: String(options.limit ?? 100),
+    order: options.order ?? "desc"
+  });
+  if (options.cursor) params.set("cursor", options.cursor);
+  else if (options.offset != null) params.set("offset", String(options.offset));
+  return apiJson<SnapshotListResponse>(`/api/snapshots?${params.toString()}`);
+}
+
+export async function listAllSnapshots(): Promise<SnapshotListResponse> {
+  const items: Snapshot[] = [];
+  const seenIds = new Set<number>();
+  let cursor: string | undefined;
+  let total = 0;
+
+  do {
+    const page = await listSnapshotPage({ limit: 500, order: "asc", cursor });
+    total = page.pagination.total;
+    for (const item of page.items) {
+      if (!seenIds.has(item.id)) {
+        seenIds.add(item.id);
+        items.push(item);
+      }
+    }
+    cursor = page.pagination.next_cursor ?? undefined;
+  } while (cursor);
+
+  return {
+    items: items.sort(
+      (a, b) =>
+        b.observed_at_utc.localeCompare(a.observed_at_utc) || b.id - a.id
+    ),
+    pagination: { limit: 500, offset: 0, total, next_cursor: null }
+  };
 }
 
 export function getSnapshot(id: number): Promise<{ item: Snapshot }> {

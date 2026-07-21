@@ -7,6 +7,7 @@ import SlidersHorizontal from "lucide-react/dist/esm/icons/sliders-horizontal.js
 import Save from "lucide-react/dist/esm/icons/save.js";
 import Trash2 from "lucide-react/dist/esm/icons/trash-2.js";
 import Plus from "lucide-react/dist/esm/icons/plus.js";
+import Download from "lucide-react/dist/esm/icons/download.js";
 import type { AnalysisGoal, Snapshot } from "../../shared/types";
 import { buildAnalysisConclusion } from "../../shared/analysisConclusion";
 import {
@@ -19,6 +20,7 @@ import {
 } from "../../shared/constants";
 import {
   buildAnalysisFilterSummary,
+  analysisScopeToSearchParams,
   filterSnapshotsForAnalysis,
   type AnalysisFilterInput
 } from "../../shared/analysisFilters";
@@ -45,7 +47,7 @@ import {
   buildStabilityScore
 } from "../../shared/metrics";
 import { buildAnalysisGoalStatuses, buildGoalGapComments } from "../../shared/goals";
-import { listSnapshots } from "../lib/api";
+import { listAllSnapshots } from "../lib/api";
 import { loadAnalysisGoals } from "../lib/analysisGoals";
 import { loadCustomMetrics } from "../lib/customMetrics";
 import {
@@ -310,7 +312,7 @@ export function AnalysisPage({ navigate }: AnalysisPageProps) {
   useEffect(() => {
     setAnalysisGoals(loadAnalysisGoals());
     setCustomMetrics(loadCustomMetrics());
-    listSnapshots()
+    listAllSnapshots()
       .then((snapshotResult) => {
         setSnapshots(snapshotResult.items);
         const latestSnapshot = [...snapshotResult.items].sort((a, b) =>
@@ -357,6 +359,14 @@ export function AnalysisPage({ navigate }: AnalysisPageProps) {
     () => buildAnalysisFilterSummary(modeScopedSnapshots, displaySnapshots, analysisFilters),
     [analysisFilters, displaySnapshots, modeScopedSnapshots]
   );
+  const scopedAiExportPath = useMemo(() => {
+    const params = analysisScopeToSearchParams({
+      ...analysisFilters,
+      game_mode: selectedMode ?? "all"
+    });
+    params.set("anonymize", "true");
+    return `/api/export/ai-context.json?${params.toString()}`;
+  }, [analysisFilters, selectedMode]);
   const latestAvailableDate = useMemo(
     () =>
       modeScopedSnapshots.reduce(
@@ -707,6 +717,14 @@ export function AnalysisPage({ navigate }: AnalysisPageProps) {
           >
             関連記録を見る
           </button>
+          <a
+            className="secondary-button"
+            href={scopedAiExportPath}
+            download="tilelog-ai-context.json"
+          >
+            <Download size={18} aria-hidden="true" />
+            <span>現在の条件でAI JSON</span>
+          </a>
         </div>
       </section>
 
