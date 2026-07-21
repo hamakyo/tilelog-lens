@@ -399,9 +399,17 @@ export function AnalysisPage({ navigate }: AnalysisPageProps) {
     () => buildPeriodAnalyses(modeSnapshots),
     [modeSnapshots]
   );
+  const visiblePeriodAnalyses = useMemo(
+    () => periodAnalyses.filter((period) => period.quality !== "insufficient_data"),
+    [periodAnalyses]
+  );
   const riichiTrendAnalyses = useMemo(
     () => buildRiichiTrendAnalyses(modeSnapshots),
     [modeSnapshots]
+  );
+  const visibleRiichiTrendAnalyses = useMemo(
+    () => riichiTrendAnalyses.filter((trend) => trend.status !== "insufficient_data"),
+    [riichiTrendAnalyses]
   );
   const riichiRiskSignals = useMemo(
     () => buildRiichiRiskSignals(modeSnapshots),
@@ -1178,19 +1186,16 @@ export function AnalysisPage({ navigate }: AnalysisPageProps) {
           <p>{latestMode ? GAME_MODE_LABELS[latestMode] : "すべて"}</p>
         </div>
         <div className="period-grid">
-          {periodAnalyses.length === 0 ? (
-            <p className="empty-state">まだ期間分析はありません。</p>
+          {visiblePeriodAnalyses.length === 0 ? (
+            <p className="empty-state">適切な基準記録なし</p>
           ) : (
-            periodAnalyses.map((period) => (
+            visiblePeriodAnalyses.map((period) => (
               <div className="period-tile" key={period.label}>
                 <div className="period-tile-header">
                   <strong>{period.label}</strong>
                   <span>{period.actual_matches > 0 ? `${period.actual_matches}戦` : "-"}</span>
                 </div>
-                {period.quality === "insufficient_data" ? (
-                  <p className="period-empty">記録不足</p>
-                ) : (
-                  <dl className="period-metrics">
+                <dl className="period-metrics">
                     <div>
                       <dt>平均順位</dt>
                       <dd>{formatDecimal(period.period_avg_place)}</dd>
@@ -1207,8 +1212,7 @@ export function AnalysisPage({ navigate }: AnalysisPageProps) {
                       <dt>攻守差</dt>
                       <dd>{formatDecimal(period.attack_defense_gap)}</dd>
                     </div>
-                  </dl>
-                )}
+                </dl>
                 <span className={`quality-pill quality-${period.quality}`}>
                   {period.quality === "ok"
                     ? "良好"
@@ -1230,7 +1234,9 @@ export function AnalysisPage({ navigate }: AnalysisPageProps) {
           <p>直近期の立直率と、和了率・放銃率の組み合わせを確認します。</p>
         </div>
         <div className="period-grid">
-          {riichiTrendAnalyses.map((trend) => (
+          {visibleRiichiTrendAnalyses.length === 0 ? (
+            <p className="empty-state">適切な基準記録なし</p>
+          ) : visibleRiichiTrendAnalyses.map((trend) => (
             <article className="period-tile" key={trend.label}>
               <div className="period-tile-header">
                 <strong>{trend.label}</strong>

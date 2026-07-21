@@ -130,6 +130,11 @@ describe("metrics", () => {
     expect(periods[0]).toMatchObject({
       label: "直近50戦",
       actual_matches: 50,
+      calculation_method: "difference_of_rounded_cumulative_rates",
+      is_estimated: true,
+      window_error_rate: 0,
+      confidence: "medium",
+      sample_strength: "trend",
       period_win_rate: 34,
       period_deal_in_rate: 8,
       period_avg_place: 2.14,
@@ -138,8 +143,98 @@ describe("metrics", () => {
     expect(periods[1]).toMatchObject({
       label: "直近100戦",
       actual_matches: 100,
+      confidence: "high",
+      sample_strength: "assessment",
       period_win_rate: 30,
       quality: "ok"
+    });
+  });
+
+  it("selects the closest period baseline and applies window error boundaries", () => {
+    const latest = makeSnapshot({
+      id: 4,
+      observed_at_utc: "2026-06-04T00:00:00.000Z",
+      matches: 200
+    });
+    const periods = buildPeriodAnalyses(
+      [
+        makeSnapshot({ id: 1, observed_at_utc: "2026-06-01T00:00:00.000Z", matches: 130 }),
+        makeSnapshot({ id: 2, observed_at_utc: "2026-06-02T00:00:00.000Z", matches: 145 }),
+        makeSnapshot({ id: 3, observed_at_utc: "2026-06-03T00:00:00.000Z", matches: 155 }),
+        latest
+      ],
+      [50]
+    );
+
+    expect(periods[0]).toMatchObject({
+      from_snapshot_id: 3,
+      label: "直近50戦",
+      actual_matches: 45,
+      window_error_rate: 0.1,
+      quality: "ok",
+      confidence: "medium"
+    });
+
+    const approximate = buildPeriodAnalyses(
+      [
+        makeSnapshot({ id: 1, observed_at_utc: "2026-06-01T00:00:00.000Z", matches: 138 }),
+        latest
+      ],
+      [50]
+    )[0];
+    expect(approximate).toMatchObject({
+      label: "直近約50戦（実測62戦）",
+      window_error_rate: 0.24,
+      quality: "limited_data"
+    });
+
+    const unavailable = buildPeriodAnalyses(
+      [
+        makeSnapshot({ id: 1, observed_at_utc: "2026-06-01T00:00:00.000Z", matches: 137 }),
+        latest
+      ],
+      [50]
+    )[0];
+    expect(unavailable).toMatchObject({
+      actual_matches: 63,
+      window_error_rate: 0.26,
+      quality: "insufficient_data"
+    });
+    expect(unavailable.period_win_rate).toBeUndefined();
+  });
+
+  it("deduplicates shared baselines", () => {
+    const periods = buildPeriodAnalyses(
+      [
+        makeSnapshot({ id: 1, observed_at_utc: "2026-06-01T00:00:00.000Z", matches: 140 }),
+        makeSnapshot({ id: 3, observed_at_utc: "2026-06-03T00:00:00.000Z", matches: 200 })
+      ],
+      [50, 100]
+    );
+
+    expect(periods).toHaveLength(1);
+    expect(periods[0]).toMatchObject({ from_snapshot_id: 1, target_matches: 50 });
+  });
+
+  it("prefers the newest equal-distance baseline", () => {
+    const period = buildPeriodAnalyses(
+      [
+        makeSnapshot({ id: 1, observed_at_utc: "2026-06-01T00:00:00.000Z", matches: 140 }),
+        makeSnapshot({ id: 2, observed_at_utc: "2026-06-02T00:00:00.000Z", matches: 160 }),
+        makeSnapshot({ id: 3, observed_at_utc: "2026-06-03T00:00:00.000Z", matches: 200 })
+      ],
+      [50]
+    )[0];
+
+    expect(period).toMatchObject({ from_snapshot_id: 2, actual_matches: 40 });
+  });
+
+  it("uses nullable baseline metadata when no candidate exists", () => {
+    expect(buildPeriodAnalyses([makeSnapshot()], [50])[0]).toMatchObject({
+      from_snapshot_id: null,
+      from_observed_at_utc: null,
+      actual_matches: 0,
+      quality: "insufficient_data"
     });
   });
 
@@ -172,7 +267,7 @@ describe("metrics", () => {
     ]);
 
     expect(trends[0]).toMatchObject({
-      label: "直近10戦",
+      label: "直近50戦",
       actual_matches: 50,
       riichi_rate: 32,
       win_rate: 18,

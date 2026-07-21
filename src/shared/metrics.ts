@@ -38,7 +38,30 @@ function periodRate(count: number | undefined, matchesDelta: number): number | u
 }
 
 function byObservedAsc(a: Snapshot, b: Snapshot): number {
-  return a.observed_at_utc.localeCompare(b.observed_at_utc);
+  return (
+    a.observed_at_utc.localeCompare(b.observed_at_utc) ||
+    a.id - b.id
+  );
+}
+
+const estimatedCalculationMethod =
+  "difference_of_rounded_cumulative_rates" as const;
+
+function sampleStrength(actualMatches: number): PeriodAnalysis["sample_strength"] {
+  if (actualMatches >= 100) return "assessment";
+  if (actualMatches >= 25) return "trend";
+  return "reference";
+}
+
+function periodConfidence(
+  windowErrorRate: number,
+  actualMatches: number
+): PeriodAnalysis["confidence"] {
+  const windowConfidence = windowErrorRate <= 0.1 ? 2 : windowErrorRate <= 0.25 ? 1 : 0;
+  const sampleConfidence = actualMatches >= 100 ? 2 : actualMatches >= 25 ? 1 : 0;
+  return (["low", "medium", "high"] as const)[
+    Math.min(windowConfidence, sampleConfidence)
+  ];
 }
 
 function inputObservedKey(input: Pick<SnapshotCreateInput, "observed_date" | "observed_time">): string {
@@ -214,6 +237,8 @@ export function buildEstimatedDeltas(snapshots: Snapshot[]): EstimatedDelta[] {
     const current = ordered[index];
     const matchesDelta = current.matches - previous.matches;
     const delta: EstimatedDelta = {
+      calculation_method: estimatedCalculationMethod,
+      is_estimated: true,
       from_snapshot_id: previous.id,
       to_snapshot_id: current.id,
       from_observed_at_utc: previous.observed_at_utc,
@@ -295,45 +320,75 @@ export function buildPeriodAnalyses(
   const latest = ordered.at(-1);
   if (!latest) return [];
 
+  const candidates = ordered.filter(
+    (snapshot) =>
+      snapshot.id !== latest.id &&
+      snapshot.matches < latest.matches &&
+      snapshot.observed_at_utc < latest.observed_at_utc
+  );
   const analyses: PeriodAnalysis[] = [];
 
   for (const targetMatches of windows) {
-    const targetBaselineMatches = latest.matches - targetMatches;
-    const candidates = ordered.filter(
-      (snapshot) =>
-        snapshot.id !== latest.id &&
-        snapshot.matches < latest.matches &&
-        snapshot.observed_at_utc < latest.observed_at_utc
-    );
-    const baseline =
-      candidates
-        .filter((snapshot) => snapshot.matches <= targetBaselineMatches)
-        .at(-1) ?? candidates[0];
+    const baseline = [...candidates].sort((a, b) => {
+      const aDistance = Math.abs(latest.matches - a.matches - targetMatches);
+      const bDistance = Math.abs(latest.matches - b.matches - targetMatches);
+      return (
+        aDistance - bDistance ||
+        b.observed_at_utc.localeCompare(a.observed_at_utc) ||
+        b.id - a.id
+      );
+    })[0];
 
     if (!baseline) {
       analyses.push({
         label: `直近${targetMatches}戦`,
         target_matches: targetMatches,
         actual_matches: 0,
-        from_snapshot_id: latest.id,
+        from_snapshot_id: null,
         to_snapshot_id: latest.id,
-        from_observed_at_utc: latest.observed_at_utc,
+        from_observed_at_utc: null,
         to_observed_at_utc: latest.observed_at_utc,
+        calculation_method: estimatedCalculationMethod,
+        is_estimated: true,
+        window_error_rate: null,
+        confidence: "low",
+        sample_strength: "reference",
         quality: "insufficient_data"
       });
       continue;
     }
 
     const matchesDelta = latest.matches - baseline.matches;
-    if (matchesDelta <= 0) {
+    const windowErrorRate = round2(
+      Math.abs(matchesDelta - targetMatches) / targetMatches
+    );
+    const strength = sampleStrength(matchesDelta);
+    const confidence = periodConfidence(windowErrorRate, matchesDelta);
+    const quality: PeriodAnalysis["quality"] =
+      matchesDelta < 10 || windowErrorRate > 0.25
+        ? "insufficient_data"
+        : windowErrorRate <= 0.1
+          ? "ok"
+          : "limited_data";
+    const label =
+      quality === "ok"
+        ? `直近${targetMatches}戦`
+        : `直近約${targetMatches}戦（実測${matchesDelta}戦）`;
+
+    if (quality === "insufficient_data") {
       analyses.push({
-        label: `直近${targetMatches}戦`,
+        label,
         target_matches: targetMatches,
         actual_matches: matchesDelta,
         from_snapshot_id: baseline.id,
         to_snapshot_id: latest.id,
         from_observed_at_utc: baseline.observed_at_utc,
         to_observed_at_utc: latest.observed_at_utc,
+        calculation_method: estimatedCalculationMethod,
+        is_estimated: true,
+        window_error_rate: windowErrorRate,
+        confidence,
+        sample_strength: strength,
         quality: "insufficient_data"
       });
       continue;
@@ -367,13 +422,18 @@ export function buildPeriodAnalyses(
     const periodDealInRate = periodRate(dealInDelta, matchesDelta);
 
     analyses.push({
-      label: `直近${targetMatches}戦`,
+      label,
       target_matches: targetMatches,
       actual_matches: matchesDelta,
       from_snapshot_id: baseline.id,
       to_snapshot_id: latest.id,
       from_observed_at_utc: baseline.observed_at_utc,
       to_observed_at_utc: latest.observed_at_utc,
+      calculation_method: estimatedCalculationMethod,
+      is_estimated: true,
+      window_error_rate: windowErrorRate,
+      confidence,
+      sample_strength: strength,
       period_avg_place: round2(
         (firstDelta + secondDelta * 2 + thirdDelta * 3 + fourthDelta * 4) /
           matchesDelta
@@ -390,14 +450,22 @@ export function buildPeriodAnalyses(
         periodWinRate != null && periodDealInRate != null
           ? round2(periodWinRate - periodDealInRate)
           : undefined,
-      quality:
-        matchesDelta >= targetMatches && matchesDelta <= targetMatches * 1.5
-          ? "ok"
-          : "limited_data"
+      quality
     });
   }
 
-  return analyses;
+  return analyses.filter((analysis, index) => {
+    if (analysis.from_snapshot_id == null) return true;
+    const duplicates = analyses.filter(
+      (candidate) => candidate.from_snapshot_id === analysis.from_snapshot_id
+    );
+    const preferred = duplicates.sort((a, b) => {
+      const aError = a.window_error_rate ?? Number.POSITIVE_INFINITY;
+      const bError = b.window_error_rate ?? Number.POSITIVE_INFINITY;
+      return aError - bError || a.target_matches - b.target_matches;
+    })[0];
+    return analyses.indexOf(preferred) === index;
+  });
 }
 
 export function buildRiichiTrendAnalyses(snapshots: Snapshot[]): RiichiTrendAnalysis[] {

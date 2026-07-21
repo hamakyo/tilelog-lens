@@ -110,6 +110,8 @@ export type DerivedMetric = {
 };
 
 export type EstimatedDelta = {
+  calculation_method: "difference_of_rounded_cumulative_rates";
+  is_estimated: true;
   from_snapshot_id: number;
   to_snapshot_id: number;
   from_observed_at_utc: string;
@@ -140,10 +142,15 @@ export type PeriodAnalysis = {
   label: string;
   target_matches: number;
   actual_matches: number;
-  from_snapshot_id: number;
+  from_snapshot_id: number | null;
   to_snapshot_id: number;
-  from_observed_at_utc: string;
+  from_observed_at_utc: string | null;
   to_observed_at_utc: string;
+  calculation_method: "difference_of_rounded_cumulative_rates";
+  is_estimated: true;
+  window_error_rate: number | null;
+  confidence: "high" | "medium" | "low";
+  sample_strength: "reference" | "trend" | "assessment";
   period_avg_place?: number;
   period_first_rate?: number;
   period_second_rate?: number;
